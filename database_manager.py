@@ -93,17 +93,29 @@ def insert_price(tpnc, price_actual, unit_price, unit_measure, is_promotion, pro
     })
     now = datetime.now()
     now_str = now.isoformat()
+    yesterday = (now - timedelta(days=1)).date()
+
+    def _last_scrape_was_yesterday_or_today():
+        """Check if the product was last scraped yesterday or today."""
+        lsp = data.get('last_scraped_price')
+        if not lsp:
+            return False
+        try:
+            return datetime.fromisoformat(lsp).date() >= yesterday
+        except Exception:
+            return False
 
     def update_period(section, price, extra):
         periods = history[section]
         if periods:
             last = periods[-1]
             last_price = last["price"]
-            if last_price == price:
-                # still the same price — extend the existing period
+            if last_price == price and _last_scrape_was_yesterday_or_today():
+                # Same price and last scrape was recent — extend the period
                 last["end_date"] = now_str
                 return False
-        # Price changed (or first entry) — close the previous period and start a new one
+            # Same price but gap > 1 day — don't extend, start a fresh period
+        # Close the previous period if it's still open
         if periods and periods[-1].get("end_date") is None:
             periods[-1]["end_date"] = now_str
         period = {"price": price, "start_date": now_str, "end_date": None}
