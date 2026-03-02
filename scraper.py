@@ -45,62 +45,24 @@ def _save_run_state(state: dict):
 
 
 def product_has_price_today(tpnc):
-    """Check product JSON price_history for an entry that already covers today.
+    """Return True if the product was already scraped today.
 
-    Previously we only looked for a period whose *start_date* fell on the
-    current day.  That meant an open period that began yesterday (or earlier)
-    would not be recognised as covering today, causing the scraper to fetch the
-    item again and create a duplicate entry with a later start_date.  This is
-    what produced the "skipped day" behaviour.
-
-    The updated logic inspects the most recent record in each section and
-    returns True if today falls between its start and end (or if the entry is
-    still open).  It still keeps the older loop so we can handle malformed
-    data, but the check now considers end_date as well.
+    Uses the `last_scraped_price` timestamp which is updated every time
+    `insert_price()` runs for the product.  This is a reliable "was this
+    done today?" flag that avoids the previous bug where an open period
+    (end_date == None) was mis-interpreted as covering all future days.
     """
     prod = db.get_product(tpnc)
     if not prod:
         return False
-    history = prod.get('price_history', {})
-    if not history:
+    last_scraped = prod.get('last_scraped_price')
+    if not last_scraped:
         return False
-    today = datetime.now().date()
-    # Check all price sections
-    for section in ['normal', 'discount', 'clubcard']:
-        entries = history.get(section, [])
-        if not entries:
-            continue
-        # look at the latest period first
-        last = entries[-1]
-        start_ts = last.get('start_date')
-        if start_ts:
-            try:
-                start_dt = datetime.fromisoformat(start_ts)
-            except Exception:
-                start_dt = None
-        else:
-            start_dt = None
-        end_ts = last.get('end_date')
-        end_dt = None
-        if end_ts:
-            try:
-                end_dt = datetime.fromisoformat(end_ts)
-            except Exception:
-                end_dt = None
-        if start_dt and start_dt.date() <= today and (end_dt is None or end_dt.date() >= today):
-            return True
-        # fall back to the original loop in case of malformed history
-        for entry in reversed(entries):
-            ts = entry.get('start_date')
-            if not ts:
-                continue
-            try:
-                entry_dt = datetime.fromisoformat(ts)
-            except Exception:
-                continue
-            if entry_dt.date() == today:
-                return True
-    return False
+    try:
+        last_dt = datetime.fromisoformat(last_scraped)
+        return last_dt.date() == datetime.now().date()
+    except Exception:
+        return False
 
 
 def is_today_scrape_done():
@@ -210,16 +172,6 @@ def process_product(tpnc, force=False, progress_prefix=""):
     if exists and not force and product_has_price_today(tpnc):
         logger.debug(f"{progress_prefix}Skipping {tpnc}: already has today's price.")
         return False
-    if exists and not force:
-        prod = db.get_product(tpnc)
-        if prod and prod.get('last_scraped_price'):
-            try:
-                from dateutil import parser
-                last_scraped = parser.parse(prod['last_scraped_price'])
-                if (datetime.now() - last_scraped) < timedelta(hours=12):
-                    return False
-            except Exception as e:
-                logger.warning(f"{progress_prefix}Error parsing date for {tpnc}: {e}")
     query_type = "price" if exists else "full"
     data = get_product_api(tpnc, query_type)
     if not data or 'data' not in data or not data['data']['product']:
@@ -313,110 +265,6 @@ def process_product(tpnc, force=False, progress_prefix=""):
     log_price_str = ", ".join(log_prices)
     logger.info(f"{progress_prefix}Processed {tpnc} ({change_status}). {log_price_str}")
     return True
-    # If exists, we might want to check if we need to update static info. 
-    # For now, if exists, we treat it as price update.
-    # The user said: "If product was in database... simpler query"
-    
-    query_type = "price" if exists else "full"
-    
-    data = get_product_api(tpnc, query_type)
-    
-    if not data or 'data' not in data or not data['data']['product']:
-        logger.warning(f"{progress_prefix}No data returned for {tpnc}. Response: {data}")
-        return
-
-    product_data = data['data']['product']
-    
-    # Extract Price Info
-    price_info = product_data.get('price')
-    if not price_info:
-        logger.info(f"{progress_prefix}No price info for {tpnc}, possibly unavailable.")
-        # Even if unavailable, we might want to record that?
-        return
-
-    price_actual = price_info.get('actual')
-    unit_price = price_info.get('unitPrice')
-    unit_measure = price_info.get('unitOfMeasure')
-    
-    # Extract Promotion Info
-    promotions = product_data.get('promotions') or []
-    is_promotion = False
-    promo_id = None
-    promo_desc = None
-    promo_start = None
-    promo_end = None
-    clubcard_price = None
-
-    for promo in promotions:
-        # We look for the most relevant one, or just the first valid one
-        # Specifically Clubcard
-        if promo.get('attributes') and "CLUBCARD_PRICING" in promo.get('attributes'):
-            is_promotion = True
-            promo_id = promo.get('id')
-            promo_desc = promo.get('description')
-            promo_start = promo.get('startDate')
-            promo_end = promo.get('endDate')
-            
-            if promo.get('price'):
-                clubcard_price = promo.get('price').get('afterDiscount')
-            
-            # Attempt to parse price from description if needed
-            # Description format: "449 Ft Clubcarddal" or "1 299 Ft Clubcarddal"
-            if promo_desc:
-                # Remove non-breaking spaces or simple spaces in numbers
-                clean_desc = promo_desc.replace('\xa0', '').replace(' ', '')
-                # Look for number followed by Ft
-                match = re.search(r'(\d+)Ft', clean_desc, re.IGNORECASE)
-                if match:
-                    parsed_price = float(match.group(1))
-                    # If parsed price differs significantly from clubcard_price (or if clubcard_price matches actual), trust description
-                    if clubcard_price is None or clubcard_price == price_actual:
-                         clubcard_price = parsed_price
-            break # Assuming one main clubcard promo
-        
-        # If no clubcard, maybe a normal promo?
-        if not is_promotion:
-             # Take the first one if we haven't found a clubcard one yet
-             # But usually price cuts are reflected in 'actual' price. 
-             # Let's track metadata for any promo if we find one.
-             is_promotion = True
-             promo_id = promo.get('id')
-             promo_desc = promo.get('description')
-             promo_start = promo.get('startDate')
-             promo_end = promo.get('endDate')
-             if promo.get('price'):
-                 # It might be a simple sale
-                 pass
-
-    # Static Data Update (if full scan)
-    if query_type == "full":
-        name = product_data.get('title')
-        default_image_url = product_data.get('defaultImageUrl')
-        
-        details = product_data.get('details')
-        pack_size_val = None
-        pack_size_unit = None
-        
-        if details:
-            pack_size = details.get('packSize')
-            if isinstance(pack_size, list) and len(pack_size) > 0:
-                pack_size_val = pack_size[0].get('value')
-                pack_size_unit = pack_size[0].get('units')
-            elif isinstance(pack_size, dict):
-                pack_size_val = pack_size.get('value')
-                pack_size_unit = pack_size.get('units')
-        
-        # Unit of measure from top level price object is often 'kg' or 'piece'
-        # The schema uses unit_of_measure as a column.
-        
-        db.upsert_product(tpnc, name, unit_measure, default_image_url, pack_size_val, pack_size_unit)
-
-    # Insert Price History
-    inserted = db.insert_price(tpnc, price_actual, unit_price, unit_measure, is_promotion, promo_id, promo_desc, promo_start, promo_end, clubcard_price)
-    
-    change_status = "Changed" if inserted else "Unchanged"
-    promo_text = f" | Promo: {promo_desc} (CC: {clubcard_price})" if is_promotion else ""
-    logger.info(f"{progress_prefix}Processed {tpnc} ({change_status}). Price: {price_actual}{promo_text}")
 
 def run_scraper(specific_items=None, force=False, threads=5):
     """Main entry to run the scraper with resume / once-per-day behaviour.

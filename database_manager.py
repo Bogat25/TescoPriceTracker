@@ -93,38 +93,19 @@ def insert_price(tpnc, price_actual, unit_price, unit_measure, is_promotion, pro
     })
     now = datetime.now()
     now_str = now.isoformat()
-    yesterday = (now - timedelta(days=1)).date()
 
     def update_period(section, price, extra):
         periods = history[section]
         if periods:
             last = periods[-1]
             last_price = last["price"]
-            last_end = last.get("end_date")
-            # If price unchanged we may extend the existing entry rather than
-            # creating a new one.  We consider the entry "active" if it has
-            # no end_date or if the end_date is yesterday or later.  The
-            # previous implementation only extended when `last_end` was
-            # non-null and within a day, which meant that the first period
-            # (with end_date==None) never got updated and a brand new period
-            # would be created the next day.  That behaviour results in a
-            # gap/duplication and the "skipped day" symptom described by the
-            # user.
             if last_price == price:
-                # still the same price
-                if last_end is None:
-                    # period is open; just record the new timestamp instead of
-                    # adding a duplicate entry
-                    last["end_date"] = now_str
-                    return False
-                try:
-                    last_end_dt = datetime.fromisoformat(last_end)
-                except Exception:
-                    last_end_dt = None
-                if last_end_dt and last_end_dt.date() >= yesterday:
-                    last["end_date"] = now_str
-                    return False
-        # new period required
+                # still the same price — extend the existing period
+                last["end_date"] = now_str
+                return False
+        # Price changed (or first entry) — close the previous period and start a new one
+        if periods and periods[-1].get("end_date") is None:
+            periods[-1]["end_date"] = now_str
         period = {"price": price, "start_date": now_str, "end_date": None}
         period.update(extra)
         periods.append(period)
