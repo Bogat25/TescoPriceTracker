@@ -5,23 +5,26 @@ import time
 import random
 import logging
 import argparse
-import sys
 import concurrent.futures
 import threading
 import json
 from datetime import datetime, timedelta
 from lxml import etree
-from config import API_URL, HEADERS, SITEMAP_INDEX_URL
+from config import (API_URL, HEADERS, SITEMAP_INDEX_URL, DATA_DIR,
+                    SCRAPE_FREQUENCY_MINUTES, DEFAULT_THREADS)
 from queries import FULL_PRODUCT_QUERY, PRICE_ONLY_QUERY
 import database_manager as db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# --- persistent run-state helpers (resume / once-per-day logic) -----------------
+# ---------------------------------------------------------------------------
+# Run-state helpers — advisory / progress logging only.
+# All skip decisions come from the individual product JSON files.
+# ---------------------------------------------------------------------------
 
 def _run_state_path():
-    return os.path.join(db.DATA_DIR, 'run_state.json')
+    return os.path.join(DATA_DIR, 'run_state.json')
 
 
 def _load_run_state():
@@ -44,47 +47,56 @@ def _save_run_state(state: dict):
         logger.error(f"Failed to write run_state: {e}")
 
 
-def product_has_price_today(tpnc):
-    """Return True if the product was already scraped today.
+# ---------------------------------------------------------------------------
+# Skip-check: reads the individual product JSON, never run_state.json.
+# ---------------------------------------------------------------------------
 
-    Uses the `last_scraped_price` timestamp which is updated every time
-    `insert_price()` runs for the product.  This is a reliable "was this
-    done today?" flag that avoids the previous bug where an open period
-    (end_date == None) was mis-interpreted as covering all future days.
+def needs_scraping(tpnc):
+    """Return True if *tpnc* should be scraped now.
+
+    Checks the product's own JSON file for `last_scraped_price`.
+    If the elapsed time since that timestamp is less than
+    SCRAPE_FREQUENCY_MINUTES, the product is considered up-to-date.
     """
     prod = db.get_product(tpnc)
     if not prod:
-        return False
+        return True
     last_scraped = prod.get('last_scraped_price')
     if not last_scraped:
-        return False
+        return True
     try:
         last_dt = datetime.fromisoformat(last_scraped)
-        return last_dt.date() == datetime.now().date()
+        elapsed_minutes = (datetime.now() - last_dt).total_seconds() / 60
+        return elapsed_minutes >= SCRAPE_FREQUENCY_MINUTES
     except Exception:
-        return False
+        return True
 
 
 def is_today_scrape_done():
+    """Advisory check used by the scheduler loop only."""
     state = _load_run_state()
     if not state:
         return False
-    return state.get('date') == datetime.now().date().isoformat() and state.get('completed', False)
+    return (state.get('date') == datetime.now().date().isoformat()
+            and state.get('completed', False))
 
-# -----------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Sitemap fetching
+# ---------------------------------------------------------------------------
 
 def fetch_sitemap_index(url):
     try:
         response = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']})
         response.raise_for_status()
         root = etree.fromstring(response.content)
-        # Namespace handling for sitemaps
         namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
         locs = root.xpath('//ns:loc', namespaces=namespaces)
         return [loc.text for loc in locs]
     except Exception as e:
         logger.error(f"Error fetching sitemap index: {e}")
         return []
+
 
 def fetch_product_urls_from_sitemap(url):
     try:
@@ -95,7 +107,6 @@ def fetch_product_urls_from_sitemap(url):
         locs = root.xpath('//ns:loc', namespaces=namespaces)
         product_ids = []
         for loc in locs:
-            # Extract ID from URL like https://bevasarlas.tesco.hu/groceries/hu-HU/products/105018735
             match = re.search(r'/products/(\d+)', loc.text)
             if match:
                 product_ids.append(match.group(1))
@@ -103,6 +114,11 @@ def fetch_product_urls_from_sitemap(url):
     except Exception as e:
         logger.error(f"Error fetching sitemap {url}: {e}")
         return []
+
+
+# ---------------------------------------------------------------------------
+# Tesco GraphQL API call with exponential backoff
+# ---------------------------------------------------------------------------
 
 def get_product_api(tpnc, query_type="full"):
     if query_type == "full":
@@ -112,19 +128,12 @@ def get_product_api(tpnc, query_type="full"):
         query = PRICE_ONLY_QUERY
         operation_name = "GetProductPrice"
 
-    payload_dict = {
+    payload = [{
         "operationName": operation_name,
-        "variables": {
-            "tpnc": str(tpnc)
-        },
-        "extensions": {
-            "mfeName": "mfe-pdp"
-        },
-        "query": query
-    }
-
-    # The API expects a list of operations (batch support), even for one.
-    payload = [payload_dict]
+        "variables": {"tpnc": str(tpnc)},
+        "extensions": {"mfeName": "mfe-pdp"},
+        "query": query,
+    }]
 
     max_retries = 5
     base_delay = 2
@@ -140,59 +149,59 @@ def get_product_api(tpnc, query_type="full"):
                 return response_json[0]
             return None
         except Exception as e:
-            error_str = str(e)
-            if 'Max retries exceeded' in error_str:
-                # Check if previous run was incomplete
-                run_state = _load_run_state()
-                incomplete = False
-                if run_state:
-                    total_items = run_state.get('total_items', 0)
-                    processed = run_state.get('processed', [])
-                    if len(processed) < total_items:
-                        incomplete = True
-                if incomplete:
-                    logger.warning(f"Max retries exceeded for {tpnc}. Previous run incomplete. Sleeping for 5 minutes before continuing...")
-                    time.sleep(300)
-                else:
-                    logger.warning(f"Max retries exceeded for {tpnc}, but previous run was complete. Not sleeping.")
             if attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                logger.warning(f"API request failed for {tpnc} (Attempt {attempt+1}/{max_retries}). Retrying in {sleep_time:.2f}s. Error: {e}")
+                logger.warning(f"API request failed for {tpnc} (Attempt {attempt+1}/{max_retries}). "
+                               f"Retrying in {sleep_time:.2f}s. Error: {e}")
                 time.sleep(sleep_time)
             else:
                 logger.error(f"API request failed for {tpnc} after {max_retries} attempts: {e}")
                 return None
 
+
+# ---------------------------------------------------------------------------
+# Process a single product
+# ---------------------------------------------------------------------------
+
 def process_product(tpnc, force=False, progress_prefix=""):
-    """Process single product. Returns True if the product was processed (API called / DB updated)
-    and False if skipped or failed. This helps run-state resume logic.
+    """Fetch data for *tpnc* and store prices in all applicable categories.
+
+    Returns True if the product was processed (API called), False if skipped/failed.
     """
     exists = db.product_exists(tpnc)
-    # If we already have today's price, skip unless forced
-    if exists and not force and product_has_price_today(tpnc):
-        logger.debug(f"{progress_prefix}Skipping {tpnc}: already has today's price.")
+
+    if exists and not force and not needs_scraping(tpnc):
+        logger.debug(f"{progress_prefix}Skipping {tpnc}: already up-to-date.")
         return False
+
     query_type = "price" if exists else "full"
     data = get_product_api(tpnc, query_type)
     if not data or 'data' not in data or not data['data']['product']:
         logger.warning(f"{progress_prefix}No data returned for {tpnc}. Response: {data}")
         return False
+
     product_data = data['data']['product']
     price_info = product_data.get('price')
     if not price_info:
         logger.info(f"{progress_prefix}No price info for {tpnc}, possibly unavailable.")
         return False
+
     price_actual = price_info.get('actual')
     unit_price = price_info.get('unitPrice')
     unit_measure = price_info.get('unitOfMeasure')
     promotions = product_data.get('promotions') or []
-    # Track all types
-    normal_saved = False
-    discount_saved = False
-    clubcard_saved = False
-    # Save normal price (always present)
-    normal_saved = db.insert_price(tpnc, price_actual, unit_price, unit_measure, False, None, None, None, None, None)
-    # Check for discount and clubcard prices
+
+    # ---- Always save normal price ----
+    normal_changed = db.insert_price(tpnc, "normal", {
+        "price": price_actual,
+        "unit_price": unit_price,
+        "unit_measure": unit_measure,
+    })
+
+    # ---- Check promotions for discount & clubcard ----
+    discount_changed = False
+    clubcard_changed = False
+
     for promo in promotions:
         promo_id = promo.get('id')
         promo_desc = promo.get('description')
@@ -201,8 +210,8 @@ def process_product(tpnc, force=False, progress_prefix=""):
         attributes = promo.get('attributes') or []
         promo_price = None
         if promo.get('price'):
-            promo_price = promo.get('price').get('afterDiscount')
-        # Clubcard
+            promo_price = promo['price'].get('afterDiscount')
+
         if "CLUBCARD_PRICING" in attributes:
             cc_price = promo_price
             if promo_desc:
@@ -212,11 +221,28 @@ def process_product(tpnc, force=False, progress_prefix=""):
                     parsed_price = float(match.group(1))
                     if cc_price is None or cc_price == price_actual:
                         cc_price = parsed_price
-            clubcard_saved = db.insert_price(tpnc, price_actual, unit_price, unit_measure, True, promo_id, promo_desc, promo_start, promo_end, cc_price)
+            clubcard_changed = db.insert_price(tpnc, "clubcard", {
+                "price": cc_price,
+                "unit_price": unit_price,
+                "unit_measure": unit_measure,
+                "promo_id": promo_id,
+                "promo_desc": promo_desc,
+                "promo_start": promo_start,
+                "promo_end": promo_end,
+            }) or clubcard_changed
         else:
-            # Discount (no clubcard)
             if promo_price and promo_price != price_actual:
-                discount_saved = db.insert_price(tpnc, promo_price, unit_price, unit_measure, True, promo_id, promo_desc, promo_start, promo_end, None)
+                discount_changed = db.insert_price(tpnc, "discount", {
+                    "price": promo_price,
+                    "unit_price": unit_price,
+                    "unit_measure": unit_measure,
+                    "promo_id": promo_id,
+                    "promo_desc": promo_desc,
+                    "promo_start": promo_start,
+                    "promo_end": promo_end,
+                }) or discount_changed
+
+    # ---- Upsert static product metadata on first fetch ----
     if query_type == "full":
         name = product_data.get('title')
         default_image_url = product_data.get('defaultImageUrl')
@@ -231,53 +257,49 @@ def process_product(tpnc, force=False, progress_prefix=""):
             elif isinstance(pack_size, dict):
                 pack_size_val = pack_size.get('value')
                 pack_size_unit = pack_size.get('units')
-        db.upsert_product(tpnc, name, unit_measure, default_image_url, pack_size_val, pack_size_unit)
-    change_status = "Changed" if (normal_saved or discount_saved or clubcard_saved) else "Unchanged"
-    # Prepare log details
-    log_prices = []
-    log_prices.append(f"Normal: {price_actual}")
-    # Find latest discount and clubcard prices
-    latest_discount = None
-    latest_clubcard = None
+        db.upsert_product(tpnc, name, unit_measure, default_image_url,
+                          pack_size_val, pack_size_unit)
+
+    # ---- Logging ----
+    change_status = "Changed" if (normal_changed or discount_changed or clubcard_changed) else "Unchanged"
+    log_prices = [f"Normal: {price_actual}"]
     for promo in promotions:
         attributes = promo.get('attributes') or []
-        promo_price = None
-        if promo.get('price'):
-            promo_price = promo.get('price').get('afterDiscount')
+        pp = promo.get('price', {}).get('afterDiscount') if promo.get('price') else None
         if "CLUBCARD_PRICING" in attributes:
-            cc_price = promo_price
-            promo_desc = promo.get('description')
-            if promo_desc:
-                clean_desc = promo_desc.replace('\xa0', '').replace(' ', '')
-                match = re.search(r'(\d+)Ft', clean_desc, re.IGNORECASE)
-                if match:
-                    parsed_price = float(match.group(1))
-                    if cc_price is None or cc_price == price_actual:
-                        cc_price = parsed_price
-            latest_clubcard = cc_price
+            cc = pp
+            desc = promo.get('description')
+            if desc:
+                clean = desc.replace('\xa0', '').replace(' ', '')
+                m = re.search(r'(\d+)Ft', clean, re.IGNORECASE)
+                if m:
+                    parsed = float(m.group(1))
+                    if cc is None or cc == price_actual:
+                        cc = parsed
+            log_prices.append(f"Clubcard: {cc}")
         else:
-            if promo_price and promo_price != price_actual:
-                latest_discount = promo_price
-    if latest_discount is not None:
-        log_prices.append(f"Discount: {latest_discount}")
-    if latest_clubcard is not None:
-        log_prices.append(f"Clubcard: {latest_clubcard}")
-    log_price_str = ", ".join(log_prices)
-    logger.info(f"{progress_prefix}Processed {tpnc} ({change_status}). {log_price_str}")
+            if pp and pp != price_actual:
+                log_prices.append(f"Discount: {pp}")
+
+    logger.info(f"{progress_prefix}Processed {tpnc} ({change_status}). {', '.join(log_prices)}")
     return True
 
-def run_scraper(specific_items=None, force=False, threads=5):
-    """Main entry to run the scraper with resume / once-per-day behaviour.
 
-    Behaviour implemented:
-    - single full download per calendar day (unless --force)
-    - persistent run-state at `data/run_state.json` so interrupted runs resume
-    - skip individual products that already have today's price entry
-    - scheduler will skip starting a run if today's run is already completed
+# ---------------------------------------------------------------------------
+# Main scraper entry point
+# ---------------------------------------------------------------------------
+
+def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
+    """Run the scraper.
+
+    - Checks each product's own JSON file (in parallel) to decide whether
+      it needs scraping — never relies on run_state.json for that decision.
+    - Items are sorted by ascending numeric ID before processing.
+    - run_state.json is written for progress logging only.
     """
     db.init_db()
 
-    # Build full list (or use specific_items)
+    # ---- Build product ID list ----
     if specific_items:
         all_items = list(specific_items)
         logger.info(f"Processing {len(all_items)} specific items with {threads} threads...")
@@ -291,132 +313,103 @@ def run_scraper(specific_items=None, force=False, threads=5):
             ids = fetch_product_urls_from_sitemap(sitemap_url)
             logger.info(f"Found {len(ids)} products in {sitemap_url}")
             all_product_ids.extend(ids)
-        # Remove duplicates and keep order
+        # Deduplicate
         all_items = list(dict.fromkeys(all_product_ids))
         logger.info(f"Total unique products discovered: {len(all_items)}")
 
-    today_str = datetime.now().date().isoformat()
+    # ---- Sort by ascending numeric ID (lowest first) ----
+    all_items.sort(key=lambda x: int(x))
 
-    # Load or initialize run-state for today
-    state = _load_run_state() or {}
-    if state.get('date') != today_str or force:
-        # reset run-state for a fresh daily run (or when forced)
-        state = {
-            'date': today_str,
-            'run_id': datetime.now().isoformat(),
-            'started_at': datetime.now().isoformat(),
-            'total_items': len(all_items),
-            'processed': [],
-            'errors': {},
-            'completed': False
-        }
-        _save_run_state(state)
+    # ---- Filter: check each product JSON in parallel ----
+    if not force:
+        logger.info("Checking which products need scraping (parallel JSON reads)...")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as check_pool:
+            check_results = list(check_pool.map(
+                lambda tpnc: (tpnc, needs_scraping(tpnc)), all_items
+            ))
+        items_to_process = [tpnc for tpnc, needed in check_results if needed]
+    else:
+        items_to_process = list(all_items)
 
-    # If today's run already completed and not forced, exit early
-    if state.get('completed') and not force:
-        logger.info("Today's scrape already completed — skipping run.")
-        return
-
-    # Build remaining items to process (don't re-query items that already have today's price)
-    processed_set = set(state.get('processed', []))
-    items_to_process = []
-    today_str = datetime.now().date().isoformat()
-    for tpnc in all_items:
-        # Skip if already processed today
-        if tpnc in processed_set:
-            continue
-        # Skip if already has today's price
-        if not force and product_has_price_today(tpnc):
-            processed_set.add(tpnc)
-            state['processed'] = list(processed_set)
-            continue
-        # Check run_state for today's run
-        prod = db.get_product(tpnc)
-        if prod and prod.get('last_scraped_price'):
-            try:
-                from dateutil import parser
-                last_scraped = parser.parse(prod['last_scraped_price'])
-                if last_scraped.date().isoformat() == today_str:
-                    processed_set.add(tpnc)
-                    state['processed'] = list(processed_set)
-                    continue
-            except Exception:
-                pass
-        items_to_process.append(tpnc)
-
-    # Update total_items in state (in case sitemap changed)
-    state['total_items'] = len(all_items)
-    _save_run_state(state)
+    logger.info(f"{len(items_to_process)} items to process (out of {len(all_items)} total).")
 
     if not items_to_process:
-        # Nothing to do — mark completed and return
-        state['completed'] = True
-        state['finished_at'] = datetime.now().isoformat()
-        _save_run_state(state)
-        logger.info("No items to process (all up-to-date). Marked today's run as completed.")
+        logger.info("All products are up-to-date. Nothing to do.")
+        _save_run_state({
+            'date': datetime.now().date().isoformat(),
+            'total_items': len(all_items),
+            'processed_count': len(all_items),
+            'completed': True,
+            'finished_at': datetime.now().isoformat(),
+        })
         return
 
-    logger.info(f"Resuming scrape: {len(items_to_process)} items to process (out of {len(all_items)} total).")
+    # ---- Initialize advisory run-state ----
+    state = {
+        'date': datetime.now().date().isoformat(),
+        'run_id': datetime.now().isoformat(),
+        'started_at': datetime.now().isoformat(),
+        'total_items': len(all_items),
+        'processed_count': len(all_items) - len(items_to_process),
+        'errors': {},
+        'completed': False,
+    }
+    _save_run_state(state)
 
+    # ---- Process items with thread pool ----
     lock = threading.Lock()
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
-    futures = []
-
     total = len(all_items)
 
     def _task_wrapper(idx, tpnc):
         success = False
         try:
-            success = process_product(tpnc, force=force, progress_prefix=f"[{idx}/{total}] ")
+            success = process_product(tpnc, force=force,
+                                      progress_prefix=f"[{idx}/{total}] ")
         except Exception as e:
             logger.exception(f"Error processing {tpnc}: {e}")
-            success = False
 
-        # Update run-state based on actual DB state (only mark as processed when price present for today)
         with lock:
-            if product_has_price_today(tpnc) or success:
-                if tpnc not in state['processed']:
-                    state['processed'].append(tpnc)
+            if success or not needs_scraping(tpnc):
+                state['processed_count'] = state.get('processed_count', 0) + 1
             else:
-                # record error count
-                state.setdefault('errors', {})[tpnc] = state.get('errors', {}).get(tpnc, 0) + 1
+                state.setdefault('errors', {})[tpnc] = \
+                    state.get('errors', {}).get(tpnc, 0) + 1
             _save_run_state(state)
 
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
+    futures = []
     try:
-        for i, tpnc in enumerate(items_to_process, 1):
-            # Use absolute index within all_items to make progress prefix meaningful
+        for tpnc in items_to_process:
             idx = all_items.index(tpnc) + 1
             futures.append(executor.submit(_task_wrapper, idx, tpnc))
 
-        # Wait for all tasks to complete; use timeout loop so we can be responsive to interrupts
         done, not_done = concurrent.futures.wait(futures, timeout=1.0)
         while not_done:
             done, not_done = concurrent.futures.wait(futures, timeout=1.0)
 
     except KeyboardInterrupt:
-        logger.warning("Scraping interrupted by user — saving progress and exiting gracefully...")
-        # Executor shutdown will occur in finally; state already updated per-task
+        logger.warning("Scraping interrupted — progress saved.")
         return
     finally:
-        if executor:
-            executor.shutdown(wait=True)
+        executor.shutdown(wait=True)
 
-    # Finalize state: mark completed only if all items were processed
-    processed_count = len(state.get('processed', []))
-    if processed_count >= len(all_items):
+    # ---- Finalize run-state ----
+    processed = state.get('processed_count', 0)
+    if processed >= len(all_items):
         state['completed'] = True
         state['finished_at'] = datetime.now().isoformat()
         _save_run_state(state)
-        logger.info(f"Daily scrape completed: {processed_count}/{len(all_items)} items processed.")
+        logger.info(f"Daily scrape completed: {processed}/{len(all_items)} items.")
     else:
         _save_run_state(state)
-        logger.info(f"Daily scrape partial: {processed_count}/{len(all_items)} items processed — will resume on next run.")
+        logger.info(f"Daily scrape partial: {processed}/{len(all_items)} items — will resume on next run.")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Tesco Price Scraper')
-    parser.add_argument('--items', nargs='+', help='List of TPNCs to scrape specifically')
-    parser.add_argument('--force', action='store_true', help='Force rescrape even if recent')
-    parser.add_argument('--threads', type=int, default=5, help='Number of concurrent threads (default: 5)')
+    parser.add_argument('--items', nargs='+', help='List of TPNCs to scrape')
+    parser.add_argument('--force', action='store_true', help='Force rescrape')
+    parser.add_argument('--threads', type=int, default=DEFAULT_THREADS,
+                        help=f'Concurrent threads (default: {DEFAULT_THREADS})')
     args = parser.parse_args()
-    
     run_scraper(specific_items=args.items, force=args.force, threads=args.threads)

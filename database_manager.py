@@ -1,33 +1,25 @@
 import json
 import os
 import glob
-import sys
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
+from config import DATA_DIR, SCRAPE_FREQUENCY_MINUTES
 
-# Load .env into environment (does NOT override existing environment vars by default)
-load_dotenv()
+# Fields compared per category to detect changes
+_NORMAL_FIELDS = ("price", "unit_price", "unit_measure")
+_PROMO_FIELDS = ("price", "unit_price", "unit_measure",
+                 "promo_id", "promo_desc", "promo_start", "promo_end")
 
-DATA_FOLDER_ENV = os.getenv('DATA_FOLDER', '/app/data')
-if DATA_FOLDER_ENV:
-    DATA_DIR = os.path.abspath(DATA_FOLDER_ENV)
-else:
-    # 2) detect virtualenv: prefer VIRTUAL_ENV env var, otherwise check sys.prefix/base_prefix
-    venv_path = os.getenv('VIRTUAL_ENV') or (sys.prefix if getattr(sys, 'base_prefix', sys.prefix) != sys.prefix else None)
-    if venv_path:
-        # keep data inside the active virtualenv
-        DATA_DIR = os.path.abspath(os.path.join(venv_path, 'data'))
-    else:
-        print("Error, no environment variable DATA_FOLDER set and no virtualenv detected. Please set DATA_FOLDER to a valid path.")
-        sys.exit(1)
+
 def init_db():
     if not os.path.exists(DATA_DIR):
         print(f"Initializing data directory at {DATA_DIR}...")
         os.makedirs(DATA_DIR, exist_ok=True)
         print("Data directory initialized.")
 
+
 def get_product_file_path(tpnc):
     return os.path.join(DATA_DIR, f"{tpnc}.json")
+
 
 def load_product_data(tpnc):
     path = get_product_file_path(tpnc)
@@ -40,6 +32,7 @@ def load_product_data(tpnc):
         print(f"Error loading product {tpnc}: {e}")
         return None
 
+
 def save_product_data(tpnc, data):
     path = get_product_file_path(tpnc)
     try:
@@ -48,20 +41,20 @@ def save_product_data(tpnc, data):
     except Exception as e:
         print(f"Error saving product {tpnc}: {e}")
 
+
 def product_exists(tpnc):
     return os.path.exists(get_product_file_path(tpnc))
 
-def upsert_product(tpnc, name, unit_of_measure, default_image_url, pack_size_value, pack_size_unit):
+
+def _empty_history():
+    return {"normal": [], "discount": [], "clubcard": []}
+
+
+def upsert_product(tpnc, name, unit_of_measure, default_image_url,
+                   pack_size_value, pack_size_unit):
     data = load_product_data(tpnc)
     if not data:
-        data = {
-            "tpnc": str(tpnc),
-            "price_history": {
-                "normal": [],
-                "discount": [],
-                "clubcard": []
-            }
-        }
+        data = {"tpnc": str(tpnc), "price_history": _empty_history()}
     data.update({
         "name": name,
         "unit_of_measure": unit_of_measure,
@@ -69,132 +62,146 @@ def upsert_product(tpnc, name, unit_of_measure, default_image_url, pack_size_val
         "pack_size_value": pack_size_value,
         "pack_size_unit": pack_size_unit,
         "last_scraped_static": datetime.now().isoformat(),
-        "last_scraped_price": data.get("last_scraped_price")
     })
-    if not data["last_scraped_price"]:
-        data["last_scraped_price"] = datetime.now().isoformat()
     save_product_data(tpnc, data)
 
-def insert_price(tpnc, price_actual, unit_price, unit_measure, is_promotion, promotion_id, promotion_desc, promo_start, promo_end, clubcard_price):
+
+# ---------------------------------------------------------------------------
+# Core price insertion logic
+# ---------------------------------------------------------------------------
+
+def _compare_fields(old_entry, new_fields, category):
+    """Return True if all compared fields match between old entry and new data."""
+    keys = _PROMO_FIELDS if category in ("discount", "clubcard") else _NORMAL_FIELDS
+    for k in keys:
+        if old_entry.get(k) != new_fields.get(k):
+            return False
+    return True
+
+
+def _is_within_frequency(end_date_str):
+    """Return True if *end_date_str* (YYYY-MM-DD) is recent enough to extend.
+
+    "Recent enough" means the elapsed time between now and the end of that day
+    is <= SCRAPE_FREQUENCY_MINUTES.
+    """
+    try:
+        end_date = datetime.strptime(end_date_str, "%Y-%m-%d")
+        # Compare against the start of the end_date day (midnight).
+        # A frequency of 1440 min (1 day) means: if end_date is yesterday
+        # or today, it qualifies.  Older than that → gap.
+        diff = datetime.now() - end_date
+        diff_minutes = diff.total_seconds() / 60
+        # Allow up to 2× the frequency window to be safe across timezone shifts
+        # but at minimum require it's no older than frequency + 1 day.
+        return diff_minutes <= (SCRAPE_FREQUENCY_MINUTES + 1440)
+    except Exception:
+        return False
+
+
+def insert_price(tpnc, category, fields):
+    """Insert or extend a price period for a product in the given category.
+
+    Parameters
+    ----------
+    tpnc : str
+        Product identifier.
+    category : str
+        One of "normal", "discount", "clubcard".
+    fields : dict
+        Data for the entry.  Expected keys depend on category:
+        - normal:   price, unit_price, unit_measure
+        - discount/clubcard: price, unit_price, unit_measure,
+                             promo_id, promo_desc, promo_start, promo_end
+
+    Returns
+    -------
+    bool : True if a new section was created (change / gap / first entry),
+           False if the existing period was extended.
+    """
     data = load_product_data(tpnc)
     if not data:
-        data = {
-            "tpnc": str(tpnc),
-            "price_history": {
-                "normal": [],
-                "discount": [],
-                "clubcard": []
-            }
-        }
-    history = data.get("price_history", {
-        "normal": [],
-        "discount": [],
-        "clubcard": []
-    })
-    now = datetime.now()
-    now_str = now.isoformat()
-    yesterday = (now - timedelta(days=1)).date()
+        data = {"tpnc": str(tpnc), "price_history": _empty_history()}
 
-    def _last_scrape_was_yesterday_or_today():
-        """Check if the product was last scraped yesterday or today."""
-        lsp = data.get('last_scraped_price')
-        if not lsp:
-            return False
-        try:
-            return datetime.fromisoformat(lsp).date() >= yesterday
-        except Exception:
+    history = data.setdefault("price_history", _empty_history())
+    periods = history.setdefault(category, [])
+
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    if periods:
+        last = periods[-1]
+        same_data = _compare_fields(last, fields, category)
+
+        if same_data and _is_within_frequency(last.get("end_date", "")):
+            # Same data and end_date is recent → just extend the period
+            last["end_date"] = today_str
+            data["last_scraped_price"] = datetime.now().isoformat()
+            save_product_data(tpnc, data)
             return False
 
-    def update_period(section, price, extra):
-        periods = history[section]
-        if periods:
-            last = periods[-1]
-            last_price = last["price"]
-            if last_price == price and _last_scrape_was_yesterday_or_today():
-                # Same price and last scrape was recent — extend the period
-                last["end_date"] = now_str
-                return False
-            # Same price but gap > 1 day — don't extend, start a fresh period
-        # Close the previous period if it's still open
-        if periods and periods[-1].get("end_date") is None:
-            periods[-1]["end_date"] = now_str
-        period = {"price": price, "start_date": now_str, "end_date": None}
-        period.update(extra)
-        periods.append(period)
-        return True
+        if last.get("start_date") == today_str and last.get("end_date") == today_str:
+            # Data changed on the same day → overwrite with latest scrape
+            last.update(fields)
+            last["start_date"] = today_str
+            last["end_date"] = today_str
+            data["last_scraped_price"] = datetime.now().isoformat()
+            save_product_data(tpnc, data)
+            return True
 
-    changed = False
-    # Normal price
-    if not is_promotion and not clubcard_price:
-        changed = update_period("normal", price_actual, {
-            "unit_price": unit_price,
-            "unit_measure": unit_measure
-        }) or changed
-    # Discount price (no clubcard)
-    if is_promotion and not clubcard_price:
-        changed = update_period("discount", price_actual, {
-            "unit_price": unit_price,
-            "unit_measure": unit_measure,
-            "promo_id": promotion_id,
-            "promo_desc": promotion_desc,
-            "promo_start": promo_start,
-            "promo_end": promo_end
-        }) or changed
-    # Clubcard price
-    if clubcard_price:
-        changed = update_period("clubcard", clubcard_price, {
-            "unit_price": unit_price,
-            "unit_measure": unit_measure,
-            "promo_id": promotion_id,
-            "promo_desc": promotion_desc,
-            "promo_start": promo_start,
-            "promo_end": promo_end
-        }) or changed
-    data["price_history"] = history
-    data["last_scraped_price"] = now_str
+        # Data changed or gap detected → new section
+    # No previous entry, data changed, or gap detected → new entry
+    entry = dict(fields)
+    entry["start_date"] = today_str
+    entry["end_date"] = today_str
+    periods.append(entry)
+
+    data["last_scraped_price"] = datetime.now().isoformat()
     save_product_data(tpnc, data)
-    return changed
+    return True
 
-def update_last_scraped_price(tpnc):
-    data = load_product_data(tpnc)
-    if data:
-        data['last_scraped_price'] = datetime.now().isoformat()
-        save_product_data(tpnc, data)
+
+# ---------------------------------------------------------------------------
+# Query helpers (used by app.py / frontend)
+# ---------------------------------------------------------------------------
 
 def get_product(tpnc):
     return load_product_data(tpnc)
 
+
 def get_price_history(tpnc):
     data = load_product_data(tpnc)
-    if data:
-        # Return reversed history to simulate ORDER BY timestamp DESC
-        return list(reversed(data.get('price_history', [])))
-    return []
+    if not data:
+        return {"normal": [], "discount": [], "clubcard": []}
+    history = data.get("price_history", _empty_history())
+    # Return each category reversed (newest first) for display
+    return {
+        cat: list(reversed(entries))
+        for cat, entries in history.items()
+    }
+
 
 def search_products(query):
     results = []
     if not query:
         return results
-        
+
     query = query.lower()
     files = glob.glob(os.path.join(DATA_DIR, "*.json"))
-    
+
     for file_path in files:
+        # Skip non-product files (e.g. run_state.json)
+        basename = os.path.basename(file_path)
+        if not basename[0].isdigit():
+            continue
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
                 name = data.get('name', '')
                 tpnc = data.get('tpnc', '')
-                
-                match = False
-                if name and query in name.lower():
-                    match = True
-                if tpnc and query in str(tpnc):
-                    match = True
-                    
-                if match:
+
+                if (name and query in name.lower()) or (tpnc and query in str(tpnc)):
                     results.append(data)
-                    if len(results) >= 20: 
+                    if len(results) >= 20:
                         break
         except Exception:
             continue
