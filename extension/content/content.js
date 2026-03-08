@@ -19,33 +19,35 @@ const CONTAINER_ID = "tpt-price-tracker-container";
 
 const TRANSLATIONS = {
   en: {
-    title: "Price History (Last 30 Days)",
+    title: "Price History",
     currentPrice: "Current Price",
     lowestPrice: "Lowest Price",
     highestPrice: "Highest Price",
     averagePrice: "Average Price",
-    trend: "30-Day Trend",
+    trend: "Trend",
     priceRange: "Price Range",
     chartLabel: "Price (Ft)",
     footer: "Tesco Price Tracker", // Neutral
     min: "Min",
     max: "Max",
+    discountPrice: "Discount Price",
     clubcardPrice: "Clubcard Price",
     noData: "No price history available",
     loading: "Loading price history...",
   },
   hu: {
-    title: "Árelőzmények (Utolsó 30 nap)",
+    title: "Árelőzmények",
     currentPrice: "Jelenlegi ár",
     lowestPrice: "Legalacsonyabb ár",
     highestPrice: "Legmagasabb ár",
     averagePrice: "Átlagos ár",
-    trend: "30 napos trend",
+    trend: "Trend",
     priceRange: "Ártartomány",
     chartLabel: "Ár (Ft)",
     footer: "Tesco Ár Figyelő", // Neutral
     min: "Min",
     max: "Max",
+    discountPrice: "Akciós ár",
     clubcardPrice: "Clubcard ár",
     noData: "Nincs elérhető árelőzmény",
     loading: "Áradatok betöltése...",
@@ -125,15 +127,21 @@ function formatDate(dateObj, locale) {
   return dateObj.toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
-// Parse ISO string safely
+// Parse YYYY-MM-DD date string safely
 function parseDate(str) {
   if (!str) return new Date();
-  // Truncate fractional part to avoid issues with 6-digit microseconds (Python default)
-  const safeStr = str.split('.')[0];
-  const d = new Date(safeStr);
-  // Reset time to midnight to ensure daily alignment
-  d.setHours(0, 0, 0, 0);
+  const d = new Date(str + "T00:00:00");
   return d;
+}
+
+// Check if history object has any data
+function hasHistoryData(history) {
+  if (!history || typeof history !== "object") return false;
+  return (
+    (history.normal && history.normal.length > 0) ||
+    (history.discount && history.discount.length > 0) ||
+    (history.clubcard && history.clubcard.length > 0)
+  );
 }
 
 /**
@@ -154,7 +162,7 @@ async function getRealData() {
       tpnc: tpnc
     });
 
-    if (response && response.history && response.history.length > 0) {
+    if (response && hasHistoryData(response.history)) {
       return response.history;
     }
   } catch (e) {
@@ -164,72 +172,66 @@ async function getRealData() {
 }
 
 /**
- * Process raw API data into Chart.js friendly format with NO FALSE INTERPOLATION.
- * Fills missing days with nulls.
+ * Process period-based history into Chart.js friendly format.
+ * Each category has entries with start_date/end_date ranges.
+ * Expands ranges into daily data points; missing days become null.
  */
 function processRealData(history) {
   const locale = getLocale();
-  
-  // 1. Sort history by date ascending
-  const sorted = history
-    .map(h => ({ 
-      date: parseDate(h.timestamp), 
-      price: h.price_actual,
-      clubcardPrice: h.clubcard_price
-    }))
-    .sort((a, b) => a.date - b.date);
+  const normal = history.normal || [];
+  const discount = history.discount || [];
+  const clubcard = history.clubcard || [];
 
-  if (sorted.length === 0) return { labels: [], prices: [], clubcardPrices: [] };
+  // Find the global earliest start_date across all categories
+  let earliest = null;
+  for (const entries of [normal, discount, clubcard]) {
+    for (const e of entries) {
+      const d = parseDate(e.start_date);
+      if (!earliest || d < earliest) earliest = d;
+    }
+  }
+
+  if (!earliest) return { labels: [], prices: [], discountPrices: [], clubcardPrices: [], startDate: null, endDate: null };
+
+  const endDate = new Date();
+  endDate.setHours(0, 0, 0, 0);
+  const totalDays = diffDays(endDate, earliest);
+
+  // Build lookup: for each category, create a flat map of dayTimestamp → price
+  function buildDayMap(entries) {
+    const map = new Map();
+    for (const entry of entries) {
+      const start = parseDate(entry.start_date);
+      const end = parseDate(entry.end_date);
+      const cur = new Date(start);
+      while (cur <= end) {
+        map.set(cur.getTime(), entry.price);
+        cur.setDate(cur.getDate() + 1);
+      }
+    }
+    return map;
+  }
+
+  const normalMap = buildDayMap(normal);
+  const discountMap = buildDayMap(discount);
+  const clubcardMap = buildDayMap(clubcard);
 
   const labels = [];
   const prices = [];
+  const discountPrices = [];
   const clubcardPrices = [];
 
-  const startDate = sorted[0].date;
-  const endDate = new Date(); // Today
-  endDate.setHours(0,0,0,0);
-
-  // If the data is weirdly in the future, cap it? No, trust data.
-  // But usually we fill up to today. 
-  // If the last data point is older than today, we might want to extend the line...
-  // BUT user said "if some date is mjssed then skipt that line".
-  // So we only fill from start to end of *DATA*? 
-  // No, usually "Price History" implies up to now. 
-  // Let's assume the user wants to see the gaps.
-  
-  // Use the last data point as the end of the range, 
-  // OR today if we want to show it's not updated recently.
-  // Let's go from first data point to 'today' to show recency context.
-  // If the product wasn't scraped for a week, that should appear as a gap at the end.
-  
-  const totalDays = diffDays(endDate, startDate);
-  
-  // Create a map for quick lookup: timestamp_ms -> price
-  const priceMap = new Map();
-  const clubcardMap = new Map();
-  sorted.forEach(item => {
-    priceMap.set(item.date.getTime(), item.price);
-    clubcardMap.set(item.date.getTime(), item.clubcardPrice);
-  });
-
-  const cur = new Date(startDate);
+  const cur = new Date(earliest);
   for (let i = 0; i <= totalDays; i++) {
     const time = cur.getTime();
     labels.push(formatDate(cur, locale));
-    
-    if (priceMap.has(time)) {
-      prices.push(priceMap.get(time));
-      clubcardPrices.push(clubcardMap.get(time) || null);
-    } else {
-      prices.push(null); // GAP
-      clubcardPrices.push(null);
-    }
-    
-    // Next day
+    prices.push(normalMap.get(time) ?? null);
+    discountPrices.push(discountMap.get(time) ?? null);
+    clubcardPrices.push(clubcardMap.get(time) ?? null);
     cur.setDate(cur.getDate() + 1);
   }
 
-  return { labels, prices, clubcardPrices };
+  return { labels, prices, discountPrices, clubcardPrices, startDate: earliest, endDate };
 }
 
 // ── Mock Data Generator (Fallback) ───────────
@@ -238,6 +240,7 @@ function generateMockData() {
   const now = new Date();
   const labels = [];
   const prices = [];
+  const discountPrices = [];
   const clubcardPrices = [];
   const locale = getLocale();
 
@@ -263,6 +266,8 @@ function generateMockData() {
       Math.min(Math.round(basePrice * 1.25), current + step)
     );
     prices.push(current);
+    // Simulate occasional discount (days 8-14)
+    discountPrices.push(i >= 16 && i <= 22 ? Math.round(current * 0.85) : null);
     clubcardPrices.push(null);
   }
 
@@ -271,7 +276,7 @@ function generateMockData() {
     prices[prices.length - 1] = pagePrice;
   }
 
-  return { labels, prices, clubcardPrices };
+  return { labels, prices, discountPrices, clubcardPrices };
 }
 
 // ── Statistics Calculator ────────────────────
@@ -737,15 +742,21 @@ async function injectPriceTracker() {
     
     let labels = [];
     let prices = [];
+    let discountPrices = [];
     let clubcardPrices = [];
     let hasHistory = false;
+    let dataStartDate = null;
+    let dataEndDate = null;
 
-    if (realHistory && realHistory.length > 0) {
+    if (realHistory && hasHistoryData(realHistory)) {
       const processed = processRealData(realHistory);
       if (processed.labels && processed.labels.length > 0) {
         labels = processed.labels;
         prices = processed.prices;
+        discountPrices = processed.discountPrices;
         clubcardPrices = processed.clubcardPrices;
+        dataStartDate = processed.startDate;
+        dataEndDate = processed.endDate;
         hasHistory = true;
       }
     }
@@ -759,6 +770,22 @@ async function injectPriceTracker() {
     }
 
     chartWrapper.classList.remove('tpt-loading');
+
+    // Update title with dynamic date range
+    if (hasHistory && dataStartDate && dataEndDate) {
+      const titleEl = container.querySelector('.tpt-title');
+      if (titleEl) {
+        const titleTextNode = titleEl.querySelector('div');
+        if (titleTextNode) {
+          const fmtStart = formatDate(dataStartDate, locale);
+          const fmtEnd = formatDate(dataEndDate, locale);
+          // Replace only the text node (keep the SVG icon)
+          const textNodes = Array.from(titleTextNode.childNodes).filter(n => n.nodeType === Node.TEXT_NODE);
+          textNodes.forEach(n => n.remove());
+          titleTextNode.appendChild(document.createTextNode(`${t.title} (${fmtStart} \u2013 ${fmtEnd})`));
+        }
+      }
+    }
     
     const stats = calculateStats(prices);
     if (pagePrice) stats.current = pagePrice;
@@ -788,14 +815,14 @@ async function injectPriceTracker() {
       statValues[5].textContent = fmtPrice(stats.max - stats.min);
     }
 
-    renderChart(canvas, labels, prices, clubcardPrices, stats, t);
+    renderChart(canvas, labels, prices, discountPrices, clubcardPrices, stats, t);
 
   } finally {
     g_isInjecting = false;
   }
 }
 
-function renderChart(canvas, labels, prices, clubcardPrices, stats, t) {
+function renderChart(canvas, labels, prices, discountPrices, clubcardPrices, stats, t) {
   const ctx = canvas.getContext("2d");
 
   // Destroy any previous Chart instance attached to this canvas to avoid flicker/leaks
@@ -861,6 +888,22 @@ function renderChart(canvas, labels, prices, clubcardPrices, stats, t) {
           fill: true,
           tension: 0.3,
           spanGaps: false // IMPORTANT: Do not connect points over missing days
+        },
+        {
+          label: t.discountPrice,
+          data: discountPrices,
+          borderColor: "#16a34a",
+          backgroundColor: "rgba(22, 163, 74, 0.0)",
+          borderWidth: 2.5,
+          borderDash: [8, 4],
+          pointBackgroundColor: "#16a34a",
+          pointBorderColor: "#ffffff",
+          pointBorderWidth: 2,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+          fill: false,
+          tension: 0.3,
+          spanGaps: false
         },
         {
           label: t.clubcardPrice,

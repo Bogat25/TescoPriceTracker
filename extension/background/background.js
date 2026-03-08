@@ -56,7 +56,7 @@ async function fetchHistory(tpnc) {
     // Normalize to the shape the content script expects
     return {
       name: data.name,
-      history: data.price_history || [],
+      history: data.price_history || { normal: [], discount: [], clubcard: [] },
     };
   } catch (error) {
     console.error("Fetch error:", error);
