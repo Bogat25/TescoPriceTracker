@@ -3,10 +3,19 @@
 
 $ErrorActionPreference = "Stop"
 
+# Load required assembly for ZipFile
+try {
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    Add-Type -AssemblyName System.IO.Compression
+} catch {
+    Write-Error "Failed to load System.IO.Compression assemblies. Ensure .NET Framework 4.5+ is installed."
+}
+
 # 1. Read version from manifest.json
 $manifestPath = "extension\manifest.json"
 if (-not (Test-Path $manifestPath)) {
-    Write-Error "manifest.json not found at $manifestPath"
+    Write-Error "manifest.json not found at $manifestPath" -ForegroundColor Red
+    exit 1
 }
 
 $manifestContent = Get-Content $manifestPath -Raw | ConvertFrom-Json
@@ -21,17 +30,21 @@ if (-not (Test-Path $outputDir)) {
 }
 
 $zipFileName = "TescoPriceTracker-v$version.zip"
-$zipFilePath = Join-Path $outputDir $zipFileName
+$outputDirAbs = (Resolve-Path $outputDir).Path
+$zipFilePath = Join-Path $outputDirAbs $zipFileName
 
 if (Test-Path $zipFilePath) {
     Write-Warning "File '$zipFileName' already exists. Overwriting..."
-    Remove-Item $zipFilePath
+    Remove-Item $zipFilePath -Force
 }
 
 # 3. Define files/folders to include
-# We want to zip the *contents* of the extension folder, not the extension folder itself
-# So the root of the zip should contain manifest.json
 $sourceDir = "extension"
+if (-not (Test-Path $sourceDir)) {
+    Write-Error "Source directory '$sourceDir' not found."
+}
+$sourceDirAbs = (Resolve-Path $sourceDir).Path
+
 $itemsToZip = @(
     "manifest.json",
     "background",
@@ -40,18 +53,43 @@ $itemsToZip = @(
     "popup"
 )
 
-# 4. Create the Zip file
+# 4. Create the Zip file using System.IO.Compression to enforce forward slashes
 Write-Host "Creating $zipFileName..." -ForegroundColor Yellow
 
-# Use Compress-Archive
-# We need to pass the full paths of the items inside the extension folder
-$compressionSource = $itemsToZip | ForEach-Object { Join-Path $sourceDir $_ }
+try {
+    $zip = [System.IO.Compression.ZipFile]::Open($zipFilePath, [System.IO.Compression.ZipArchiveMode]::Create)
 
-Compress-Archive -Path $compressionSource -DestinationPath $zipFilePath -CompressionLevel Optimal
-
-if (Test-Path $zipFilePath) {
-    Write-Host "SUCCESS! Exported to: $zipFilePath" -ForegroundColor Green
-    Write-Host "Ready to upload to Chrome Web Store, Firefox Add-ons, and Edge Add-ons." -ForegroundColor Gray
-} else {
-    Write-Error "Failed to create zip file."
+    foreach ($item in $itemsToZip) {
+        $fullPath = Join-Path $sourceDirAbs $item
+        
+        if (Test-Path $fullPath -PathType Leaf) {
+            # File
+            $entryName = $item.Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $fullPath, $entryName) | Out-Null
+        }
+        elseif (Test-Path $fullPath -PathType Container) {
+            # Directory
+            # Recurse and add all files
+            $files = Get-ChildItem -Path $fullPath -Recurse -File
+            foreach ($file in $files) {
+                 # Make path relative to sourceDir (extension root)
+                 $relativePath = $file.FullName.Substring($sourceDirAbs.Length + 1)
+                 $entryName = $relativePath.Replace('\', '/')
+                 [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $file.FullName, $entryName) | Out-Null
+            }
+        }
+        else {
+            Write-Warning "Item '$item' not found in '$sourceDir', skipping."
+        }
+    }
 }
+catch {
+    Write-Error "An error occurred during zip creation: $_"
+}
+finally {
+    if ($zip) {
+        $zip.Dispose()
+    }
+}
+
+Write-Host "SUCCESS! Exported to: $zipFilePath" -ForegroundColor Green
