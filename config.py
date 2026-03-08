@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 # Scrape frequency (in minutes). All gap-detection logic derives from this.
 # Default: 1440 minutes = 24 hours = 1 day.
 # ---------------------------------------------------------------------------
-SCRAPE_FREQUENCY_MINUTES = 1
-# SCRAPE_FREQUENCY_MINUTES = 1440
+# SCRAPE_FREQUENCY_MINUTES = 1
+SCRAPE_FREQUENCY_MINUTES = 1440
 
 # ---------------------------------------------------------------------------
 # Data directory resolution: env var → virtualenv fallback → error
