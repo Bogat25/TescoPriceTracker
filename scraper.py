@@ -144,11 +144,15 @@ def get_product_api(tpnc, query_type="full"):
         except Exception as e:
             if attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                if "Max retries exceeded" in str(e):
+                    sleep_time = 3
                 logger.warning(f"API request failed for {tpnc} (Attempt {attempt+1}/{max_retries}). "
                                f"Retrying in {sleep_time:.2f}s. Error: {e}")
                 time.sleep(sleep_time)
             else:
                 logger.error(f"API request failed for {tpnc} after {max_retries} attempts: {e}")
+                if "Max retries exceeded" in str(e):
+                    time.sleep(3)
                 return None
 
 
