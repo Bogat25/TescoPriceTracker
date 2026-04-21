@@ -1,53 +1,23 @@
 import requests
 import re
-import os
 import time
 import random
 import logging
 import argparse
 import concurrent.futures
 import threading
-import json
-from datetime import datetime, timedelta
-from lxml import etree
-from config import API_URL, HEADERS, SITEMAP_INDEX_URL, DATA_DIR, DEFAULT_THREADS
+from datetime import datetime
+from lxml import etree  # type: ignore[import-untyped]
+from config import API_URL, HEADERS, SITEMAP_INDEX_URL, DEFAULT_THREADS
 from queries import FULL_PRODUCT_QUERY, PRICE_ONLY_QUERY
 import database_manager as db
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Run-state helpers — advisory / progress logging only.
-# All skip decisions come from the individual product JSON files.
-# ---------------------------------------------------------------------------
-
-def _run_state_path():
-    return os.path.join(DATA_DIR, 'run_state.json')
-
-
-def _load_run_state():
-    path = _run_state_path()
-    if os.path.exists(path):
-        try:
-            with open(path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.warning(f"Failed to read run_state: {e}")
-    return None
-
-
-def _save_run_state(state: dict):
-    path = _run_state_path()
-    try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(state, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"Failed to write run_state: {e}")
-
 
 # ---------------------------------------------------------------------------
-# Skip-check: reads the individual product JSON, never run_state.json.
+# Skip-check: reads from MongoDB, no local file fallback.
 # ---------------------------------------------------------------------------
 
 def needs_scraping(tpnc):
@@ -61,13 +31,13 @@ def needs_scraping(tpnc):
     try:
         last_date = datetime.fromisoformat(last_scraped).date()
         return last_date < datetime.now().date()
-    except Exception:
+    except (ValueError, AttributeError):
         return True
 
 
 def is_today_scrape_done():
     """Advisory check used by the scheduler loop only."""
-    state = _load_run_state()
+    state = db.load_run_state()
     if not state:
         return False
     return (state.get('date') == datetime.now().date().isoformat()
@@ -80,20 +50,20 @@ def is_today_scrape_done():
 
 def fetch_sitemap_index(url):
     try:
-        response = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']})
+        response = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']}, timeout=30)
         response.raise_for_status()
         root = etree.fromstring(response.content)
         namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
         locs = root.xpath('//ns:loc', namespaces=namespaces)
         return [loc.text for loc in locs]
-    except Exception as e:
+    except (requests.RequestException, etree.XMLSyntaxError, OSError) as e:
         logger.error(f"Error fetching sitemap index: {e}")
         return []
 
 
 def fetch_product_urls_from_sitemap(url):
     try:
-        response = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']})
+        response = requests.get(url, headers={'User-Agent': HEADERS['User-Agent']}, timeout=30)
         response.raise_for_status()
         root = etree.fromstring(response.content)
         namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
@@ -104,7 +74,7 @@ def fetch_product_urls_from_sitemap(url):
             if match:
                 product_ids.append(match.group(1))
         return product_ids
-    except Exception as e:
+    except (requests.RequestException, etree.XMLSyntaxError, OSError) as e:
         logger.error(f"Error fetching sitemap {url}: {e}")
         return []
 
@@ -135,13 +105,13 @@ def get_product_api(tpnc, query_type="full"):
         try:
             response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=30)
             if response.status_code == 429:
-                raise requests.exceptions.RequestException("Rate Limited (429)")
+                raise requests.RequestException("Rate Limited (429)")
             response.raise_for_status()
             response_json = response.json()
             if isinstance(response_json, list) and len(response_json) > 0:
                 return response_json[0]
             return None
-        except Exception as e:
+        except (requests.RequestException, ValueError) as e:
             if attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
                 if "Max retries exceeded" in str(e):
@@ -309,12 +279,12 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     # ---- Sort by ascending numeric ID (lowest first) ----
     all_items.sort(key=lambda x: int(x))
 
-    # ---- Filter: check each product JSON in parallel ----
+    # ---- Filter: check each product in parallel ----
     # specific_items runs always; full runs skip products already done today.
     if force or specific_items:
         items_to_process = list(all_items)
     else:
-        logger.info("Checking which products need scraping (parallel JSON reads)...")
+        logger.info("Checking which products need scraping (parallel DB reads)...")
         with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as check_pool:
             check_results = list(check_pool.map(
                 lambda tpnc: (tpnc, needs_scraping(tpnc)), all_items
@@ -325,7 +295,7 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
 
     if not items_to_process:
         logger.info("All products are up-to-date. Nothing to do.")
-        _save_run_state({
+        db.save_run_state({
             'date': datetime.now().date().isoformat(),
             'total_items': len(all_items),
             'processed_count': len(all_items),
@@ -344,11 +314,13 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         'errors': {},
         'completed': False,
     }
-    _save_run_state(state)
+    db.save_run_state(state)
 
     # ---- Process items with thread pool ----
     lock = threading.Lock()
     total = len(all_items)
+    # Pre-build index to avoid O(n²) .index() calls inside the loop
+    item_index = {tpnc: i + 1 for i, tpnc in enumerate(all_items)}
 
     def _task_wrapper(idx, tpnc):
         success = False
@@ -356,7 +328,7 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
             success = process_product(tpnc, force=force,
                                       progress_prefix=f"[{idx}/{total}] ")
         except Exception as e:
-            logger.exception(f"Error processing {tpnc}: {e}")
+            logger.exception(f"Unhandled error processing {tpnc}: {e}")
 
         with lock:
             if success or not needs_scraping(tpnc):
@@ -364,18 +336,19 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
             else:
                 state.setdefault('errors', {})[tpnc] = \
                     state.get('errors', {}).get(tpnc, 0) + 1
-            _save_run_state(state)
+        # DB write outside the lock to avoid blocking other threads during I/O
+        db.save_run_state(state)
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
     futures = []
     try:
         for tpnc in items_to_process:
-            idx = all_items.index(tpnc) + 1
+            idx = item_index[tpnc]
             futures.append(executor.submit(_task_wrapper, idx, tpnc))
 
-        done, not_done = concurrent.futures.wait(futures, timeout=1.0)
+        _, not_done = concurrent.futures.wait(futures, timeout=1.0)
         while not_done:
-            done, not_done = concurrent.futures.wait(futures, timeout=1.0)
+            _, not_done = concurrent.futures.wait(futures, timeout=1.0)
 
     except KeyboardInterrupt:
         logger.warning("Scraping interrupted — progress saved.")
@@ -388,10 +361,10 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     if processed >= len(all_items):
         state['completed'] = True
         state['finished_at'] = datetime.now().isoformat()
-        _save_run_state(state)
+        db.save_run_state(state)
         logger.info(f"Daily scrape completed: {processed}/{len(all_items)} items.")
     else:
-        _save_run_state(state)
+        db.save_run_state(state)
         logger.info(f"Daily scrape partial: {processed}/{len(all_items)} items — will resume on next run.")
 
 

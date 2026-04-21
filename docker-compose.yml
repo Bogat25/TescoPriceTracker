@@ -62,9 +62,3 @@ services:
       mongo:
         condition: service_healthy
 
-  watchtower:
-    image: containrrr/watchtower
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: --interval 300
-    restart: always

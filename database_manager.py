@@ -1,9 +1,10 @@
 import os
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from pymongo import errors as mongo_errors
 import logging
 
-from config import MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION, DATA_DIR
+from config import MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +22,9 @@ def get_db():
     return _collection
 
 def get_runs_collection():
-    return get_db().database['runs']
+    get_db()
+    assert _db is not None
+    return _db['runs']
 
 # Fields compared per category to detect changes
 _NORMAL_FIELDS = ("price", "unit_price", "unit_measure")
@@ -31,7 +34,6 @@ _PROMO_FIELDS = ("price", "unit_price", "unit_measure",
 
 def init_db():
     coll = get_db()
-    # Create indexes based on the plan
     coll.create_index("name", text=True)
     coll.create_index("last_scraped_price")
     print("MongoDB indexes verified/created.")
@@ -40,8 +42,8 @@ def load_product_data(tpnc):
     try:
         coll = get_db()
         return coll.find_one({"_id": str(tpnc)})
-    except Exception as e:
-        print(f"Error loading product {tpnc}: {e}")
+    except mongo_errors.PyMongoError as e:
+        logger.error(f"Error loading product {tpnc}: {e}")
         return None
 
 def save_product_data(tpnc, data):
@@ -49,8 +51,8 @@ def save_product_data(tpnc, data):
         coll = get_db()
         data['_id'] = str(tpnc)
         coll.replace_one({"_id": str(tpnc)}, data, upsert=True)
-    except Exception as e:
-        print(f"Error saving product {tpnc}: {e}")
+    except mongo_errors.PyMongoError as e:
+        logger.error(f"Error saving product {tpnc}: {e}")
 
 def product_exists(tpnc):
     coll = get_db()
@@ -84,7 +86,7 @@ def _is_within_frequency(end_date_str):
         end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         yesterday = (datetime.now() - timedelta(days=1)).date()
         return end_date >= yesterday
-    except Exception:
+    except (ValueError, TypeError):
         return False
 
 
@@ -176,40 +178,41 @@ def search_products(query):
         return results
 
     coll = get_db()
-    
+
     # Try text index search first
     cursor = coll.find(
         {"$text": {"$search": query}},
         {"score": {"$meta": "textScore"}}
     ).sort([("score", {"$meta": "textScore"})]).limit(20)
-    
+
     results = list(cursor)
-    
+
     if not results:
         # Fallback to regex scan if text doesn't match well or for tpnc
         regex_query = {"$regex": query, "$options": "i"}
         cursor = coll.find({"$or": [{"name": regex_query}, {"_id": regex_query}]}).limit(20)
         results = list(cursor)
-        
+
     return results
 
 # ---------------------------------------------------------------------------
-# Run-state mongo migrations helpers
+# Run-state helpers (MongoDB-backed)
 # ---------------------------------------------------------------------------
-def _load_run_state():
+
+def load_run_state():
     try:
         coll = get_runs_collection()
         today_iso = datetime.now().date().isoformat()
         return coll.find_one({"_id": today_iso})
-    except Exception as e:
+    except mongo_errors.PyMongoError as e:
         logger.warning(f"Failed to read run_state from mongo: {e}")
         return None
 
-def _save_run_state(state: dict):
+def save_run_state(state: dict):
     try:
         coll = get_runs_collection()
         state_id = state.get('date', datetime.now().date().isoformat())
         state['_id'] = state_id
         coll.replace_one({"_id": state_id}, state, upsert=True)
-    except Exception as e:
+    except mongo_errors.PyMongoError as e:
         logger.error(f"Failed to write run_state to mongo: {e}")
