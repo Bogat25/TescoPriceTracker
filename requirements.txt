@@ -1,8 +1,13 @@
 requests
-flask
 lxml
 python-dateutil
 schedule
 pycron
 pytz
 python-dotenv
+pymongo
+fastapi
+uvicorn
+slowapi
+pydantic
+pytest

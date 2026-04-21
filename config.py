@@ -24,7 +24,12 @@ else:
         print("Error: no DATA_FOLDER env var set and no virtualenv detected. "
               "Please set DATA_FOLDER to a valid path.")
         sys.exit(1)
-
+# ---------------------------------------------------------------------------
+# MongoDB setup
+# ---------------------------------------------------------------------------
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'tesco_tracker')
+MONGO_COLLECTION = os.getenv('MONGO_COLLECTION', 'products')
 # ---------------------------------------------------------------------------
 # Scraper / threading defaults
 # ---------------------------------------------------------------------------

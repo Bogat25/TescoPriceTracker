@@ -1,55 +1,44 @@
-# from flask import Flask, render_template, request, abort
-# import database_manager as db
-# from datetime import datetime
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import database_manager as db
+import uvicorn
 
-# app = Flask(__name__)
+app = FastAPI(title="Tesco Price Tracker API", version="1.0")
 
-# @app.template_filter('datetimeformat')
-# def datetimeformat(value, format='%Y-%m-%d %H:%M'):
-#     if value is None:
-#         return ""
-#     try:
-#         # Check if it's already a datetime object or string
-#         if isinstance(value, str):
-#             dt = datetime.fromisoformat(value)
-#         else:
-#             dt = value
-#         return dt.strftime(format)
-#     except:
-#         return value
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
-# @app.route('/')
-# def index():
-#     query = request.args.get('q')
-#     results = []
-#     if query:
-#         results = db.search_products(query)
-#     return render_template('index.html', results=results, query=query)
+@app.on_event("startup")
+def startup_event():
+    db.init_db()
 
-# @app.route('/product/<tpnc>')
-# def product_detail(tpnc):
-#     product = db.get_product(tpnc)
-#     if not product:
-#         abort(404)
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+@app.get("/{tpnc}.json")
+def get_legacy_product_json(tpnc: str):
+    """Compatibility shim for the existing browser extension"""
+    prod = db.get_product(tpnc)
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
     
-#     history = db.get_price_history(tpnc)
-    
-#     # Prepare data for chart
-#     dates = []
-#     prices = []
-#     clubcard_prices = []
-    
-#     for h in reversed(history): # Chronological order
-#         d = h['timestamp']
-#         # If timestamp is string, parse it, if datetime, use it. 
-#         # SQLite generic connector returns strings usually.
-#         dates.append(d)
-#         prices.append(h['price_actual'])
-#         clubcard_prices.append(h['clubcard_price'] if h['clubcard_price'] else None)
+    if "_id" in prod:
+        del prod["_id"]
+    return prod
 
-#     return render_template('product.html', product=product, history=history, dates=dates, prices=prices, clubcard_prices=clubcard_prices)
+@app.get("/api/v1/products/{tpnc}")
+def get_product(tpnc: str):
+    prod = db.get_product(tpnc)
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if "_id" in prod:
+        del prod["_id"]
+    return prod
 
-# if __name__ == '__main__':
-#     # Ensure DB is ready
-#     db.init_db()
-#     app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    uvicorn.run("app:app", host="0.0.0.0", port=5000)

@@ -1,0 +1,158 @@
+openapi: 3.0.2
+info:
+  title: Tesco Price Tracker API
+  version: "1.0"
+  description: API for retrieving tracked Tesco product pricing histories.
+servers:
+  - url: http://localhost:50102
+    description: Local Docker API service
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Ping the database and verify service health.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: object
+  /{tpnc}.json:
+    get:
+      summary: Get Legacy Product JSON
+      description: Compatibility shim for the existing browser extension.
+      parameters:
+        - name: tpnc
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Tesco Product Number Code
+      responses:
+        '200':
+          description: Successful Response
+        '404':
+          description: Product not found
+  /api/v1/products/{tpnc}:
+    get:
+      summary: Get Product Target
+      description: Retrieve complete MongoDB document history for a specific TPNC.
+      parameters:
+        - name: tpnc
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductResponse'
+        '404':
+          description: Product not found
+  /api/v1/products/search:
+    get:
+      summary: Search Products
+      description: Full-text or regex search on product names.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search term
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductResponse'
+  /api/v1/products/{tpnc}/stats:
+    get:
+      summary: Get Product Stats
+      description: Product statistics using local price arrays (average, min, max).
+      parameters:
+        - name: tpnc
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stats Response
+        '404':
+          description: Product not found
+
+components:
+  schemas:
+    PriceEntry:
+      type: object
+      properties:
+        price:
+          type: number
+        unit_price:
+          type: number
+        unit_measure:
+          type: string
+        start_date:
+          type: string
+        end_date:
+          type: string
+        promo_id:
+          type: string
+        promo_desc:
+          type: string
+        promo_start:
+          type: string
+        promo_end:
+          type: string
+      required:
+        - price
+        - start_date
+        - end_date
+    PriceHistory:
+      type: object
+      properties:
+        normal:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceEntry'
+        discount:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceEntry'
+        clubcard:
+          type: array
+          items:
+            $ref: '#/components/schemas/PriceEntry'
+    ProductResponse:
+      type: object
+      properties:
+        tpnc:
+          type: string
+        name:
+          type: string
+        unit_of_measure:
+          type: string
+        default_image_url:
+          type: string
+        pack_size_value:
+          type: number
+        pack_size_unit:
+          type: string
+        last_scraped_price:
+          type: string
+        price_history:
+          $ref: '#/components/schemas/PriceHistory'
+      required:
+        - tpnc
+        - name
+        - unit_of_measure
+        - last_scraped_price
+        - price_history

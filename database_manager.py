@@ -1,8 +1,27 @@
-import json
 import os
-import glob
 from datetime import datetime, timedelta
-from config import DATA_DIR
+from pymongo import MongoClient
+import logging
+
+from config import MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION, DATA_DIR
+
+logger = logging.getLogger(__name__)
+
+# Mongo Setup
+_client = None
+_db = None
+_collection = None
+
+def get_db():
+    global _client, _db, _collection
+    if _client is None:
+        _client = MongoClient(MONGO_URI)
+        _db = _client[MONGO_DB_NAME]
+        _collection = _db[MONGO_COLLECTION]
+    return _collection
+
+def get_runs_collection():
+    return get_db().database['runs']
 
 # Fields compared per category to detect changes
 _NORMAL_FIELDS = ("price", "unit_price", "unit_measure")
@@ -11,39 +30,31 @@ _PROMO_FIELDS = ("price", "unit_price", "unit_measure",
 
 
 def init_db():
-    if not os.path.exists(DATA_DIR):
-        print(f"Initializing data directory at {DATA_DIR}...")
-        os.makedirs(DATA_DIR, exist_ok=True)
-        print("Data directory initialized.")
-
-
-def get_product_file_path(tpnc):
-    return os.path.join(DATA_DIR, f"{tpnc}.json")
-
+    coll = get_db()
+    # Create indexes based on the plan
+    coll.create_index("name", text=True)
+    coll.create_index("last_scraped_price")
+    print("MongoDB indexes verified/created.")
 
 def load_product_data(tpnc):
-    path = get_product_file_path(tpnc)
-    if not os.path.exists(path):
-        return None
     try:
-        with open(path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+        coll = get_db()
+        return coll.find_one({"_id": str(tpnc)})
     except Exception as e:
         print(f"Error loading product {tpnc}: {e}")
         return None
 
-
 def save_product_data(tpnc, data):
-    path = get_product_file_path(tpnc)
     try:
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+        coll = get_db()
+        data['_id'] = str(tpnc)
+        coll.replace_one({"_id": str(tpnc)}, data, upsert=True)
     except Exception as e:
         print(f"Error saving product {tpnc}: {e}")
 
-
 def product_exists(tpnc):
-    return os.path.exists(get_product_file_path(tpnc))
+    coll = get_db()
+    return coll.count_documents({"_id": str(tpnc)}, limit=1) > 0
 
 
 def _empty_history():
@@ -164,24 +175,41 @@ def search_products(query):
     if not query:
         return results
 
-    query = query.lower()
-    files = glob.glob(os.path.join(DATA_DIR, "*.json"))
-
-    for file_path in files:
-        # Skip non-product files (e.g. run_state.json)
-        basename = os.path.basename(file_path)
-        if not basename[0].isdigit():
-            continue
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                name = data.get('name', '')
-                tpnc = data.get('tpnc', '')
-
-                if (name and query in name.lower()) or (tpnc and query in str(tpnc)):
-                    results.append(data)
-                    if len(results) >= 20:
-                        break
-        except Exception:
-            continue
+    coll = get_db()
+    
+    # Try text index search first
+    cursor = coll.find(
+        {"$text": {"$search": query}},
+        {"score": {"$meta": "textScore"}}
+    ).sort([("score", {"$meta": "textScore"})]).limit(20)
+    
+    results = list(cursor)
+    
+    if not results:
+        # Fallback to regex scan if text doesn't match well or for tpnc
+        regex_query = {"$regex": query, "$options": "i"}
+        cursor = coll.find({"$or": [{"name": regex_query}, {"_id": regex_query}]}).limit(20)
+        results = list(cursor)
+        
     return results
+
+# ---------------------------------------------------------------------------
+# Run-state mongo migrations helpers
+# ---------------------------------------------------------------------------
+def _load_run_state():
+    try:
+        coll = get_runs_collection()
+        today_iso = datetime.now().date().isoformat()
+        return coll.find_one({"_id": today_iso})
+    except Exception as e:
+        logger.warning(f"Failed to read run_state from mongo: {e}")
+        return None
+
+def _save_run_state(state: dict):
+    try:
+        coll = get_runs_collection()
+        state_id = state.get('date', datetime.now().date().isoformat())
+        state['_id'] = state_id
+        coll.replace_one({"_id": state_id}, state, upsert=True)
+    except Exception as e:
+        logger.error(f"Failed to write run_state to mongo: {e}")
