@@ -6,7 +6,7 @@ services:
     container_name: tesco_tracker_mongo
     restart: unless-stopped
     volumes:
-      - mongo_data:/data/db
+      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/mongo:/data/db
     ports:
       - "50100:27017" # Exposed to public on port 50100
     environment:
@@ -68,6 +68,3 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     command: --interval 300
     restart: always
-
-volumes:
-  mongo_data:
