@@ -1,7 +1,9 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import Optional
 import database_manager as db
 import stats_manager
 import uvicorn
@@ -11,7 +13,7 @@ app = FastAPI(title="Tesco Price Tracker API", version="2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -81,29 +83,73 @@ def get_product_trend(tpnc: str):
 
 @app.get("/api/v1/products/{tpnc}/history")
 def get_product_history(tpnc: str):
-    """Return full daily price history for a product (newest first)."""
+    """Return price history as {tpnc, points:[{timestamp, price}]} for charting."""
     if not db.product_exists(tpnc):
         raise HTTPException(status_code=404, detail="Product not found")
-    return db.get_price_history(tpnc)
+    raw = list(reversed(db.get_price_history(tpnc)))  # oldest → newest
+    points = []
+    for entry in raw:
+        normal = entry.get("normal")
+        if normal and normal.get("price") is not None:
+            points.append({"timestamp": entry.get("date", ""), "price": normal["price"]})
+    return {"tpnc": tpnc, "points": points}
 
 
 @app.get("/api/v1/products/{tpnc}/stats")
 def get_product_stats(tpnc: str):
-    """Return min/max/avg/current price statistics per price category."""
+    """Return price stats. Flat min/max/avg/current (normal channel primary) plus per-category breakdown."""
     stats = db.get_product_stats(tpnc)
     if not stats:
         raise HTTPException(status_code=404, detail="Product not found")
-    return stats
+    primary = stats.get("normal") or stats.get("discount") or stats.get("clubcard") or {}
+    return {
+        "tpnc": stats["tpnc"],
+        "min": primary.get("min_price"),
+        "max": primary.get("max_price"),
+        "avg": primary.get("avg_price"),
+        "current": primary.get("current_price"),
+        "pointCount": stats.get("total_days"),
+        "name": stats.get("name"),
+        "first_date": stats.get("first_date"),
+        "last_date": stats.get("last_date"),
+        "normal": stats.get("normal"),
+        "discount": stats.get("discount"),
+        "clubcard": stats.get("clubcard"),
+    }
+
+
+def _daily_to_channel_history(history_list: list) -> dict:
+    """Transform [{date, normal:{price,...}, ...}] → {normal:[...], discount:[...], clubcard:[...]}."""
+    channels: dict = {"normal": [], "discount": [], "clubcard": []}
+    for entry in history_list:
+        date_str = entry.get("date", "")
+        for channel in channels:
+            ch_data = entry.get(channel)
+            if ch_data and ch_data.get("price") is not None:
+                channels[channel].append({
+                    "price": ch_data["price"],
+                    "unit_price": ch_data.get("unit_price"),
+                    "unit_measure": ch_data.get("unit_measure"),
+                    "start_date": date_str,
+                    "end_date": date_str,
+                    "promo_id": ch_data.get("promo_id"),
+                    "promo_desc": ch_data.get("promo_desc"),
+                })
+    return channels
 
 
 @app.get("/api/v1/products/{tpnc}")
 def get_product(tpnc: str):
-    """Return full product document (without price_history)."""
+    """Return full product document with price_history in per-channel format."""
     prod = db.get_product(tpnc)
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     prod.pop("_id", None)
-    prod.pop("price_history", None)
+    raw_history = prod.pop("price_history", []) or []
+    if isinstance(raw_history, list):
+        prod["price_history"] = _daily_to_channel_history(raw_history)
+    else:
+        prod["price_history"] = {"normal": [], "discount": [], "clubcard": []}
     return prod
 
 
@@ -182,6 +228,44 @@ def stats_inflation_30d():
 def stats_price_drops_today():
     """Products whose normal price dropped today vs yesterday, sorted by drop %."""
     return _get_stat("price_drops_today", stats_manager.compute_price_drops_today)
+
+
+# ---------------------------------------------------------------------------
+# Alerts (MongoDB-backed, user identified via X-User-Id header)
+# ---------------------------------------------------------------------------
+
+class CreateAlertRequest(BaseModel):
+    tpnc: str
+    threshold: float
+    direction: str  # "below" | "above"
+
+
+def _require_user(x_user_id: Optional[str] = Header(default=None)) -> str:
+    if not x_user_id or not x_user_id.strip():
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return x_user_id.strip()
+
+
+@app.get("/api/v1/alerts")
+def list_alerts(x_user_id: Optional[str] = Header(default=None)):
+    user_id = _require_user(x_user_id)
+    return {"alerts": db.get_alerts(user_id)}
+
+
+@app.post("/api/v1/alerts", status_code=201)
+def create_alert(body: CreateAlertRequest, x_user_id: Optional[str] = Header(default=None)):
+    user_id = _require_user(x_user_id)
+    if body.direction not in ("below", "above"):
+        raise HTTPException(status_code=400, detail="direction must be 'below' or 'above'")
+    alert = db.create_alert(user_id, body.tpnc, body.threshold, body.direction)
+    return alert
+
+
+@app.delete("/api/v1/alerts/{alert_id}", status_code=204)
+def delete_alert(alert_id: int, x_user_id: Optional[str] = Header(default=None)):
+    user_id = _require_user(x_user_id)
+    if not db.delete_alert(user_id, alert_id):
+        raise HTTPException(status_code=404, detail="Alert not found")
 
 
 # ---------------------------------------------------------------------------
