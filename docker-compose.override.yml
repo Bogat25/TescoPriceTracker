@@ -55,7 +55,8 @@ services:
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
-      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
+      KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_HOSTNAME_PORT: ${KC_HOSTNAME_PORT:-443}
       KC_HOSTNAME_STRICT: 'false'
       KC_HOSTNAME_STRICT_HTTPS: 'false'
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
