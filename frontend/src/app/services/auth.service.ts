@@ -20,9 +20,9 @@ export class AuthService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
 
-  // Use the single API base URL provided via .env
-  private get gatewayUrl() {
-    return this.config.tescoApiBaseUrl;
+  // Use the auth base URL for login/logout/userinfo (separate from product API)
+  private get authBaseUrl() {
+    return this.config.authBaseUrl;
   }
 
   readonly authenticated = signal(false);
@@ -36,7 +36,7 @@ export class AuthService {
   checkSession(): Observable<GatewayUser | null> {
     this.loadingAuthState.set(true);
     return this.http
-      .get<GatewayUser>(`${this.gatewayUrl}/userinfo`, { withCredentials: true })
+      .get<GatewayUser>(`${this.authBaseUrl}/userinfo`, { withCredentials: true })
       .pipe(
         tap((user) => {
           this.authenticated.set(true);
@@ -64,10 +64,10 @@ export class AuthService {
 
   // Top-level navigation — do not use fetch/XHR for these.
   login(returnUrl: string = window.location.href): void {
-    window.location.href = `${this.gatewayUrl}/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+    window.location.href = `${this.authBaseUrl}/login?returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 
   logout(returnUrl: string = window.location.origin): void {
-    window.location.href = `${this.gatewayUrl}/logout?returnUrl=${encodeURIComponent(returnUrl)}`;
+    window.location.href = `${this.authBaseUrl}/logout?returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 }

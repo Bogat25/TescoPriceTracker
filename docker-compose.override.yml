@@ -117,8 +117,9 @@ services:
     - '80'
     environment:
       TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM}
-      NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
+      AUTH_BASE_URL: ${AUTH_BASE_URL}
+      NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_BASE_URL
     networks:
       tesco-tracker-internal: {}
       public_ingress:

@@ -58,6 +58,8 @@ services:
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: xforwarded
+      KC_PROXY: edge
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
     volumes:
       - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
       - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
@@ -128,9 +130,10 @@ services:
     environment:
       # Nginx upstream for /api/tesco/* proxy (internal service-to-service)
       TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM}
-      NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM
       # Runtime config injected into window.__APP_CONFIG__ by envsubst at startup
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
+      AUTH_BASE_URL: ${AUTH_BASE_URL}
+      NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_BASE_URL
     networks:
       tesco-tracker-internal: {}
       public_ingress:
