@@ -9,11 +9,18 @@ def generate_override(input_file='docker-compose.yml', output_file='docker-compo
     override_data = copy.deepcopy(compose_data)
 
     for service_name, config in override_data.get('services', {}).items():
-        # Remove the ghcr.io image tag entirely so it forces the 'build' block
-        if 'image' in config and 'ghcr.io' in config['image']:
+        # Only target our own services (those hosted on ghcr.io)
+        # Skip official/third-party images like mongo, keycloak (quay.io), etc.
+        if 'image' in config and isinstance(config['image'], str) and 'ghcr.io' in config['image']:
+            print(f"Switching {service_name} to local build (found ghcr.io image)")
             del config['image']
-            # Tell docker-compose to build from the local directory instead
-            config['build'] = '.'
+            
+            # If the service already specifies a build block (e.g. frontend), leave it alone.
+            # Otherwise, tell docker-compose to build from the local directory.
+            if 'build' not in config:
+                config['build'] = '.'
+        else:
+            print(f"Skipping {service_name} (using external image or no image)")
 
     # Tell PyYAML to write an empty string instead of 'null'
     yaml.SafeDumper.add_representer(

@@ -9,9 +9,9 @@ import threading
 from datetime import datetime
 from lxml import etree  # type: ignore[import-untyped]
 from config import API_URL, HEADERS, SITEMAP_INDEX_URL, DEFAULT_THREADS
-from queries import FULL_PRODUCT_QUERY, PRICE_ONLY_QUERY
-import database_manager as db
-import stats_manager
+from mongo.queries import FULL_PRODUCT_QUERY, PRICE_ONLY_QUERY
+from mongo import database_manager as db
+from mongo import stats_manager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

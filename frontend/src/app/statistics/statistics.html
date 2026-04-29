@@ -1,0 +1,415 @@
+<section class="container mx-auto px-4 py-8 max-w-7xl">
+
+  <!-- Page header -->
+  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+    <div>
+      <div class="text-xs uppercase tracking-wider opacity-60 mb-1">
+        <a routerLink="/user-settings" class="link link-hover">Account</a>
+        <span class="mx-1">›</span>
+        <span>Statistics</span>
+      </div>
+      <h1 class="text-3xl md:text-4xl font-extrabold">Statistics dashboard</h1>
+      <p class="opacity-70 mt-1">Deep-dive price analysis — trends, volatility, promotions and Clubcard savings.</p>
+    </div>
+  </div>
+
+  <!-- Product picker -->
+  <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
+    <label class="text-sm font-semibold mb-2 block">Pick a tracked product</label>
+    <div class="relative">
+      <input type="search"
+             class="input input-bordered w-full"
+             placeholder="Search by name or TPNC (min. 2 chars)..."
+             [value]="query()"
+             (input)="onSearchInput($any($event.target).value)"
+             autocomplete="off" />
+
+      @if (searching()) {
+        <span class="loading loading-spinner loading-sm absolute right-4 top-1/2 -translate-y-1/2"></span>
+      }
+
+      @if (suggestions().length) {
+        <ul class="absolute z-20 w-full mt-1 bg-base-100 border border-base-300 rounded-xl shadow-lg max-h-80 overflow-auto">
+          @for (s of suggestions(); track s.tpnc) {
+            <li>
+              <button type="button"
+                      class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-3"
+                      (click)="pick(s)">
+                @if (s.imageUrl) {
+                  <img [src]="s.imageUrl" [alt]="s.name || s.tpnc"
+                       class="w-10 h-10 object-contain rounded bg-base-200 p-1 shrink-0"
+                       loading="lazy" referrerpolicy="no-referrer" />
+                } @else {
+                  <div class="w-10 h-10 rounded bg-base-200 flex items-center justify-center text-lg shrink-0">🛒</div>
+                }
+                <div class="flex-1 min-w-0">
+                  <div class="font-medium truncate">{{ s.name || s.tpnc }}</div>
+                  <div class="text-xs opacity-60">TPNC {{ s.tpnc }}</div>
+                </div>
+                @if (s.currentPrice !== undefined) {
+                  <div class="font-semibold shrink-0">£{{ s.currentPrice | number:'1.2-2' }}</div>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="alert alert-error mb-6">{{ error() }}</div>
+  }
+
+  @if (loading()) {
+    <div class="flex items-center justify-center gap-3 py-20">
+      <span class="loading loading-spinner loading-lg"></span>
+      <span>Crunching the numbers...</span>
+    </div>
+  }
+
+  @if (!loading() && !selected()) {
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-base-200 p-6 rounded-2xl border border-base-300">
+        <div class="text-3xl mb-2">📈</div>
+        <h3 class="font-bold mb-1">Price trends</h3>
+        <p class="opacity-70 text-sm">See normal, discount and Clubcard lines over the full tracked period.</p>
+      </div>
+      <div class="bg-base-200 p-6 rounded-2xl border border-base-300">
+        <div class="text-3xl mb-2">🧠</div>
+        <h3 class="font-bold mb-1">Smart insights</h3>
+        <p class="opacity-70 text-sm">AI-style analysis: volatility score, best buying month, trend direction.</p>
+      </div>
+      <div class="bg-base-200 p-6 rounded-2xl border border-base-300">
+        <div class="text-3xl mb-2">💸</div>
+        <h3 class="font-bold mb-1">Clubcard savings</h3>
+        <p class="opacity-70 text-sm">See cumulative savings over time and the total you'd have saved as a member.</p>
+      </div>
+    </div>
+  }
+
+  @if (selectedSummary(); as p) {
+
+    <!-- Product header -->
+    <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-6 mb-6 flex flex-col md:flex-row gap-5 md:items-center">
+      @if (p.imageUrl) {
+        <img [src]="p.imageUrl" [alt]="p.name || p.tpnc"
+             class="w-28 h-28 object-contain rounded-xl bg-base-100 p-2 shrink-0"
+             referrerpolicy="no-referrer" />
+      } @else {
+        <div class="w-28 h-28 rounded-xl bg-base-100 flex items-center justify-center text-5xl shrink-0">🛒</div>
+      }
+      <div class="flex-1 min-w-0">
+        <h2 class="text-2xl font-bold leading-tight">{{ p.name || p.tpnc }}</h2>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm opacity-70">
+          <span>TPNC {{ p.tpnc }}</span>
+          @if (p.packSize) { <span>• {{ p.packSize }}</span> }
+          @if (p.unit) { <span>• {{ p.unit }}</span> }
+        </div>
+        <!-- Trend pill -->
+        <div class="mt-2 flex flex-wrap gap-2">
+          <span class="badge badge-outline text-sm px-3 py-1 font-semibold"
+                [class]="trendClass(kpi().trendPct)">
+            30d: {{ trendLabel(kpi().trendPct) }}
+          </span>
+          <span class="badge badge-outline text-sm px-3 py-1 font-semibold"
+                [class]="buySignalClass(kpi())">
+            {{ buySignalLabel(kpi()) }}
+          </span>
+          <span class="badge badge-outline text-sm px-3 py-1"
+                [class]="volatilityClass(kpi().volatility)">
+            Volatility: {{ volatilityLabel(kpi().volatility) }}
+          </span>
+        </div>
+      </div>
+      <a [routerLink]="['/products', p.tpnc]" class="btn btn-outline btn-sm">Open detail</a>
+    </div>
+
+    <!-- KPI tiles row 1 -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Current</div>
+        <div class="text-2xl font-bold">
+          @if (kpi().current !== undefined) { £{{ kpi().current | number:'1.2-2' }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">All-time low</div>
+        <div class="text-2xl font-bold text-success">
+          @if (kpi().min !== undefined) { £{{ kpi().min | number:'1.2-2' }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">All-time high</div>
+        <div class="text-2xl font-bold text-error">
+          @if (kpi().max !== undefined) { £{{ kpi().max | number:'1.2-2' }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Historical avg</div>
+        <div class="text-2xl font-bold">
+          @if (kpi().avg !== undefined) { £{{ kpi().avg | number:'1.2-2' }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Clubcard low</div>
+        <div class="text-2xl font-bold text-warning">
+          @if (kpi().clubcardMin !== undefined) { £{{ kpi().clubcardMin | number:'1.2-2' }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Max savings</div>
+        <div class="text-2xl font-bold text-primary">
+          @if (kpi().savingsPct !== undefined) { {{ kpi().savingsPct | number:'1.0-1' }}% } @else { — }
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI tiles row 2 — extended metrics -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Volatility</div>
+        <div class="text-xl font-bold" [class]="volatilityClass(kpi().volatility)">
+          {{ volatilityLabel(kpi().volatility) }}
+          @if (kpi().volatility !== undefined) {
+            <span class="text-xs opacity-70 font-normal ml-1">({{ kpi().volatility | number:'1.1-1' }}%)</span>
+          }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">30-day trend</div>
+        <div class="text-xl font-bold" [class]="trendClass(kpi().trendPct)">
+          {{ trendLabel(kpi().trendPct) }}
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Best month</div>
+        <div class="text-xl font-bold">
+          @if (kpi().bestMonth) { {{ kpi().bestMonth }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Promo rate</div>
+        <div class="text-xl font-bold">
+          @if (kpi().promoFreqPct !== undefined) { {{ kpi().promoFreqPct | number:'1.0-1' }}% } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Price changes</div>
+        <div class="text-xl font-bold">
+          @if (kpi().priceChanges !== undefined) { {{ kpi().priceChanges }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+        <div class="text-xs uppercase opacity-60">Days tracked</div>
+        <div class="text-xl font-bold">
+          @if (kpi().daysTracked !== undefined) { {{ kpi().daysTracked }} } @else { — }
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary metrics row -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 text-sm">
+      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
+        <div class="opacity-60">Total data points</div>
+        <div class="text-lg font-semibold">{{ kpi().entryCount }}</div>
+      </div>
+      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
+        <div class="opacity-60">Promo records</div>
+        <div class="text-lg font-semibold">{{ kpi().promoCount }}</div>
+      </div>
+      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
+        <div class="opacity-60">Tracking since</div>
+        <div class="text-lg font-semibold">
+          @if (kpi().firstSeen; as d) { {{ d | date:'mediumDate' }} } @else { — }
+        </div>
+      </div>
+      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
+        <div class="opacity-60">Last observation</div>
+        <div class="text-lg font-semibold">
+          @if (kpi().lastSeen; as d) { {{ d | date:'mediumDate' }} } @else { — }
+        </div>
+      </div>
+    </div>
+
+    <!-- Clubcard savings callout (only shown if data exists) -->
+    @if (kpi().clubcardTotalSavings !== undefined) {
+      <div class="bg-warning/10 border border-warning/30 rounded-2xl p-4 mb-6 flex items-center gap-4">
+        <div class="text-3xl shrink-0">💳</div>
+        <div>
+          <div class="font-bold text-warning">Clubcard total savings</div>
+          <div class="text-sm opacity-80">
+            Across all tracked entries where Clubcard was cheaper, members would have saved a cumulative
+            <span class="font-bold text-warning">£{{ kpi().clubcardTotalSavings | number:'1.2-2' }}</span>
+            versus paying the normal price.
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Smart insights panel -->
+    @if (insights().length) {
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xl">🧠</span>
+          <h3 class="font-bold text-lg">Smart insights</h3>
+        </div>
+        <ul class="space-y-2">
+          @for (insight of insights(); track insight) {
+            <li class="flex items-start gap-2 text-sm">
+              <span class="mt-0.5 text-primary shrink-0">›</span>
+              <span class="opacity-85">{{ insight }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+    }
+
+    <!-- Server-computed stats (from /stats API endpoint) -->
+    @if (serverStats(); as s) {
+      <div class="bg-base-100 border border-base-300 rounded-2xl p-4 md:p-5 mb-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-xl">🖥️</span>
+          <h3 class="font-bold">Server-computed stats</h3>
+          <span class="text-xs opacity-50 ml-auto">from /stats API</span>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+          @if (s['min'] !== undefined) {
+            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
+              <div class="opacity-60">Min</div>
+              <div class="text-lg font-semibold text-success">£{{ s['min'] | number:'1.2-2' }}</div>
+            </div>
+          }
+          @if (s['max'] !== undefined) {
+            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
+              <div class="opacity-60">Max</div>
+              <div class="text-lg font-semibold text-error">£{{ s['max'] | number:'1.2-2' }}</div>
+            </div>
+          }
+          @if (s['avg'] !== undefined) {
+            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
+              <div class="opacity-60">Avg</div>
+              <div class="text-lg font-semibold">£{{ s['avg'] | number:'1.2-2' }}</div>
+            </div>
+          }
+          @if (s['current'] !== undefined) {
+            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
+              <div class="opacity-60">Current</div>
+              <div class="text-lg font-semibold">£{{ s['current'] | number:'1.2-2' }}</div>
+            </div>
+          }
+          @if (s['pointCount'] !== undefined) {
+            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
+              <div class="opacity-60">Points</div>
+              <div class="text-lg font-semibold">{{ s['pointCount'] }}</div>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    <!-- Charts row 1: price history + channel doughnut -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="lg:col-span-2 bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-bold">Price history</h3>
+          <span class="text-xs opacity-60">Normal · Discount · Clubcard</span>
+        </div>
+        <div class="relative h-80">
+          <canvas #lineChart></canvas>
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <h3 class="font-bold mb-3">Entries by channel</h3>
+        <div class="relative h-80">
+          <canvas #channelDoughnut></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 2: promo doughnut + monthly avg -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <h3 class="font-bold mb-3">Promo vs regular</h3>
+        <div class="relative h-64">
+          <canvas #promoDoughnut></canvas>
+        </div>
+      </div>
+      <div class="lg:col-span-2 bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <h3 class="font-bold mb-3">Average price per month</h3>
+        <div class="relative h-64">
+          <canvas #monthlyBar></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 3: clubcard savings % + polar avg -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+      <div class="lg:col-span-2 bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <h3 class="font-bold mb-3">Clubcard savings vs normal price</h3>
+        <div class="relative h-64">
+          <canvas #savingsBar></canvas>
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <h3 class="font-bold mb-3">Avg price by channel</h3>
+        <div class="relative h-64">
+          <canvas #polarChart></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 4: price distribution -->
+    <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-4">
+      <h3 class="font-bold mb-3">Price distribution (frequency histogram)</h3>
+      <div class="relative h-64">
+        <canvas #distributionBar></canvas>
+      </div>
+    </div>
+
+    <!-- Charts row 5: year-over-year + month-over-month delta -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <h3 class="font-bold">Year-over-year comparison</h3>
+          <span class="text-xs opacity-50">min / avg / max per year</span>
+        </div>
+        <div class="relative h-72">
+          <canvas #yoyBar></canvas>
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <h3 class="font-bold">Month-over-month price change</h3>
+          <span class="text-xs opacity-50 ml-auto">green = cheaper, red = more expensive</span>
+        </div>
+        <div class="relative h-72">
+          <canvas #deltaBar></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts row 6: cumulative savings + promo density -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <h3 class="font-bold">Cumulative Clubcard savings</h3>
+          <span class="text-xs opacity-50">running total vs normal price</span>
+        </div>
+        <div class="relative h-64">
+          <canvas #cumulativeSavings></canvas>
+        </div>
+      </div>
+      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+        <div class="flex items-center gap-2 mb-3">
+          <h3 class="font-bold">Promotional density by month</h3>
+          <span class="text-xs opacity-50">% of entries with active promo</span>
+        </div>
+        <div class="relative h-64">
+          <canvas #promoDensityBar></canvas>
+        </div>
+      </div>
+    </div>
+
+  }
+</section>

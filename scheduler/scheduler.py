@@ -4,7 +4,7 @@ import pycron
 from datetime import datetime
 import pytz
 from config import SCHEDULER_CRON, SCHEDULER_TIMEZONE, DEFAULT_THREADS
-from scraper import run_scraper, is_today_scrape_done
+from scraper.scraper import run_scraper, is_today_scrape_done
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)

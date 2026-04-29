@@ -10,7 +10,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-import database_manager as db
+from . import database_manager as db
 
 logger = logging.getLogger(__name__)
 

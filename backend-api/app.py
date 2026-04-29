@@ -4,15 +4,19 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import database_manager as db
-import stats_manager
+from mongo import database_manager as db
+from mongo import stats_manager
 import uvicorn
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0")
 
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
+if not allowed_origins or allowed_origins == [""]:
+    allowed_origins = ["*"] # fallback if not specified
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"],
 )

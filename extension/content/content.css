@@ -1,0 +1,214 @@
+/* ============================================
+   CONTENT STYLES — Tesco Price Tracker
+   ============================================
+   Styles for the injected price-history chart
+   and statistics panel on Tesco product pages.
+   ============================================ */
+
+/* ── Main Container ─────────────────────────── */
+
+#tpt-price-tracker-container {
+  /* Default (Light) Theme Variables */
+  --tpt-bg: #ffffff;
+  --tpt-ink: #0f172a;
+  --tpt-muted: #64748b;
+  --tpt-card-bg: #f8fafc;
+  --tpt-border: #e2e8f0;
+  --tpt-shadow: rgba(0, 0, 0, 0.06);
+
+  position: relative;
+  width: 100%;
+  max-width: 960px;
+  margin: 32px auto;
+  padding: 28px;
+  background: var(--tpt-bg);
+  color: var(--tpt-ink);
+  border: 1px solid var(--tpt-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px var(--tpt-shadow);
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+  z-index: 100;
+  clear: both;
+}
+
+/* Dark Theme Overrides */
+#tpt-price-tracker-container.tpt-theme-dark {
+  --tpt-bg: #0b1220;
+  --tpt-ink: #f8fafc;
+  --tpt-muted: #c0cfe0;
+  --tpt-card-bg: #0f172a;
+  --tpt-border: #1e293b;
+  --tpt-shadow: rgba(0, 0, 0, 0.4);
+}
+
+/* ── Title ──────────────────────────────────── */
+
+.tpt-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--tpt-ink);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #00539f;
+}
+
+.tpt-icon {
+  width: 22px;
+  height: 22px;
+  color: #00539f;
+  flex-shrink: 0;
+}
+
+/* Theme Toggle Button */
+.tpt-theme-toggle {
+  margin-left: auto;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  color: var(--tpt-muted);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tpt-theme-toggle:hover {
+  background-color: var(--tpt-card-bg);
+  color: var(--tpt-ink);
+}
+
+.tpt-theme-toggle svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── Chart Wrapper ──────────────────────────── */
+
+.tpt-chart-wrapper {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  margin-bottom: 20px;
+  padding: 4px;
+  background: var(--tpt-card-bg);
+  border-radius: 8px;
+  border: 1px solid var(--tpt-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tpt-chart-wrapper.tpt-loading canvas {
+  display: none;
+}
+
+.tpt-loading-spinner {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--tpt-muted);
+  font-size: 14px;
+}
+
+.tpt-chart-wrapper.tpt-loading .tpt-loading-spinner {
+  display: flex;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid var(--tpt-border);
+  border-top: 4px solid #00539f;
+  border-radius: 50%;
+  animation: tpt-spin 1s linear infinite;
+}
+
+@keyframes tpt-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.tpt-chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ── Stats Grid ─────────────────────────────── */
+
+.tpt-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tpt-stat-card {
+  background: var(--tpt-card-bg);
+  border: 1px solid var(--tpt-border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.tpt-stat-card:hover {
+  box-shadow: 0 2px 8px var(--tpt-shadow);
+  transform: translateY(-1px);
+}
+
+.tpt-stat-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--tpt-muted);
+  margin-bottom: 4px;
+}
+
+.tpt-stat-value {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tpt-ink);
+}
+
+.tpt-stat-low {
+  color: #16a34a !important;
+}
+
+.tpt-stat-high {
+  color: #dc2626 !important;
+}
+
+/* ── Footer ─────────────────────────────────── */
+
+.tpt-footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--tpt-muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--tpt-border);
+}
+
+/* ── Responsive ─────────────────────────────── */
+
+@media (max-width: 600px) {
+  #tpt-price-tracker-container {
+    padding: 16px;
+    margin: 16px auto;
+  }
+
+  .tpt-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tpt-chart-wrapper {
+    height: 220px;
+  }
+}
