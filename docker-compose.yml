@@ -60,6 +60,10 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
       KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      QUARKUS_LOG_CATEGORY__IO_QUARKUS_VERTX_HTTP_RUNTIME_FORWARDEDPARSER__LEVEL: "OFF"
     volumes:
       - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
       - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
