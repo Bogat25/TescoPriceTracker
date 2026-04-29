@@ -13,4 +13,4 @@ sed -e "s|\${KEYCLOAK_REALM}|${KEYCLOAK_REALM}|g" \
 
 echo "Realm config generated: realm=${KEYCLOAK_REALM} clientId=${KC_CLIENT_ID}"
 
-exec /opt/keycloak/bin/kc.sh start-dev --import-realm "$@"
+exec /opt/keycloak/bin/kc.sh start --import-realm "$@"
