@@ -55,6 +55,8 @@ services:
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
+      KC_PROXY: edge
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8080}
     volumes:
     - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
     - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
