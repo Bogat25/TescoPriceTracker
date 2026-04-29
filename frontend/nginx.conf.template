@@ -1,0 +1,47 @@
+server {
+    listen 80;
+    server_name localhost;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    gzip on;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # ── Tesco API proxy ─────────────────────────────────────────────────────
+    # /api/tesco/<path>  →  ${TESCO_API_UPSTREAM}/api/v1/<path>
+    # TESCO_API_UPSTREAM is injected at container startup via envsubst.
+    # This avoids CORS issues — the browser always talks to the same origin.
+    location /api/tesco/ {
+        proxy_pass ${TESCO_API_UPSTREAM}/api/v1/;
+        proxy_http_version 1.1;
+        # When upstream is HTTPS (e.g. https://tesco-price-tracker-api.gavaller.com)
+        # the upstream's TLS cert is for its own hostname, so forward that as
+        # both the Host header and the SNI name — not $host (which is *our* domain).
+        proxy_ssl_server_name on;
+        proxy_set_header Host $proxy_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 30s;
+    }
+
+    # ── Runtime config — must NOT be cached so deploy-time env changes
+    # propagate immediately to browsers on next page load.
+    location = /runtime-config.js {
+        add_header Cache-Control "no-store, must-revalidate";
+        expires off;
+    }
+
+    # ── Angular SPA fallback ────────────────────────────────────────────────
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Long-lived cache for hashed static assets
+    location ~* \.(?:css|js)$ {
+        expires 1y;
+        access_log off;
+        add_header Cache-Control "public";
+    }
+}

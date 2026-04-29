@@ -1,0 +1,44 @@
+<section class="container mx-auto px-4 py-10 max-w-2xl">
+  <h1 class="text-3xl font-bold mb-6">Account settings</h1>
+
+  @if (loading()) {
+    <div class="flex items-center gap-3 py-10 justify-center">
+      <span class="loading loading-spinner loading-md"></span>
+      <span>Loading...</span>
+    </div>
+  } @else {
+    <div class="bg-base-200 border border-base-300 rounded-2xl p-6 mb-6 space-y-3">
+      <div>
+        <span class="text-sm opacity-60">Name</span>
+        <p class="font-semibold">{{ userName() }}</p>
+      </div>
+      <div>
+        <span class="text-sm opacity-60">User ID</span>
+        <p class="font-mono text-sm">{{ userId() }}</p>
+      </div>
+    </div>
+
+    <p class="text-sm opacity-70 mb-6">
+      Account details (email, password, linked providers) are managed on
+      <a href="https://auth.gavaller.com" target="_blank" class="link link-primary">auth.gavaller.com</a>.
+    </p>
+
+    <a routerLink="/statistics"
+       class="block bg-base-200 hover:bg-base-300 transition-colors border border-base-300 rounded-2xl p-5 mb-6">
+      <div class="flex items-center gap-4">
+        <div class="text-3xl">📊</div>
+        <div class="flex-1">
+          <div class="font-semibold">Statistics dashboard</div>
+          <div class="text-sm opacity-70">
+            Charts, KPIs and price-history insights for any tracked product.
+          </div>
+        </div>
+        <div class="text-xl opacity-60">›</div>
+      </div>
+    </a>
+
+    <button type="button" class="btn btn-outline btn-error" (click)="logout()">
+      Logout
+    </button>
+  }
+</section>

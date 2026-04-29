@@ -1,0 +1,39 @@
+<section class="container mx-auto px-4 py-10 max-w-3xl">
+  <h1 class="text-3xl font-bold mb-6">My alerts</h1>
+
+  @if (loading()) {
+    <div class="flex items-center gap-3 py-10 justify-center">
+      <span class="loading loading-spinner loading-md"></span>
+    </div>
+  } @else if (error()) {
+    <div class="alert alert-warning">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      </svg>
+      <span>Alert persistence requires a backend. This feature is coming soon.</span>
+    </div>
+  } @else if (alerts().length === 0) {
+    <div class="text-center py-12 opacity-70">
+      <p class="mb-2">You have no alerts yet.</p>
+      <p class="text-sm">Open any product and use the <span class="font-semibold">Set a price alert</span> section to add one.</p>
+    </div>
+  } @else {
+    <ul class="space-y-3">
+      @for (a of alerts(); track a.id) {
+        <li class="bg-base-200 border border-base-300 rounded-xl p-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <a [routerLink]="['/products', a.tpnc]" class="link font-semibold">{{ a.tpnc }}</a>
+            <div class="text-sm opacity-80">
+              Notify when price is
+              <span class="font-semibold">{{ a.direction === 'below' ? 'below' : 'above' }}</span>
+              <span class="font-bold">£{{ a.threshold }}</span>
+            </div>
+            <div class="text-xs opacity-60 mt-1">Created {{ a.createdAt | date:'medium' }}</div>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm text-error" (click)="remove(a.id)">Delete</button>
+        </li>
+      }
+    </ul>
+  }
+</section>

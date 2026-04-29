@@ -4,8 +4,8 @@ from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import database_manager as db
-import stats_manager
+from mongo import database_manager as db
+from mongo import stats_manager
 import uvicorn
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0")
