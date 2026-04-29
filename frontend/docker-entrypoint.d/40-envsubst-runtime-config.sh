@@ -8,6 +8,18 @@ set -eu
 : "${TESCO_API_BASE_URL:=/api/tesco}"
 export TESCO_API_BASE_URL
 
+: "${AUTH_BASE_URL:=/auth}"
+export AUTH_BASE_URL
+
+: "${AUTH_LOGIN_URL:=/auth/login}"
+export AUTH_LOGIN_URL
+
+: "${AUTH_LOGOUT_URL:=/auth/logout}"
+export AUTH_LOGOUT_URL
+
+: "${AUTH_USERINFO_URL:=/auth/userinfo}"
+export AUTH_USERINFO_URL
+
 template=/usr/share/nginx/html/runtime-config.template.js
 output=/usr/share/nginx/html/runtime-config.js
 
@@ -16,5 +28,5 @@ if [ ! -f "$template" ]; then
   exit 1
 fi
 
-envsubst '${TESCO_API_BASE_URL}' < "$template" > "$output"
-echo "runtime-config.js generated: tescoApiBaseUrl=$TESCO_API_BASE_URL"
+envsubst '${TESCO_API_BASE_URL} ${AUTH_BASE_URL} ${AUTH_LOGIN_URL} ${AUTH_LOGOUT_URL} ${AUTH_USERINFO_URL}' < "$template" > "$output"
+echo "runtime-config.js generated: tescoApiBaseUrl=$TESCO_API_BASE_URL, authBaseUrl=$AUTH_BASE_URL"

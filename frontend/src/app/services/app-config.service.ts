@@ -4,6 +4,9 @@ import { Injectable } from '@angular/core';
 interface RuntimeConfig {
   tescoApiBaseUrl?: string;
   authBaseUrl?: string;
+  authLoginUrl?: string;
+  authLogoutUrl?: string;
+  authUserinfoUrl?: string;
 }
 
 declare global {
@@ -14,6 +17,9 @@ declare global {
 
 const DEFAULT_TESCO_BASE = '/api/tesco';
 const DEFAULT_AUTH_BASE = '/auth';
+const DEFAULT_AUTH_LOGIN = '/auth/login';
+const DEFAULT_AUTH_LOGOUT = '/auth/logout';
+const DEFAULT_AUTH_USERINFO = '/auth/userinfo';
 
 /**
  * Reads deploy-time configuration injected by runtime-config.js.
@@ -35,6 +41,21 @@ export class AppConfigService {
   readonly authBaseUrl: string = this.normalize(
     window.__APP_CONFIG__?.authBaseUrl,
     DEFAULT_AUTH_BASE,
+  );
+
+  readonly authLoginUrl: string = this.normalize(
+    window.__APP_CONFIG__?.authLoginUrl,
+    DEFAULT_AUTH_LOGIN,
+  );
+
+  readonly authLogoutUrl: string = this.normalize(
+    window.__APP_CONFIG__?.authLogoutUrl,
+    DEFAULT_AUTH_LOGOUT,
+  );
+
+  readonly authUserinfoUrl: string = this.normalize(
+    window.__APP_CONFIG__?.authUserinfoUrl,
+    DEFAULT_AUTH_USERINFO,
   );
 
   private normalize(raw: string | undefined, defaultValue: string): string {

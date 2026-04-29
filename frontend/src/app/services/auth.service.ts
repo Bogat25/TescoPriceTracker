@@ -25,6 +25,18 @@ export class AuthService {
     return this.config.authBaseUrl;
   }
 
+  private get authLoginUrl() {
+    return this.config.authLoginUrl;
+  }
+
+  private get authLogoutUrl() {
+    return this.config.authLogoutUrl;
+  }
+
+  private get authUserinfoUrl() {
+    return this.config.authUserinfoUrl;
+  }
+
   readonly authenticated = signal(false);
   readonly loadingAuthState = signal(false);
   readonly userName = signal<string | null>(null);
@@ -36,7 +48,7 @@ export class AuthService {
   checkSession(): Observable<GatewayUser | null> {
     this.loadingAuthState.set(true);
     return this.http
-      .get<GatewayUser>(`${this.authBaseUrl}/userinfo`, { withCredentials: true })
+      .get<GatewayUser>(this.authUserinfoUrl, { withCredentials: true })
       .pipe(
         tap((user) => {
           this.authenticated.set(true);
@@ -64,10 +76,12 @@ export class AuthService {
 
   // Top-level navigation — do not use fetch/XHR for these.
   login(returnUrl: string = window.location.href): void {
-    window.location.href = `${this.authBaseUrl}/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+    const sep = this.authLoginUrl.includes('?') ? '&' : '?';
+    window.location.href = `${this.authLoginUrl}${sep}returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 
   logout(returnUrl: string = window.location.origin): void {
-    window.location.href = `${this.authBaseUrl}/logout?returnUrl=${encodeURIComponent(returnUrl)}`;
+    const sep = this.authLogoutUrl.includes('?') ? '&' : '?';
+    window.location.href = `${this.authLogoutUrl}${sep}returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 }

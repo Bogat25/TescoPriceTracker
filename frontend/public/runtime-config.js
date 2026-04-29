@@ -4,4 +4,8 @@
 // TESCO_API_BASE_URL from the environment into runtime-config.template.js.
 window.__APP_CONFIG__ = {
   tescoApiBaseUrl: '${TESCO_API_BASE_URL}',
+  authBaseUrl: '${AUTH_BASE_URL}',
+  authLoginUrl: '${AUTH_LOGIN_URL}',
+  authLogoutUrl: '${AUTH_LOGOUT_URL}',
+  authUserinfoUrl: '${AUTH_USERINFO_URL}',
 };
