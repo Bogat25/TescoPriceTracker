@@ -1,14 +1,12 @@
-# Based on https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
-# Based on https://github.com/Smart123s/ItchClaim/blob/master/.github/workflows/docker.yml
-
-name: Docker Build
+name: Docker CI
 
 on:
   push:
-    branches: [ "master" ]  # Build on every commit to master
-    tags: [ 'v*.*.*' ]      # ALSO build on release tags
+    branches: [ "master" ]
+    tags: [ 'v*.*.*' ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -34,11 +32,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Generates tags for:
-      # 1. The branch name (e.g., 'master')
-      # 2. The commit SHA (e.g., 'sha-1234567') <- This runs on every commit
-      # 3. 'latest' (only on the default branch)
-      # 4. Git tags (e.g. 'v1.0.0') if you push one
       - name: Docker Metadata
         id: meta
         uses: docker/metadata-action@v5
