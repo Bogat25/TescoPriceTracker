@@ -325,6 +325,18 @@ def process_product(tpnc, force=False, progress_prefix=""):
             "ratings_distribution": reviews_stats.get('ratingsDistribution'),
         }
 
+        # Strip empty placeholders to save space
+        def _is_empty(v):
+            if v is None:
+                return True
+            if v == {} or v == [] or v == [{}]:
+                return True
+            if isinstance(v, list) and all(item == {} for item in v):
+                return True
+            return False
+
+        metadata = {k: v for k, v in metadata.items() if not _is_empty(v)}
+
     # ---- Single load/save for all categories + optional metadata ----
     results = db.insert_daily_prices(tpnc, price_updates, metadata=metadata)
 
