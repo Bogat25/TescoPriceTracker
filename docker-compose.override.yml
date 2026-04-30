@@ -42,6 +42,8 @@ services:
   keycloak-init:
     image: busybox
     container_name: tesco-tracker-keycloak-init
+    profiles:
+    - keycloak
     volumes:
     - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
     command: chown -R 1000:1000 /opt/keycloak/data
@@ -49,6 +51,8 @@ services:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: tesco-tracker-keycloak
     restart: unless-stopped
+    profiles:
+    - keycloak
     depends_on:
       keycloak-init:
         condition: service_completed_successfully
@@ -89,6 +93,8 @@ services:
   auth-gateway:
     container_name: tesco-tracker-auth-gateway
     restart: unless-stopped
+    profiles:
+    - gateway
     working_dir: /app/auth-gateway
     command: uvicorn app:app --host 0.0.0.0 --port 8080
     expose:
@@ -112,7 +118,9 @@ services:
     networks:
     - tesco-tracker-internal
     depends_on:
-    - keycloak
+      keycloak:
+        condition: service_started
+        required: false
     build: .
   api:
     container_name: tesco-price-tracker-api
@@ -176,8 +184,11 @@ services:
         aliases:
         - tesco-tracker
     depends_on:
-    - api
-    - auth-gateway
+      api:
+        condition: service_started
+      auth-gateway:
+        condition: service_started
+        required: false
 networks:
   tesco-tracker-internal:
     name: tesco-tracker-internal

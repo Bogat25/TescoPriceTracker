@@ -7,8 +7,9 @@ def generate_override(input_file='docker-compose.yml', output_file='docker-compo
         compose_data = yaml.safe_load(f)
 
     override_data = copy.deepcopy(compose_data)
+    services = override_data.get('services', {})
 
-    for service_name, config in override_data.get('services', {}).items():
+    for service_name, config in services.items():
         # Only target our own services (those hosted on ghcr.io)
         # Skip official/third-party images like mongo, keycloak (quay.io), etc.
         if 'image' in config and isinstance(config['image'], str) and 'ghcr.io' in config['image']:
