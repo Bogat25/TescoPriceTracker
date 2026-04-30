@@ -1,10 +1,13 @@
 // ============================================
-// BACKGROUND SCRIPT — Firefox Extension Template
+// BACKGROUND SCRIPT — Tesco Price Tracker
 // ============================================
 // Listens for toggle messages from the popup
 // and tells every open tab to show or hide
-// the injected content.
+// the injected content. Fetches price history
+// from the backend API.
 // ============================================
+
+import ENV from "../env/config.js";
 
 // Standardize browser namespace (Chrome vs Firefox)
 // Firefox uses 'browser', while Chrome uses 'chrome'.
@@ -47,19 +50,19 @@ async function handleToggle(enabled) {
 
 async function fetchHistory(tpnc) {
   try {
-    // Fetch hosted JSON directly by ID (public CDN-style endpoint)
-    const response = await fetch(`https://tesco-price-tracker.gavaller.com/${tpnc}.json`);
+    const baseUrl = ENV.API_BASE_URL.replace(/\/+$/, "");
+    const response = await fetch(`${baseUrl}/products/${tpnc}`);
     if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+      throw new Error(`Server returned ${response.status}`);
     }
     const data = await response.json();
-    // Normalize to the shape the content script expects
+    // The backend returns { tpnc, name, price_history: { normal:[], discount:[], clubcard:[] } }
     return {
       name: data.name,
       history: data.price_history || { normal: [], discount: [], clubcard: [] },
     };
   } catch (error) {
-    console.error("Fetch error:", error);
+    console.error("[TescoPriceTracker] Fetch error:", error);
     throw error;
   }
 }
