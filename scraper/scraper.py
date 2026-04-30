@@ -211,23 +211,118 @@ def process_product(tpnc, force=False, progress_prefix=""):
     if query_type == "full":
         name = product_data.get('title')
         default_image_url = product_data.get('defaultImageUrl')
-        details = product_data.get('details')
+        details = product_data.get('details') or {}
         pack_size_val = None
         pack_size_unit = None
-        if details:
-            pack_size = details.get('packSize')
-            if isinstance(pack_size, list) and len(pack_size) > 0:
-                pack_size_val = pack_size[0].get('value')
-                pack_size_unit = pack_size[0].get('units')
-            elif isinstance(pack_size, dict):
-                pack_size_val = pack_size.get('value')
-                pack_size_unit = pack_size.get('units')
+        pack_size = details.get('packSize')
+        if isinstance(pack_size, list) and len(pack_size) > 0:
+            pack_size_val = pack_size[0].get('value')
+            pack_size_unit = pack_size[0].get('units')
+        elif isinstance(pack_size, dict):
+            pack_size_val = pack_size.get('value')
+            pack_size_unit = pack_size.get('units')
+
+        # Category / taxonomy
+        primary_taxonomy = product_data.get('primaryTaxonomyNode') or {}
+
+        # Reviews
+        reviews_data = product_data.get('reviews') or {}
+        reviews_stats = reviews_data.get('stats') or {}
+
         metadata = {
             "name": name,
             "unit_of_measure": unit_measure,
             "default_image_url": default_image_url,
             "pack_size_value": pack_size_val,
             "pack_size_unit": pack_size_unit,
+            # Identifiers
+            "tpnb": product_data.get('tpnb'),
+            "gtin": product_data.get('gtin'),
+            "barcode": product_data.get('barcode'),
+            # Classification
+            "brand_name": product_data.get('brandName'),
+            "sub_brand": product_data.get('subBrand'),
+            "product_type": product_data.get('productType'),
+            "is_new": product_data.get('isNew'),
+            "is_for_sale": product_data.get('isForSale'),
+            "status": product_data.get('status'),
+            "sell_type": product_data.get('sellType'),
+            # Categories
+            "super_department_name": product_data.get('superDepartmentName'),
+            "super_department_id": product_data.get('superDepartmentId'),
+            "department_name": product_data.get('departmentName'),
+            "department_id": product_data.get('departmentId'),
+            "aisle_name": product_data.get('aisleName'),
+            "aisle_id": product_data.get('aisleId'),
+            "shelf_name": product_data.get('shelfName'),
+            "shelf_id": product_data.get('shelfId'),
+            "taxonomy_id": primary_taxonomy.get('id'),
+            "taxonomy_name": primary_taxonomy.get('name'),
+            # Manufacturer / source
+            "manufacturer": product_data.get('manufacturer'),
+            "manufacturer_address": product_data.get('manufacturerAddress'),
+            "distributor_address": product_data.get('distributorAddress'),
+            "importer_address": product_data.get('importerAddress'),
+            "return_to": product_data.get('returnTo'),
+            # Description / marketing
+            "short_description": product_data.get('shortDescription'),
+            "marketing": details.get('marketing'),
+            "product_marketing": details.get('productMarketing'),
+            "brand_marketing": details.get('brandMarketing'),
+            "manufacturer_marketing": details.get('manufacturerMarketing'),
+            # Nutrition & dietary
+            "ingredients": details.get('ingredients'),
+            "allergens": details.get('allergens'),
+            "nutrition": details.get('nutrition'),
+            "gda": details.get('gda'),
+            "dietary_info": details.get('dietaryInfo'),
+            "intolerance_info": details.get('intoleranceInfo'),
+            "health_claims": details.get('healthClaims'),
+            "nutritional_claims": details.get('nutritionalClaims'),
+            "hfss": details.get('hfss'),
+            "additives": details.get('additives'),
+            # Storage & preparation
+            "storage": details.get('storage'),
+            "cooking_instructions": details.get('cookingInstructions'),
+            "preparation_and_usage": details.get('preparationAndUsage'),
+            "preparation_guidelines": details.get('preparationGuidelines'),
+            "freezing_instructions": details.get('freezingInstructions'),
+            "shelf_life_info": details.get('shelfLifeInfo'),
+            "storage_classification": product_data.get('storageClassification'),
+            "shelf_life": product_data.get('shelfLife'),
+            # Misc details
+            "origin_information": details.get('originInformation'),
+            "recycling_info": details.get('recyclingInfo'),
+            "net_contents": details.get('netContents'),
+            "drained_weight": details.get('drainedWeight'),
+            "safety_warning": details.get('safetyWarning'),
+            "warnings": details.get('warnings'),
+            "lower_age_limit": details.get('lowerAgeLimit'),
+            "upper_age_limit": details.get('upperAgeLimit'),
+            "healthmark": details.get('healthmark'),
+            "number_of_uses": details.get('numberOfUses'),
+            "alcohol": details.get('alcohol'),
+            "dosage": details.get('dosage'),
+            "directions": details.get('directions'),
+            "features": details.get('features'),
+            "box_contents": details.get('boxContents'),
+            "legal_notice": details.get('legalNotice'),
+            "other_information": details.get('otherInformation'),
+            "specifications": details.get('specifications'),
+            "components": details.get('components'),
+            # Product constraints
+            "deposit_amount": product_data.get('depositAmount'),
+            "max_quantity_allowed": product_data.get('maxQuantityAllowed'),
+            "max_weight": product_data.get('maxWeight'),
+            "min_weight": product_data.get('minWeight'),
+            # Images & icons
+            "display_images": product_data.get('displayImages'),
+            "icons": product_data.get('icons'),
+            # Reviews
+            "overall_rating": reviews_stats.get('overallRating'),
+            "overall_rating_range": reviews_stats.get('overallRatingRange'),
+            "number_of_reviews": reviews_stats.get('noOfReviews'),
+            "ratings_distribution": reviews_stats.get('ratingsDistribution'),
         }
 
     # ---- Single load/save for all categories + optional metadata ----
