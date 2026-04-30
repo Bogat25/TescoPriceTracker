@@ -144,7 +144,31 @@ def _daily_to_channel_history(history_list: list) -> dict:
 
 @app.get("/api/v1/products/{tpnc}")
 def get_product(tpnc: str):
-    """Return full product document with price_history in per-channel format."""
+    """Return lightweight product document for the browser extension."""
+    prod = db.get_product(tpnc)
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    raw_history = prod.get("price_history", []) or []
+    if isinstance(raw_history, list):
+        history = _daily_to_channel_history(raw_history)
+    else:
+        history = {"normal": [], "discount": [], "clubcard": []}
+        
+    return {
+        "tpnc": prod.get("tpnc"),
+        "name": prod.get("name"),
+        "unit_of_measure": prod.get("unit_of_measure"),
+        "default_image_url": prod.get("default_image_url"),
+        "pack_size_value": prod.get("pack_size_value"),
+        "pack_size_unit": prod.get("pack_size_unit"),
+        "last_scraped_price": prod.get("last_scraped_price"),
+        "price_history": history
+    }
+
+@app.get("/api/v1/products/{tpnc}/detailed")
+def get_product_detailed(tpnc: str):
+    """Return full rich product document for the web frontend."""
     prod = db.get_product(tpnc)
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")

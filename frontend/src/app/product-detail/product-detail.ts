@@ -170,4 +170,10 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.chart?.destroy();
   }
+
+  formatArrayOrString(value: any): string {
+    if (!value) return '';
+    if (Array.isArray(value)) return value.join(', ');
+    return String(value);
+  }
 }

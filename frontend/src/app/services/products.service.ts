@@ -32,6 +32,25 @@ export interface ProductResponse {
   pack_size_unit?: string;
   last_scraped_price: string;
   price_history: PriceHistoryChannels;
+  brand_name?: string;
+  sub_brand?: string;
+  super_department_name?: string;
+  department_name?: string;
+  aisle_name?: string;
+  shelf_name?: string;
+  short_description?: string;
+  marketing?: string;
+  product_marketing?: string;
+  ingredients?: string[];
+  allergens?: string;
+  dietary_info?: Record<string, any>;
+  storage?: string;
+  preparation_and_usage?: string;
+  manufacturer?: string;
+  origin_information?: any[];
+  overall_rating?: number;
+  number_of_reviews?: number;
+  storageClassification?: string;
 }
 
 /** Thin summary used by list views. Mirrors a subset of ProductResponse. */
@@ -42,13 +61,15 @@ export interface ProductSummary {
   currentPrice?: number;
   unit?: string;
   packSize?: string;
+  brand?: string;
+  category?: string;
+  rating?: number;
+  reviewCount?: number;
 }
 
 /** Extra descriptive fields kept for backwards-compat with detail view. */
 export interface ProductDetail extends ProductSummary {
   description?: string;
-  category?: string;
-  brand?: string;
   raw?: ProductResponse;
   [key: string]: unknown;
 }
@@ -85,6 +106,9 @@ export function toSummary(p: ProductResponse): ProductSummary {
     p.pack_size_value !== undefined && p.pack_size_unit
       ? `${p.pack_size_value}${p.pack_size_unit}`
       : undefined;
+      
+  const categoryParts = [p.super_department_name, p.department_name].filter(Boolean).join(' > ');
+
   return {
     tpnc: p.tpnc,
     name: p.name,
@@ -92,6 +116,10 @@ export function toSummary(p: ProductResponse): ProductSummary {
     currentPrice: parsePrice(p.last_scraped_price),
     unit: p.unit_of_measure,
     packSize,
+    brand: p.brand_name,
+    category: categoryParts,
+    rating: p.overall_rating,
+    reviewCount: p.number_of_reviews
   };
 }
 
@@ -120,11 +148,15 @@ export class ProductsService {
 
   /** Full upstream document — contains price_history for charting. */
   getRaw(tpnc: string): Observable<ProductResponse> {
-    return this.http.get<ProductResponse>(`${this.base}/${encodeURIComponent(tpnc)}`);
+    return this.http.get<ProductResponse>(`${this.base}/${encodeURIComponent(tpnc)}/detailed`);
   }
 
   get(tpnc: string): Observable<ProductDetail> {
-    return this.getRaw(tpnc).pipe(map((p) => ({ ...toSummary(p), raw: p })));
+    return this.getRaw(tpnc).pipe(map((p) => ({
+      ...toSummary(p),
+      description: p.product_marketing || p.marketing || p.short_description || undefined,
+      raw: p
+    })));
   }
 
   history(tpnc: string): Observable<ProductHistory> {
