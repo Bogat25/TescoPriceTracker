@@ -62,6 +62,9 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'false'
       KC_HEALTH_ENABLED: 'true'
       QUARKUS_LOG_CATEGORY__IO_QUARKUS_VERTX_HTTP_RUNTIME_FORWARDEDPARSER__LEVEL: 'OFF'
+      REALM_REDIRECT_URIS: ${REALM_REDIRECT_URIS:-*}
+      REALM_WEB_ORIGINS: ${REALM_WEB_ORIGINS:-*}
+      REALM_POST_LOGOUT_REDIRECT_URIS: ${REALM_POST_LOGOUT_REDIRECT_URIS:-+}
     volumes:
     - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
     - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
@@ -74,6 +77,34 @@ services:
       admin_ingress:
         aliases:
         - tesco-tracker-keycloak
+  auth-gateway:
+    container_name: tesco-tracker-auth-gateway
+    restart: unless-stopped
+    working_dir: /app/auth-gateway
+    command: uvicorn app:app --host 0.0.0.0 --port 8080
+    expose:
+    - '8080'
+    environment:
+      KC_PUBLIC_BASE_URL: ${KC_PUBLIC_BASE_URL}
+      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://tesco-tracker-keycloak:8080/realms/tesco-tracker}
+      KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
+      KC_CLIENT_SECRET: ${KC_CLIENT_SECRET:-}
+      GATEWAY_REDIRECT_URI: ${GATEWAY_REDIRECT_URI}
+      POST_LOGIN_REDIRECT_DEFAULT: ${POST_LOGIN_REDIRECT_DEFAULT}
+      POST_LOGOUT_REDIRECT_DEFAULT: ${POST_LOGOUT_REDIRECT_DEFAULT}
+      RETURN_URL_ALLOWED_HOSTS: ${RETURN_URL_ALLOWED_HOSTS}
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-tesco_auth}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      SCOPES: ${SCOPES:-openid profile email}
+      PYTHONPATH: /app
+      TZ: Europe/Budapest
+    networks:
+    - tesco-tracker-internal
+    depends_on:
+    - keycloak
+    build: .
   api:
     container_name: tesco-price-tracker-api
     restart: unless-stopped
@@ -137,6 +168,7 @@ services:
         - tesco-tracker
     depends_on:
     - api
+    - auth-gateway
 networks:
   tesco-tracker-internal:
     name: tesco-tracker-internal

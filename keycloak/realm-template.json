@@ -11,10 +11,11 @@
       "publicClient": true,
       "standardFlowEnabled": true,
       "directAccessGrantsEnabled": false,
-      "redirectUris": ["*"],
-      "webOrigins": ["*"],
+      "redirectUris": ${REALM_REDIRECT_URIS_JSON},
+      "webOrigins": ${REALM_WEB_ORIGINS_JSON},
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${REALM_POST_LOGOUT_REDIRECT_URIS_HASH}"
       }
     }
   ]
