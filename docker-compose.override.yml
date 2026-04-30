@@ -43,7 +43,7 @@ services:
     image: busybox
     container_name: tesco-tracker-keycloak-init
     profiles:
-    - keycloak
+    - auth
     volumes:
     - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
     command: chown -R 1000:1000 /opt/keycloak/data
@@ -52,7 +52,7 @@ services:
     container_name: tesco-tracker-keycloak
     restart: unless-stopped
     profiles:
-    - keycloak
+    - auth
     depends_on:
       keycloak-init:
         condition: service_completed_successfully
@@ -104,7 +104,7 @@ services:
     container_name: tesco-tracker-auth-gateway
     restart: unless-stopped
     profiles:
-    - gateway
+    - auth
     working_dir: /app/auth-gateway
     command: uvicorn app:app --host 0.0.0.0 --port 8080
     expose:
