@@ -47,7 +47,7 @@
                   <div class="text-xs opacity-60">TPNC {{ s.tpnc }}</div>
                 </div>
                 @if (s.currentPrice !== undefined) {
-                  <div class="font-semibold shrink-0">£{{ s.currentPrice | number:'1.2-2' }}</div>
+                  <div class="font-semibold shrink-0">{{ s.currentPrice | number:'1.2-2' }} Ft</div>
                 }
               </button>
             </li>
@@ -130,31 +130,31 @@
       <div class="bg-base-200 rounded-xl p-4 border border-base-300">
         <div class="text-xs uppercase opacity-60">Current</div>
         <div class="text-2xl font-bold">
-          @if (kpi().current !== undefined) { £{{ kpi().current | number:'1.2-2' }} } @else { — }
+          @if (kpi().current !== undefined) { {{ kpi().current | number:'1.2-2' }} Ft } @else { — }
         </div>
       </div>
       <div class="bg-base-200 rounded-xl p-4 border border-base-300">
         <div class="text-xs uppercase opacity-60">All-time low</div>
         <div class="text-2xl font-bold text-success">
-          @if (kpi().min !== undefined) { £{{ kpi().min | number:'1.2-2' }} } @else { — }
+          @if (kpi().min !== undefined) { {{ kpi().min | number:'1.2-2' }} Ft } @else { — }
         </div>
       </div>
       <div class="bg-base-200 rounded-xl p-4 border border-base-300">
         <div class="text-xs uppercase opacity-60">All-time high</div>
         <div class="text-2xl font-bold text-error">
-          @if (kpi().max !== undefined) { £{{ kpi().max | number:'1.2-2' }} } @else { — }
+          @if (kpi().max !== undefined) { {{ kpi().max | number:'1.2-2' }} Ft } @else { — }
         </div>
       </div>
       <div class="bg-base-200 rounded-xl p-4 border border-base-300">
         <div class="text-xs uppercase opacity-60">Historical avg</div>
         <div class="text-2xl font-bold">
-          @if (kpi().avg !== undefined) { £{{ kpi().avg | number:'1.2-2' }} } @else { — }
+          @if (kpi().avg !== undefined) { {{ kpi().avg | number:'1.2-2' }} Ft } @else { — }
         </div>
       </div>
       <div class="bg-base-200 rounded-xl p-4 border border-base-300">
         <div class="text-xs uppercase opacity-60">Clubcard low</div>
         <div class="text-2xl font-bold text-warning">
-          @if (kpi().clubcardMin !== undefined) { £{{ kpi().clubcardMin | number:'1.2-2' }} } @else { — }
+          @if (kpi().clubcardMin !== undefined) { {{ kpi().clubcardMin | number:'1.2-2' }} Ft } @else { — }
         </div>
       </div>
       <div class="bg-base-200 rounded-xl p-4 border border-base-300">
@@ -240,7 +240,7 @@
           <div class="font-bold text-warning">Clubcard total savings</div>
           <div class="text-sm opacity-80">
             Across all tracked entries where Clubcard was cheaper, members would have saved a cumulative
-            <span class="font-bold text-warning">£{{ kpi().clubcardTotalSavings | number:'1.2-2' }}</span>
+            <span class="font-bold text-warning">{{ kpi().clubcardTotalSavings | number:'1.2-2' }} Ft</span>
             versus paying the normal price.
           </div>
         </div>
@@ -277,25 +277,25 @@
           @if (s['min'] !== undefined) {
             <div class="bg-base-200 rounded-xl p-3 border border-base-300">
               <div class="opacity-60">Min</div>
-              <div class="text-lg font-semibold text-success">£{{ s['min'] | number:'1.2-2' }}</div>
+              <div class="text-lg font-semibold text-success">{{ s['min'] | number:'1.2-2' }} Ft</div>
             </div>
           }
           @if (s['max'] !== undefined) {
             <div class="bg-base-200 rounded-xl p-3 border border-base-300">
               <div class="opacity-60">Max</div>
-              <div class="text-lg font-semibold text-error">£{{ s['max'] | number:'1.2-2' }}</div>
+              <div class="text-lg font-semibold text-error">{{ s['max'] | number:'1.2-2' }} Ft</div>
             </div>
           }
           @if (s['avg'] !== undefined) {
             <div class="bg-base-200 rounded-xl p-3 border border-base-300">
               <div class="opacity-60">Avg</div>
-              <div class="text-lg font-semibold">£{{ s['avg'] | number:'1.2-2' }}</div>
+              <div class="text-lg font-semibold">{{ s['avg'] | number:'1.2-2' }} Ft</div>
             </div>
           }
           @if (s['current'] !== undefined) {
             <div class="bg-base-200 rounded-xl p-3 border border-base-300">
               <div class="opacity-60">Current</div>
-              <div class="text-lg font-semibold">£{{ s['current'] | number:'1.2-2' }}</div>
+              <div class="text-lg font-semibold">{{ s['current'] | number:'1.2-2' }} Ft</div>
             </div>
           }
           @if (s['pointCount'] !== undefined) {

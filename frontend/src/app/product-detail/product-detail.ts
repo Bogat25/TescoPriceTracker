@@ -23,7 +23,8 @@ import {
   Filler,
   CategoryScale,
 } from 'chart.js';
-import { combineLatest } from 'rxjs';
+import { combineLatest, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import {
   ProductDetail as ProductDetailModel,
   ProductHistory,
@@ -87,8 +88,8 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     this.error.set('');
     combineLatest({
       product: this.products.get(tpnc),
-      stats: this.products.stats(tpnc),
-      history: this.products.history(tpnc),
+      stats: this.products.stats(tpnc).pipe(catchError(() => of(null as ProductStats | null))),
+      history: this.products.history(tpnc).pipe(catchError(() => of(null as ProductHistory | null))),
     }).subscribe({
       next: ({ product, stats, history }) => {
         this.product.set(product);
@@ -135,7 +136,7 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         interaction: { mode: 'index', intersect: false },
         scales: {
           x: { grid: { display: false } },
-          y: { beginAtZero: false, ticks: { callback: (v) => `£${v}` } },
+          y: { beginAtZero: false, ticks: { callback: (v) => `${v} Ft` } },
         },
         plugins: { legend: { display: false } },
       },

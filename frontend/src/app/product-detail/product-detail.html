@@ -23,19 +23,19 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div class="bg-base-200 rounded-xl p-4 border border-base-300">
           <div class="text-xs uppercase opacity-60">Current</div>
-          <div class="text-2xl font-bold">£{{ s.current ?? '—' }}</div>
+          <div class="text-2xl font-bold">{{ s.current ?? '—' }} Ft</div>
         </div>
         <div class="bg-base-200 rounded-xl p-4 border border-base-300">
           <div class="text-xs uppercase opacity-60">Lowest</div>
-          <div class="text-2xl font-bold text-success">£{{ s.min ?? '—' }}</div>
+          <div class="text-2xl font-bold text-success">{{ s.min ?? '—' }} Ft</div>
         </div>
         <div class="bg-base-200 rounded-xl p-4 border border-base-300">
           <div class="text-xs uppercase opacity-60">Highest</div>
-          <div class="text-2xl font-bold text-error">£{{ s.max ?? '—' }}</div>
+          <div class="text-2xl font-bold text-error">{{ s.max ?? '—' }} Ft</div>
         </div>
         <div class="bg-base-200 rounded-xl p-4 border border-base-300">
           <div class="text-xs uppercase opacity-60">Average</div>
-          <div class="text-2xl font-bold">£{{ s.avg ?? '—' }}</div>
+          <div class="text-2xl font-bold">{{ s.avg ?? '—' }} Ft</div>
         </div>
       </div>
     }
@@ -59,7 +59,7 @@
             <option value="above">Notify when price goes above</option>
           </select>
           <input type="number" step="0.01" class="input input-bordered flex-1"
-                 placeholder="Target price (£)" [(ngModel)]="alertThreshold" name="threshold" />
+                 placeholder="Target price (Ft)" [(ngModel)]="alertThreshold" name="threshold" />
           <button type="button" class="btn btn-primary" (click)="saveAlert()" [disabled]="alertSaving()">
             @if (alertSaving()) { <span class="loading loading-spinner loading-sm"></span> }
             Save alert

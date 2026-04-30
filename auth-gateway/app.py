@@ -121,9 +121,14 @@ def _read_session(request: Request) -> Optional[dict]:
     if not raw:
         return None
     data = _unseal(raw)
-    if not data or data.get("exp", 0) < int(time.time()):
+    if not data:
         return None
+    # Allow expired sessions through — the caller will attempt token refresh.
     return data
+
+
+def _is_session_expired(session: dict) -> bool:
+    return session.get("exp", 0) < int(time.time())
 
 
 app = FastAPI(title="auth-gateway", version="1.0.0")
@@ -190,6 +195,9 @@ async def callback(
 
     tokens = r.json()
     expires_in = int(tokens.get("expires_in", 300))
+    # Use refresh token expiry for cookie lifetime so the browser keeps the cookie
+    # long enough for the gateway to attempt a token refresh.
+    refresh_expires_in = int(tokens.get("refresh_expires_in", 1800))
     session = {
         "at": tokens["access_token"],
         "rt": tokens.get("refresh_token"),
@@ -198,27 +206,93 @@ async def callback(
     }
 
     resp = RedirectResponse(state_data["r"], status_code=302)
-    _set_session_cookie(resp, _seal(session), max_age=expires_in)
+    _set_session_cookie(resp, _seal(session), max_age=refresh_expires_in)
     return resp
+
+
+async def _refresh_tokens(session: dict) -> Optional[dict]:
+    """Use the refresh token to obtain a new access token from Keycloak."""
+    rt = session.get("rt")
+    if not rt:
+        return None
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": rt,
+        "client_id": KC_CLIENT_ID,
+    }
+    if KC_CLIENT_SECRET:
+        payload["client_secret"] = KC_CLIENT_SECRET
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.post(
+                TOKEN_ENDPOINT_INTERNAL,
+                data=payload,
+                headers={"Accept": "application/json"},
+            )
+        if r.status_code != 200:
+            logger.debug("token refresh failed: %s", r.status_code)
+            return None
+        tokens = r.json()
+        expires_in = int(tokens.get("expires_in", 300))
+        return {
+            "at": tokens["access_token"],
+            "rt": tokens.get("refresh_token", rt),
+            "it": tokens.get("id_token", session.get("it")),
+            "exp": int(time.time()) + expires_in,
+        }
+    except Exception:
+        logger.exception("token refresh error")
+        return None
 
 
 @app.get("/auth/userinfo")
 async def userinfo(request: Request):
+    from fastapi.responses import JSONResponse
+
     session = _read_session(request)
     if not session:
         raise HTTPException(401, "not authenticated")
+
+    refreshed_session = None
+
+    # If the access token has expired, try refreshing before calling userinfo.
+    if _is_session_expired(session):
+        refreshed_session = await _refresh_tokens(session)
+        if not refreshed_session:
+            raise HTTPException(401, "session expired and refresh failed")
+        session = refreshed_session
 
     async with httpx.AsyncClient(timeout=10.0) as client:
         r = await client.get(
             USERINFO_ENDPOINT_INTERNAL,
             headers={"Authorization": f"Bearer {session['at']}"},
         )
-    if r.status_code != 200:
-        raise HTTPException(401, "userinfo rejected")
-    info = r.json()
 
+    # If userinfo rejected (e.g. token revoked), attempt one refresh.
+    if r.status_code != 200 and not refreshed_session:
+        refreshed_session = await _refresh_tokens(session)
+        if not refreshed_session:
+            raise HTTPException(401, "userinfo rejected")
+        session = refreshed_session
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.get(
+                USERINFO_ENDPOINT_INTERNAL,
+                headers={"Authorization": f"Bearer {session['at']}"},
+            )
+        if r.status_code != 200:
+            raise HTTPException(401, "userinfo rejected after refresh")
+
+    info = r.json()
     name = info.get("preferred_username") or info.get("name") or info.get("email") or "user"
     claims = [{"Type": k, "Value": str(v)} for k, v in info.items() if v is not None]
+
+    # If we refreshed, update the session cookie in the response.
+    if refreshed_session:
+        expires_in = refreshed_session["exp"] - int(time.time())
+        resp = JSONResponse({"Name": name, "Claims": claims})
+        _set_session_cookie(resp, _seal(refreshed_session), max_age=max(expires_in, 60))
+        return resp
+
     return {"Name": name, "Claims": claims}
 
 

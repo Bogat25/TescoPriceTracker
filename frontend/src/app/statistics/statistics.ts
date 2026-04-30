@@ -1,6 +1,7 @@
 import {
   AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
   ElementRef,
   OnDestroy,
@@ -111,6 +112,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
   @ViewChild('promoDensityBar') promoDensityBar?: ElementRef<HTMLCanvasElement>;
 
   private products = inject(ProductsService);
+  private cdr = inject(ChangeDetectorRef);
 
   readonly query = signal('');
   readonly suggestions = signal<ProductSummary[]>([]);
@@ -189,7 +191,9 @@ export class Statistics implements AfterViewInit, OnDestroy {
         this.kpi.set(kpi);
         this.insights.set(this.computeInsights(product, kpi));
         this.loading.set(false);
-        queueMicrotask(() => this.renderAll(product));
+        // Force change detection so canvas elements are created before rendering charts.
+        this.cdr.detectChanges();
+        setTimeout(() => this.renderAll(product), 0);
       },
       error: (err) => {
         this.error.set(err?.error?.error || 'Failed to load product data.');
@@ -376,7 +380,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
     }
 
     if (kpi.clubcardTotalSavings !== undefined) {
-      out.push(`Across all tracked Clubcard entries, members would have saved a total of £${kpi.clubcardTotalSavings.toFixed(2)} vs. normal pricing.`);
+      out.push(`Across all tracked Clubcard entries, members would have saved a total of ${kpi.clubcardTotalSavings.toFixed(2)} Ft vs. normal pricing.`);
     }
 
     if (kpi.promoFreqPct !== undefined) {
@@ -491,7 +495,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
           interaction: { mode: 'index', intersect: false },
           scales: {
             x: { grid: { display: false }, ticks: { maxTicksLimit: 10, autoSkip: true } },
-            y: { beginAtZero: false, ticks: { callback: (v) => `£${v}` } },
+            y: { beginAtZero: false, ticks: { callback: (v) => `${v} Ft` } },
           },
           plugins: {
             legend: { position: 'bottom' },
@@ -500,7 +504,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
                 label: (ctx) =>
                   ctx.parsed.y === null
                     ? `${ctx.dataset.label}: —`
-                    : `${ctx.dataset.label}: £${Number(ctx.parsed.y).toFixed(2)}`,
+                    : `${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(2)} Ft`,
               },
             },
           },
@@ -617,7 +621,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
           maintainAspectRatio: false,
           scales: {
             x: { grid: { display: false } },
-            y: { beginAtZero: false, ticks: { callback: (v) => `£${v}` } },
+            y: { beginAtZero: false, ticks: { callback: (v) => `${v} Ft` } },
           },
           plugins: { legend: { display: false } },
         },
@@ -709,7 +713,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          scales: { r: { ticks: { callback: (v) => `£${v}` } } },
+          scales: { r: { ticks: { callback: (v) => `${v} Ft` } } },
           plugins: { legend: { position: 'bottom' } },
         },
       }),
@@ -737,7 +741,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
     const labels = buckets.map((_, i) => {
       const lo = min + i * step;
       const hi = lo + step;
-      return `£${lo.toFixed(2)}–£${hi.toFixed(2)}`;
+      return `${lo.toFixed(2)}–${hi.toFixed(2)} Ft`;
     });
 
     this.charts.push(
@@ -814,7 +818,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
           maintainAspectRatio: false,
           scales: {
             x: { grid: { display: false } },
-            y: { beginAtZero: false, ticks: { callback: (v) => `£${v}` } },
+            y: { beginAtZero: false, ticks: { callback: (v) => `${v} Ft` } },
           },
           plugins: { legend: { position: 'bottom' } },
         },
@@ -876,7 +880,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
           maintainAspectRatio: false,
           scales: {
             x: { grid: { display: false }, ticks: { maxTicksLimit: 12, autoSkip: true } },
-            y: { ticks: { callback: (v) => `£${Number(v).toFixed(2)}` } },
+            y: { ticks: { callback: (v) => `${Number(v).toFixed(2)} Ft` } },
           },
           plugins: {
             legend: { display: false },
@@ -884,7 +888,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
               callbacks: {
                 label: (ctx) => {
                   const v = Number(ctx.parsed.y);
-                  return v >= 0 ? `+£${v.toFixed(2)} increase` : `-£${Math.abs(v).toFixed(2)} decrease`;
+                  return v >= 0 ? `+${v.toFixed(2)} Ft increase` : `-${Math.abs(v).toFixed(2)} Ft decrease`;
                 },
               },
             },
@@ -949,12 +953,12 @@ export class Statistics implements AfterViewInit, OnDestroy {
           maintainAspectRatio: false,
           scales: {
             x: { grid: { display: false }, ticks: { maxTicksLimit: 10, autoSkip: true } },
-            y: { beginAtZero: true, ticks: { callback: (v) => `£${v}` } },
+            y: { beginAtZero: true, ticks: { callback: (v) => `${v} Ft` } },
           },
           plugins: {
             legend: { display: false },
             tooltip: {
-              callbacks: { label: (ctx) => `Total saved: £${Number(ctx.parsed.y).toFixed(2)}` },
+              callbacks: { label: (ctx) => `Total saved: ${Number(ctx.parsed.y).toFixed(2)} Ft` },
             },
           },
         },
