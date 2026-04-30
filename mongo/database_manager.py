@@ -30,6 +30,8 @@ def init_db():
     coll = get_db()
     coll.create_index([("name", "text")])
     coll.create_index("last_scraped_price")
+    _db['alerts'].create_index("user_id")
+    _db['runs'].create_index("_id")
     print("MongoDB indexes verified/created.")
 
 def load_product_data(tpnc):

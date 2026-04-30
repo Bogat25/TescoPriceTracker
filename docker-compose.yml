@@ -87,6 +87,12 @@ services:
       - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
       - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
       - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health/ready"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     networks:
       tesco-tracker-internal: {}
       public_ingress:
