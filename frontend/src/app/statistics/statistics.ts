@@ -40,6 +40,20 @@ import {
   ProductsService,
   toSummary,
 } from '../services/products.service';
+import {
+  BestShoppingDay,
+  CategoryDiff,
+  DiscountByWeekday,
+  GlobalAvg,
+  Inflation30d,
+  PlatformStatsService,
+  PriceDrop,
+  PriceIndexPoint,
+  PriceTier,
+  ProductVolume,
+  TopDiscountGroup,
+  VolatilityTier,
+} from '../services/platform-stats.service';
 
 Chart.register(
   LineController,
@@ -99,6 +113,15 @@ interface KpiAgg {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Statistics implements AfterViewInit, OnDestroy {
+  // ─── Platform overview chart canvases ───────────────────────────────
+  @ViewChild('platformIndexChart') platformIndexChart?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('platformTiersChart') platformTiersChart?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('platformCategoryChart') platformCategoryChart?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('platformWeekdayChart') platformWeekdayChart?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('platformVolatilityChart') platformVolatilityChart?: ElementRef<HTMLCanvasElement>;
+  @ViewChild('platformTopDiscountsChart') platformTopDiscountsChart?: ElementRef<HTMLCanvasElement>;
+
+  // ─── Product-specific chart canvases ────────────────────────────────
   @ViewChild('lineChart') lineChart?: ElementRef<HTMLCanvasElement>;
   @ViewChild('channelDoughnut') channelDoughnut?: ElementRef<HTMLCanvasElement>;
   @ViewChild('promoDoughnut') promoDoughnut?: ElementRef<HTMLCanvasElement>;
@@ -112,7 +135,28 @@ export class Statistics implements AfterViewInit, OnDestroy {
   @ViewChild('promoDensityBar') promoDensityBar?: ElementRef<HTMLCanvasElement>;
 
   private products = inject(ProductsService);
+  private platformStats = inject(PlatformStatsService);
   private cdr = inject(ChangeDetectorRef);
+
+  // ─── Tab state ──────────────────────────────────────────────────────
+  readonly activeTab = signal<'overview' | 'product'>('overview');
+
+  // ─── Platform overview signals ──────────────────────────────────────
+  readonly platformLoading = signal(false);
+  readonly platformError = signal('');
+  readonly priceIndex = signal<PriceIndexPoint[]>([]);
+  readonly productVolume = signal<ProductVolume | null>(null);
+  readonly priceTiers = signal<PriceTier[]>([]);
+  readonly categoryDiff = signal<CategoryDiff | null>(null);
+  readonly topDiscounts = signal<TopDiscountGroup[]>([]);
+  readonly bestShoppingDay = signal<BestShoppingDay | null>(null);
+  readonly discountByWeekday = signal<DiscountByWeekday[]>([]);
+  readonly volatilityTiers = signal<VolatilityTier[]>([]);
+  readonly globalAvg = signal<GlobalAvg | null>(null);
+  readonly inflation30d = signal<Inflation30d | null>(null);
+  readonly priceDropsToday = signal<PriceDrop[]>([]);
+
+  // ─── Product analysis signals ──────────────────────────────────────
 
   readonly query = signal('');
   readonly suggestions = signal<ProductSummary[]>([]);
@@ -156,11 +200,301 @@ export class Statistics implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.viewReady = true;
+    this.loadPlatformStats();
   }
 
   ngOnDestroy(): void {
     this.destroyCharts();
+    for (const c of this.platformCharts) c.destroy();
+    this.platformCharts = [];
     this.searchInput$.complete();
+  }
+
+  switchTab(tab: 'overview' | 'product'): void {
+    this.activeTab.set(tab);
+    if (tab === 'overview') {
+      this.cdr.detectChanges();
+      setTimeout(() => this.renderPlatformCharts(), 0);
+    }
+  }
+
+  // ─── Platform overview loading ──────────────────────────────────────
+
+  private loadPlatformStats(): void {
+    this.platformLoading.set(true);
+    this.platformError.set('');
+
+    forkJoin({
+      priceIndex: this.platformStats.priceIndex().pipe(catchError(() => of([]))),
+      productVolume: this.platformStats.productVolume().pipe(catchError(() => of(null))),
+      priceTiers: this.platformStats.priceTiers().pipe(catchError(() => of([]))),
+      categoryDiff: this.platformStats.categoryDiff().pipe(catchError(() => of(null))),
+      topDiscounts: this.platformStats.topDiscounts().pipe(catchError(() => of([]))),
+      bestShoppingDay: this.platformStats.bestShoppingDay().pipe(catchError(() => of(null))),
+      discountByWeekday: this.platformStats.discountByWeekday().pipe(catchError(() => of([]))),
+      volatilityTiers: this.platformStats.volatility().pipe(catchError(() => of([]))),
+      globalAvg: this.platformStats.globalAvg().pipe(catchError(() => of(null))),
+      inflation30d: this.platformStats.inflation30d().pipe(catchError(() => of(null))),
+      priceDropsToday: this.platformStats.priceDropsToday().pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: (data) => {
+        this.priceIndex.set(data.priceIndex as PriceIndexPoint[]);
+        this.productVolume.set(data.productVolume as ProductVolume | null);
+        this.priceTiers.set(data.priceTiers as PriceTier[]);
+        this.categoryDiff.set(data.categoryDiff as CategoryDiff | null);
+        this.topDiscounts.set(data.topDiscounts as TopDiscountGroup[]);
+        this.bestShoppingDay.set(data.bestShoppingDay as BestShoppingDay | null);
+        this.discountByWeekday.set(data.discountByWeekday as DiscountByWeekday[]);
+        this.volatilityTiers.set(data.volatilityTiers as VolatilityTier[]);
+        this.globalAvg.set(data.globalAvg as GlobalAvg | null);
+        this.inflation30d.set(data.inflation30d as Inflation30d | null);
+        this.priceDropsToday.set(data.priceDropsToday as PriceDrop[]);
+        this.platformLoading.set(false);
+        this.cdr.detectChanges();
+        setTimeout(() => this.renderPlatformCharts(), 0);
+      },
+      error: () => {
+        this.platformError.set('Failed to load platform statistics.');
+        this.platformLoading.set(false);
+      },
+    });
+  }
+
+  private platformCharts: Chart[] = [];
+
+  private renderPlatformCharts(): void {
+    for (const c of this.platformCharts) c.destroy();
+    this.platformCharts = [];
+
+    this.renderPriceIndexChart();
+    this.renderPriceTiersChart();
+    this.renderCategoryDiffChart();
+    this.renderWeekdayChart();
+    this.renderVolatilityChart();
+    this.renderTopDiscountsChart();
+  }
+
+  private renderPriceIndexChart(): void {
+    const canvas = this.platformIndexChart?.nativeElement;
+    const data = this.priceIndex();
+    if (!canvas || !data.length) return;
+
+    const labels = data.map((d) => d.date);
+    const values = data.map((d) => d.index);
+
+    this.platformCharts.push(
+      new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Price Index',
+            data: values,
+            borderColor: 'rgb(59, 130, 246)',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            borderWidth: 2,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          scales: {
+            x: { grid: { display: false }, ticks: { maxTicksLimit: 12, autoSkip: true } },
+            y: {
+              ticks: { callback: (v) => `${v}` },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `Index: ${Number(ctx.parsed.y).toFixed(1)} (base=100)`,
+              },
+            },
+          },
+        },
+      }),
+    );
+  }
+
+  private renderPriceTiersChart(): void {
+    const canvas = this.platformTiersChart?.nativeElement;
+    const data = this.priceTiers();
+    if (!canvas || !data.length) return;
+
+    this.platformCharts.push(
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.map((t) => t.tier),
+          datasets: [{
+            label: 'Products',
+            data: data.map((t) => t.count),
+            backgroundColor: 'rgba(59, 130, 246, 0.6)',
+            borderColor: 'rgb(59, 130, 246)',
+            borderWidth: 1,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }),
+    );
+  }
+
+  private renderCategoryDiffChart(): void {
+    const canvas = this.platformCategoryChart?.nativeElement;
+    const diff = this.categoryDiff();
+    if (!canvas || !diff) return;
+
+    const labels = ['Normal', 'Discount', 'Clubcard'];
+    const values = [diff.avg_normal ?? 0, diff.avg_discount ?? 0, diff.avg_clubcard ?? 0];
+    if (!values.some((v) => v > 0)) return;
+
+    this.platformCharts.push(
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Average price (Ft)',
+            data: values,
+            backgroundColor: [
+              'rgba(59, 130, 246, 0.6)',
+              'rgba(249, 115, 22, 0.6)',
+              'rgba(234, 179, 8, 0.6)',
+            ],
+            borderColor: [
+              'rgb(59, 130, 246)',
+              'rgb(249, 115, 22)',
+              'rgb(234, 179, 8)',
+            ],
+            borderWidth: 1,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { callback: (v) => `${v} Ft` } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }),
+    );
+  }
+
+  private renderWeekdayChart(): void {
+    const canvas = this.platformWeekdayChart?.nativeElement;
+    const data = this.discountByWeekday();
+    if (!canvas || !data.length) return;
+
+    this.platformCharts.push(
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.map((d) => d.weekday.substring(0, 3)),
+          datasets: [{
+            label: 'Avg discount %',
+            data: data.map((d) => d.avg_pct_off),
+            backgroundColor: 'rgba(16, 185, 129, 0.6)',
+            borderColor: 'rgb(16, 185, 129)',
+            borderWidth: 1,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { callback: (v) => `${v}%` } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }),
+    );
+  }
+
+  private renderVolatilityChart(): void {
+    const canvas = this.platformVolatilityChart?.nativeElement;
+    const data = this.volatilityTiers();
+    if (!canvas || !data.length) return;
+
+    this.platformCharts.push(
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: data.map((d) => d.tier),
+          datasets: [{
+            label: 'Avg volatility (std-dev)',
+            data: data.map((d) => d.avg_volatility),
+            backgroundColor: 'rgba(239, 68, 68, 0.5)',
+            borderColor: 'rgb(239, 68, 68)',
+            borderWidth: 1,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { callback: (v) => `${v} Ft` } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }),
+    );
+  }
+
+  private renderTopDiscountsChart(): void {
+    const canvas = this.platformTopDiscountsChart?.nativeElement;
+    const data = this.topDiscounts();
+    if (!canvas || !data.length) return;
+
+    // Show top 15 discount tiers
+    const top = data.slice(0, 15);
+    this.platformCharts.push(
+      new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: top.map((d) => `${d.pct_off}% off`),
+          datasets: [{
+            label: 'Products at this discount',
+            data: top.map((d) => d.products.length),
+            backgroundColor: 'rgba(168, 85, 247, 0.5)',
+            borderColor: 'rgb(168, 85, 247)',
+            borderWidth: 1,
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          scales: {
+            x: { beginAtZero: true },
+            y: { grid: { display: false } },
+          },
+          plugins: { legend: { display: false } },
+        },
+      }),
+    );
   }
 
   onSearchInput(value: string): void {

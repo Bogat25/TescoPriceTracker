@@ -9,9 +9,254 @@
         <span>Statistics</span>
       </div>
       <h1 class="text-3xl md:text-4xl font-extrabold">Statistics dashboard</h1>
-      <p class="opacity-70 mt-1">Deep-dive price analysis — trends, volatility, promotions and Clubcard savings.</p>
+      <p class="opacity-70 mt-1">Platform-wide analytics and per-product deep-dives.</p>
     </div>
   </div>
+
+  <!-- Tab navigation -->
+  <div class="tabs tabs-boxed mb-6 bg-base-200 p-1 rounded-xl">
+    <button type="button"
+            class="tab tab-lg"
+            [class.tab-active]="activeTab() === 'overview'"
+            (click)="switchTab('overview')">
+      📊 Platform Overview
+    </button>
+    <button type="button"
+            class="tab tab-lg"
+            [class.tab-active]="activeTab() === 'product'"
+            (click)="switchTab('product')">
+      🔍 Product Analysis
+    </button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 1: PLATFORM OVERVIEW                                           -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  @if (activeTab() === 'overview') {
+
+    @if (platformLoading()) {
+      <div class="flex items-center justify-center gap-3 py-20">
+        <span class="loading loading-spinner loading-lg"></span>
+        <span>Loading platform statistics...</span>
+      </div>
+    }
+
+    @if (platformError()) {
+      <div class="alert alert-error mb-6">{{ platformError() }}</div>
+    }
+
+    @if (!platformLoading() && !platformError()) {
+
+      <!-- KPI Hero tiles -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
+        @if (productVolume(); as vol) {
+          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+            <div class="text-xs uppercase opacity-60">Products tracked</div>
+            <div class="text-2xl font-bold text-primary">{{ vol.total | number }}</div>
+            <div class="text-xs opacity-60 mt-1">{{ vol.active_today | number }} active today</div>
+          </div>
+        }
+        @if (globalAvg(); as ga) {
+          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+            <div class="text-xs uppercase opacity-60">Global avg price</div>
+            <div class="text-2xl font-bold">{{ ga.avg_price | number:'1.0-0' }} Ft</div>
+            <div class="text-xs opacity-60 mt-1">across {{ ga.product_count | number }} products</div>
+          </div>
+        }
+        @if (inflation30d(); as inf) {
+          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+            <div class="text-xs uppercase opacity-60">30-day inflation</div>
+            <div class="text-2xl font-bold" [class.text-error]="inf.pct_change !== null && inf.pct_change > 0" [class.text-success]="inf.pct_change !== null && inf.pct_change < 0">
+              @if (inf.pct_change !== null) {
+                {{ inf.pct_change > 0 ? '+' : '' }}{{ inf.pct_change | number:'1.2-2' }}%
+              } @else { — }
+            </div>
+            @if (inf.avg_today !== null && inf.avg_30d_ago !== null) {
+              <div class="text-xs opacity-60 mt-1">{{ inf.avg_30d_ago | number:'1.0-0' }} → {{ inf.avg_today | number:'1.0-0' }} Ft</div>
+            }
+          </div>
+        }
+        @if (bestShoppingDay(); as bsd) {
+          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+            <div class="text-xs uppercase opacity-60">Best shopping day</div>
+            <div class="text-lg font-bold">{{ bsd.date ?? '—' }}</div>
+            @if (bsd.total_savings !== null) {
+              <div class="text-xs opacity-60 mt-1">{{ bsd.total_savings | number:'1.0-0' }} Ft saved</div>
+            }
+          </div>
+        }
+        @if (categoryDiff(); as cd) {
+          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
+            <div class="text-xs uppercase opacity-60">Clubcard savings</div>
+            <div class="text-2xl font-bold text-warning">
+              @if (cd.clubcard_vs_normal_pct !== null) {
+                {{ cd.clubcard_vs_normal_pct | number:'1.1-1' }}%
+              } @else { — }
+            </div>
+            <div class="text-xs opacity-60 mt-1">vs normal price avg</div>
+          </div>
+        }
+      </div>
+
+      <!-- Price Index chart (full-width, hero) -->
+      @if (priceIndex().length) {
+        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-6 mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-lg">Price Index (inflation tracker)</h3>
+              <p class="text-xs opacity-60">Platform avg normal price over time, normalized to 100 at first tracked date</p>
+            </div>
+            @if (priceIndex().length > 1) {
+              <div class="badge badge-outline">
+                @if (priceIndex()[priceIndex().length - 1].index > 100) {
+                  <span class="text-error">↑ {{ (priceIndex()[priceIndex().length - 1].index - 100) | number:'1.1-1' }}% since start</span>
+                } @else {
+                  <span class="text-success">↓ {{ (100 - priceIndex()[priceIndex().length - 1].index) | number:'1.1-1' }}% since start</span>
+                }
+              </div>
+            }
+          </div>
+          <div class="relative h-80">
+            <canvas #platformIndexChart></canvas>
+          </div>
+        </div>
+      }
+
+      <!-- Row: Price tiers + Category avg -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        @if (priceTiers().length) {
+          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+            <h3 class="font-bold mb-3">Product distribution by price tier</h3>
+            <div class="relative h-72">
+              <canvas #platformTiersChart></canvas>
+            </div>
+          </div>
+        }
+        @if (categoryDiff()) {
+          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+            <h3 class="font-bold mb-3">Average price by channel</h3>
+            <div class="relative h-72">
+              <canvas #platformCategoryChart></canvas>
+            </div>
+            @if (categoryDiff(); as cd) {
+              <div class="grid grid-cols-2 gap-2 mt-3 text-sm">
+                <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+                  <span class="opacity-60">Discount vs Normal:</span>
+                  <span class="font-bold" [class.text-success]="cd.discount_vs_normal_pct !== null && cd.discount_vs_normal_pct < 0">
+                    {{ cd.discount_vs_normal_pct !== null ? (cd.discount_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
+                  </span>
+                </div>
+                <div class="bg-base-100 rounded-lg p-2 border border-base-300">
+                  <span class="opacity-60">Clubcard vs Normal:</span>
+                  <span class="font-bold" [class.text-success]="cd.clubcard_vs_normal_pct !== null && cd.clubcard_vs_normal_pct < 0">
+                    {{ cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
+                  </span>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <!-- Row: Discount by weekday + Volatility -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        @if (discountByWeekday().length) {
+          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+            <h3 class="font-bold mb-1">Average discount by weekday</h3>
+            <p class="text-xs opacity-60 mb-3">Which day typically has the biggest discounts?</p>
+            <div class="relative h-64">
+              <canvas #platformWeekdayChart></canvas>
+            </div>
+          </div>
+        }
+        @if (volatilityTiers().length) {
+          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
+            <h3 class="font-bold mb-1">Price volatility by tier</h3>
+            <p class="text-xs opacity-60 mb-3">Avg std-dev of prices over the last 30 days per tier</p>
+            <div class="relative h-64">
+              <canvas #platformVolatilityChart></canvas>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Top discounts chart -->
+      @if (topDiscounts().length) {
+        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
+          <h3 class="font-bold mb-1">Today's top discount tiers</h3>
+          <p class="text-xs opacity-60 mb-3">Number of products at each discount level</p>
+          <div class="relative h-80">
+            <canvas #platformTopDiscountsChart></canvas>
+          </div>
+        </div>
+      }
+
+      <!-- Today's price drops table -->
+      @if (priceDropsToday().length) {
+        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="font-bold text-lg">🔥 Today's price drops</h3>
+              <p class="text-xs opacity-60">Products whose normal price dropped versus yesterday</p>
+            </div>
+            <span class="badge badge-success">{{ priceDropsToday().length }} drops</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th class="text-right">Yesterday</th>
+                  <th class="text-right">Today</th>
+                  <th class="text-right">Drop</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (drop of priceDropsToday().slice(0, 20); track drop.tpnc) {
+                  <tr>
+                    <td>
+                      <a [routerLink]="['/products', drop.tpnc]" class="link link-hover font-medium">
+                        {{ drop.name || drop.tpnc }}
+                      </a>
+                    </td>
+                    <td class="text-right opacity-60">{{ drop.yesterday_price | number:'1.0-0' }} Ft</td>
+                    <td class="text-right font-bold text-success">{{ drop.today_price | number:'1.0-0' }} Ft</td>
+                    <td class="text-right">
+                      <span class="badge badge-success badge-sm">-{{ drop.drop_pct | number:'1.1-1' }}%</span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+            @if (priceDropsToday().length > 20) {
+              <p class="text-xs opacity-60 mt-2 text-center">Showing top 20 of {{ priceDropsToday().length }} drops</p>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Discount events summary -->
+      @if (discountByWeekday().length) {
+        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
+          <h3 class="font-bold mb-3">Discount events summary by weekday</h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+            @for (day of discountByWeekday(); track day.weekday) {
+              <div class="bg-base-100 rounded-xl p-3 border border-base-300 text-center">
+                <div class="text-xs font-bold uppercase opacity-60">{{ day.weekday.substring(0, 3) }}</div>
+                <div class="text-xl font-bold mt-1">{{ day.avg_pct_off | number:'1.1-1' }}%</div>
+                <div class="text-xs opacity-50">{{ day.total_events | number }} events</div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    }
+  }
+
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 2: PRODUCT ANALYSIS                                            -->
+  <!-- ════════════════════════════════════════════════════════════════════ -->
+  @if (activeTab() === 'product') {
 
   <!-- Product picker -->
   <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
@@ -412,4 +657,6 @@
     </div>
 
   }
+
+  } <!-- end activeTab === 'product' -->
 </section>
