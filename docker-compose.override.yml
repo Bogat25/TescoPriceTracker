@@ -39,10 +39,19 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+  keycloak-init:
+    image: busybox
+    container_name: tesco-tracker-keycloak-init
+    volumes:
+    - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
+    command: chown -R 1000:1000 /opt/keycloak/data
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: tesco-tracker-keycloak
     restart: unless-stopped
+    depends_on:
+      keycloak-init:
+        condition: service_completed_successfully
     entrypoint:
     - /bin/sh
     - /scripts/docker-entrypoint.sh
@@ -178,6 +187,3 @@ networks:
   admin_ingress:
     external: true
     name: admin_ingress
-volumes:
-  keycloak-data:
-    name: tesco-tracker-keycloak-data

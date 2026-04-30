@@ -43,11 +43,24 @@ services:
       mongo:
         condition: service_healthy
 
-  # â”€â”€ Identity provider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # ── Identity provider permission fix ──────────────────────────────────────────
+  # Docker creates host bind mounts as root. Keycloak runs as UID 1000.
+  # This quick init container sets the right ownership on the host directory.
+  keycloak-init:
+    image: busybox
+    container_name: tesco-tracker-keycloak-init
+    volumes:
+      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
+    command: chown -R 1000:1000 /opt/keycloak/data
+
+  # ── Identity provider ───────────────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: tesco-tracker-keycloak
     restart: unless-stopped
+    depends_on:
+      keycloak-init:
+        condition: service_completed_successfully
     entrypoint: ["/bin/sh", "/scripts/docker-entrypoint.sh"]
     expose:
       - "8080"
@@ -195,7 +208,3 @@ networks:
     name: admin_ingress
 
 # â”€â”€ Volumes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-volumes:
-  keycloak-data:
-    name: tesco-tracker-keycloak-data
-
