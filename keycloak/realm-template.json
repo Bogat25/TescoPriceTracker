@@ -2,7 +2,7 @@
   "realm": "${KEYCLOAK_REALM}",
   "enabled": true,
   "sslRequired": "none",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "clients": [
     {
