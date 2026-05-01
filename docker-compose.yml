@@ -88,11 +88,14 @@ services:
       - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
       - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health/ready"]
-      interval: 10s
+      # Keycloak 26 image (UBI9-micro based) has no curl/wget. Use the bundled JVM
+      # to probe the management /health/ready endpoint. This is the approach
+      # documented at https://www.keycloak.org/server/health
+      test: ["CMD-SHELL", "[ -f /tmp/HealthCheck.java ] || echo \"public class HealthCheck { public static void main(String[] args) throws java.lang.Throwable { System.exit(java.net.HttpURLConnection.HTTP_OK == ((java.net.HttpURLConnection)new java.net.URL(args[0]).openConnection()).getResponseCode() ? 0 : 1); } }\" > /tmp/HealthCheck.java && java /tmp/HealthCheck.java http://localhost:9000/health/ready"]
+      interval: 15s
       timeout: 10s
-      retries: 5
-      start_period: 30s
+      retries: 10
+      start_period: 90s
     networks:
       tesco-tracker-internal: {}
       public_ingress:

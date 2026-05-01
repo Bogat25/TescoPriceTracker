@@ -34,7 +34,8 @@ env.bak/
 venv.bak/
 
 # Environments
-.env
+*.env*
+!.env.example
 .venv
 venv/
 env.bak/
@@ -47,3 +48,4 @@ data/
 test_data/
 DEPLOYMENT.md
 frontend/node_modules/
+.claude/
