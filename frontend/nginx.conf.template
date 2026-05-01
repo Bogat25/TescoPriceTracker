@@ -27,11 +27,18 @@ server {
     }
 
     # ── Auth gateway ───────────────────────────────────────────────────────
-    # /auth/<path>  →  http://tesco-tracker-auth-gateway:8080/auth/<path>
-    # The gateway owns the OIDC dance with Keycloak and exposes a small
-    # cookie-based session API to the SPA. Same-origin so cookies just work.
+    # /auth/<path>  →  ${AUTH_UPSTREAM}/auth/<path>
+    # Standalone mode: AUTH_UPSTREAM=http://auth-gateway:8080 (this stack)
+    # Embedded mode:   AUTH_UPSTREAM=http://<external-gateway>:8080 (other stack on public_ingress)
+    #
+    # The proxy_pass uses an nginx variable, not a literal hostname, so DNS is
+    # resolved per request via Docker's embedded resolver (127.0.0.11). This
+    # lets nginx start even when the upstream isn't up yet (or doesn't exist
+    # in this stack at all — e.g. embedded mode with COMPOSE_PROFILES=).
     location /auth/ {
-        proxy_pass http://tesco-tracker-auth-gateway:8080/auth/;
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $auth_upstream ${AUTH_UPSTREAM};
+        proxy_pass $auth_upstream/auth/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
