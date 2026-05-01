@@ -32,6 +32,27 @@
         "pkce.code.challenge.method": "S256",
         "post.logout.redirect.uris": "${REALM_POST_LOGOUT_REDIRECT_URIS_HASH}"
       }
+    },
+    {
+      "clientId": "${KC_ADMIN_CLIENT_ID}",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "secret": "${KC_ADMIN_CLIENT_SECRET}",
+      "redirectUris": [],
+      "webOrigins": []
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-${KC_ADMIN_CLIENT_ID}",
+      "enabled": true,
+      "serviceAccountClientId": "${KC_ADMIN_CLIENT_ID}",
+      "clientRoles": {
+        "realm-management": ["view-users"]
+      }
     }
   ]
 }

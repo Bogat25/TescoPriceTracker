@@ -2,6 +2,7 @@ import requests
 import re
 import time
 import random
+import os
 import logging
 import argparse
 import concurrent.futures
@@ -473,9 +474,47 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         logger.info(f"Daily scrape completed: {processed}/{len(all_items)} items.")
         logger.info("Rebuilding stats cache...")
         stats_manager.rebuild_all_cache()
+        _notify_alert_service()
     else:
         db.save_run_state(state)
         logger.info(f"Daily scrape partial: {processed}/{len(all_items)} items — will resume on next run.")
+
+
+def _notify_alert_service():
+    """Notify the alert-service of today's price drops.
+
+    Failures are logged but never raised — the scraper run must succeed even if
+    the downstream alert service is unreachable.
+    """
+    url = os.environ.get("ALERT_SERVICE_TRIGGER_URL", "http://alert-service:8080/internal/trigger")
+    token = os.environ.get("INTERNAL_TRIGGER_TOKEN", "")
+    if not token:
+        logger.info("INTERNAL_TRIGGER_TOKEN not set — skipping alert-service notification")
+        return
+
+    try:
+        drops = db.get_today_price_drops()
+    except Exception:
+        logger.exception("failed to compute today's price drops")
+        return
+
+    if not drops:
+        logger.info("No price drops to notify the alert-service about.")
+        return
+
+    try:
+        r = requests.post(
+            url,
+            json={"drops": drops},
+            headers={"X-Internal-Token": token},
+            timeout=30,
+        )
+        if r.status_code == 200:
+            logger.info("Alert-service trigger ok: %s", r.json())
+        else:
+            logger.warning("Alert-service trigger non-200: %s %s", r.status_code, r.text[:500])
+    except requests.RequestException:
+        logger.exception("Alert-service trigger failed")
 
 
 if __name__ == "__main__":

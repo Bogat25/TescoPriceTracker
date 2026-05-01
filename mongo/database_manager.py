@@ -276,6 +276,67 @@ def save_run_state(state: dict):
 
 
 # ---------------------------------------------------------------------------
+# Price-drop discovery (used by the alert-service trigger)
+# ---------------------------------------------------------------------------
+
+def _effective_price(entry: dict | None):
+    """Pick the price a customer would actually pay: clubcard > discount > normal."""
+    if not entry:
+        return None
+    for key in ("clubcard", "discount", "normal"):
+        bucket = entry.get(key)
+        if isinstance(bucket, dict):
+            price = bucket.get("price")
+            if isinstance(price, (int, float)):
+                return float(price)
+    return None
+
+
+def get_today_price_drops() -> list:
+    """Return products whose effective price today is lower than the prior day.
+
+    Each item: {productId, productName, oldPrice, newPrice}. Used by the scraper
+    to invoke the alert-service after a daily run completes.
+    """
+    coll = get_db()
+    assert coll is not None
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    cursor = coll.find(
+        {"price_history.date": today_str},
+        {"_id": 1, "name": 1, "price_history": 1},
+    )
+
+    drops: list[dict] = []
+    for doc in cursor:
+        history = doc.get("price_history") or []
+        if not isinstance(history, list):
+            continue
+
+        sorted_history = sorted(
+            (e for e in history if isinstance(e, dict) and e.get("date")),
+            key=lambda e: e["date"],
+        )
+        if len(sorted_history) < 2 or sorted_history[-1]["date"] != today_str:
+            continue
+
+        new_price = _effective_price(sorted_history[-1])
+        old_price = _effective_price(sorted_history[-2])
+        if new_price is None or old_price is None:
+            continue
+        if new_price >= old_price:
+            continue
+
+        drops.append({
+            "productId": str(doc["_id"]),
+            "productName": doc.get("name"),
+            "oldPrice": old_price,
+            "newPrice": new_price,
+        })
+    return drops
+
+
+# ---------------------------------------------------------------------------
 # Alerts (MongoDB-backed)
 # ---------------------------------------------------------------------------
 

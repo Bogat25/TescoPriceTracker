@@ -6,6 +6,7 @@ Contract (do not break — other services depend on it):
   GET /auth/login?returnUrl=...   -> 302 to Keycloak authorize
   GET /auth/callback?code&state   -> exchanges code, sets session cookie, 302 to returnUrl
   GET /auth/userinfo              -> {Name, Claims[]} or 401
+  GET /auth/token                 -> {access_token, expires_in} for Bearer-only backends, or 401
   GET /auth/logout?returnUrl=...  -> clears cookie, 302 to Keycloak end-session
   GET /auth/account               -> 302 to Keycloak account management (requires session)
   GET /auth/health                -> {ok: true}
@@ -296,6 +297,35 @@ async def userinfo(request: Request):
         return resp
 
     return {"Name": name, "Claims": claims}
+
+
+@app.get("/auth/token")
+async def token(request: Request):
+    """Return the current access token so the SPA can attach it as Bearer
+    to backend services that validate JWTs directly (e.g. alert-service).
+    Auto-refreshes if the access token has expired.
+    """
+    from fastapi.responses import JSONResponse
+
+    session = _read_session(request)
+    if not session:
+        raise HTTPException(401, "not authenticated")
+
+    refreshed = None
+    if _is_session_expired(session):
+        refreshed = await _refresh_tokens(session)
+        if not refreshed:
+            raise HTTPException(401, "session expired and refresh failed")
+        session = refreshed
+
+    expires_in = max(int(session["exp"] - time.time()), 0)
+    body = {"access_token": session["at"], "expires_in": expires_in}
+    if refreshed:
+        resp = JSONResponse(body)
+        # Persist the refreshed tokens back into the session cookie.
+        _set_session_cookie(resp, _seal(refreshed), max_age=max(expires_in, 60))
+        return resp
+    return body
 
 
 @app.get("/auth/account")
