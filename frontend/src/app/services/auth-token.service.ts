@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { AppConfigService } from './app-config.service';
 
 interface TokenResponse {
   access_token: string;
@@ -10,6 +11,7 @@ interface TokenResponse {
 @Injectable({ providedIn: 'root' })
 export class AuthTokenService {
   private http = inject(HttpClient);
+  private config = inject(AppConfigService);
 
   private cachedToken: string | null = null;
   private expiresAt = 0;
@@ -22,7 +24,7 @@ export class AuthTokenService {
     }
 
     const res = await firstValueFrom(
-      this.http.get<TokenResponse>('/auth/token', { withCredentials: true }),
+      this.http.get<TokenResponse>(this.config.authTokenUrl, { withCredentials: true }),
     );
     this.cachedToken = res.access_token;
     this.expiresAt = now + res.expires_in * 1000;

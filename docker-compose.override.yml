@@ -66,6 +66,8 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
+      KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
+      KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-changeme-admin-secret}
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
       KC_HOSTNAME: ${KC_HOSTNAME}
@@ -165,6 +167,8 @@ services:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
+      ALERT_SERVICE_TRIGGER_URL: ${ALERT_SERVICE_TRIGGER_URL:-http://alert-service:8080/internal/trigger}
+      INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
@@ -172,6 +176,68 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+    build: .
+  alert-service:
+    container_name: ${STACK_PREFIX}tesco-alert-service
+    restart: unless-stopped
+    working_dir: /app/alert-service
+    command: uvicorn app:app --host 0.0.0.0 --port 8080
+    expose:
+    - '8080'
+    environment:
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
+      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}
+      KC_ISSUER: ${KC_ISSUER:-${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}}
+      KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
+      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
+      KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
+      KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
+      INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-}
+      RESEND_REPLY_TO: ${RESEND_REPLY_TO:-}
+      ALLOWED_ORIGINS: ${ALERTS_ALLOWED_ORIGINS:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONPATH: /app
+      TZ: Europe/Budapest
+    networks:
+      tesco-tracker-internal: {}
+      gavaller-backend-internal:
+        aliases:
+        - gavaller-backend-tesco-alert-service
+    depends_on:
+      mongo:
+        condition: service_healthy
+    build: .
+  alert-keycloak-sync:
+    container_name: ${STACK_PREFIX}tesco-alert-keycloak-sync
+    restart: unless-stopped
+    profiles:
+    - auth
+    working_dir: /app/alert-service
+    command: python jobs/keycloak_sync.py
+    environment:
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
+      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
+      KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
+      KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
+      KEYCLOAK_SYNC_CRON: ${KEYCLOAK_SYNC_CRON:-0 3 * * *}
+      KEYCLOAK_SYNC_PAGE_SIZE: ${KEYCLOAK_SYNC_PAGE_SIZE:-100}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONPATH: /app
+      TZ: Europe/Budapest
+    networks:
+    - tesco-tracker-internal
+    depends_on:
+      mongo:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+        required: false
     build: .
   frontend:
     build:
@@ -184,12 +250,14 @@ services:
     environment:
       TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM}
       AUTH_UPSTREAM: ${AUTH_UPSTREAM}
+      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://alert-service:8080}
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
       AUTH_BASE_URL: ${AUTH_BASE_URL}
       AUTH_LOGIN_URL: ${AUTH_LOGIN_URL}
       AUTH_LOGOUT_URL: ${AUTH_LOGOUT_URL}
       AUTH_USERINFO_URL: ${AUTH_USERINFO_URL}
-      NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_UPSTREAM,AUTH_BASE_URL,AUTH_LOGIN_URL,AUTH_LOGOUT_URL,AUTH_USERINFO_URL
+      AUTH_TOKEN_URL: ${AUTH_TOKEN_URL:-/auth/token}
+      NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_UPSTREAM,ALERTS_API_UPSTREAM,AUTH_BASE_URL,AUTH_LOGIN_URL,AUTH_LOGOUT_URL,AUTH_USERINFO_URL,AUTH_TOKEN_URL
     networks:
       tesco-tracker-internal: {}
       public_ingress:
@@ -210,3 +278,6 @@ networks:
   admin_ingress:
     external: true
     name: admin_ingress
+  gavaller-backend-internal:
+    external: true
+    name: gavaller-backend-internal
