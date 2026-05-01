@@ -26,11 +26,11 @@ export class AlertsService {
   private readonly base = '/api/alerts';
 
   list(): Observable<{ alerts: PriceAlert[] }> {
-    return this.http.get<{ alerts: PriceAlert[] }>(this.base);
+    return this.http.get<{ alerts: PriceAlert[] }>(`${this.base}/`);
   }
 
   create(req: CreateAlertRequest): Observable<PriceAlert> {
-    return this.http.post<PriceAlert>(this.base, req);
+    return this.http.post<PriceAlert>(`${this.base}/`, req);
   }
 
   remove(id: string): Observable<void> {
