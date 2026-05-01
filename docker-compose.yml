@@ -5,7 +5,7 @@ services:
   # â”€â”€ Data store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   mongo:
     image: mongo:8
-    container_name: tesco-tracker-mongo
+    container_name: ${STACK_PREFIX}tesco-tracker-mongo
     restart: unless-stopped
     volumes:
       - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/mongo:/data/db
@@ -23,7 +23,7 @@ services:
 
   mongo-express:
     image: mongo-express:latest
-    container_name: tesco-tracker-mongo-express
+    container_name: ${STACK_PREFIX}tesco-tracker-mongo-express
     restart: unless-stopped
     expose:
       - "8081"
@@ -38,7 +38,7 @@ services:
       tesco-tracker-internal: {}
       admin_ingress:
         aliases:
-          - tesco-tracker-mongo-express
+          - ${STACK_PREFIX}tesco-tracker-mongo-express
     depends_on:
       mongo:
         condition: service_healthy
@@ -48,7 +48,7 @@ services:
   # This quick init container sets the right ownership on the host directory.
   keycloak-init:
     image: busybox
-    container_name: tesco-tracker-keycloak-init
+    container_name: ${STACK_PREFIX}tesco-tracker-keycloak-init
     profiles: ["auth"]
     volumes:
       - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
@@ -57,7 +57,7 @@ services:
   # ── Identity provider ───────────────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
-    container_name: tesco-tracker-keycloak
+    container_name: ${STACK_PREFIX}tesco-tracker-keycloak
     restart: unless-stopped
     profiles: ["auth"]
     depends_on:
@@ -100,15 +100,15 @@ services:
       tesco-tracker-internal: {}
       public_ingress:
         aliases:
-          - tesco-tracker-keycloak
+          - ${STACK_PREFIX}tesco-tracker-keycloak
       admin_ingress:
         aliases:
-          - tesco-tracker-keycloak
+          - ${STACK_PREFIX}tesco-tracker-keycloak
 
   # â”€â”€ Backend API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   auth-gateway:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
-    container_name: tesco-tracker-auth-gateway
+    container_name: ${STACK_PREFIX}tesco-tracker-auth-gateway
     restart: unless-stopped
     profiles: ["auth"]
     working_dir: /app/auth-gateway
@@ -117,7 +117,7 @@ services:
       - "8080"
     environment:
       KC_PUBLIC_BASE_URL: ${KC_PUBLIC_BASE_URL}
-      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://tesco-tracker-keycloak:8080/realms/tesco-tracker}
+      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
       KC_CLIENT_SECRET: ${KC_CLIENT_SECRET:-}
       GATEWAY_REDIRECT_URI: ${GATEWAY_REDIRECT_URI}
@@ -140,7 +140,7 @@ services:
 
   api:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
-    container_name: tesco-price-tracker-api
+    container_name: ${STACK_PREFIX}tesco-price-tracker-api
     restart: unless-stopped
     working_dir: /app/backend-api
     command: uvicorn app:app --host 0.0.0.0 --port 50202
@@ -156,7 +156,7 @@ services:
       tesco-tracker-internal: {}
       public_ingress:
         aliases:
-          - tesco-tracker-api
+          - ${STACK_PREFIX}tesco-price-tracker-api
     depends_on:
       mongo:
         condition: service_healthy
@@ -164,7 +164,7 @@ services:
   # â”€â”€ Scrape scheduler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   scheduler:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
-    container_name: tesco-tracker-scheduler
+    container_name: ${STACK_PREFIX}tesco-tracker-scheduler
     restart: unless-stopped
     working_dir: /app/scheduler
     command: python scheduler.py
@@ -187,7 +187,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-frontend:latest
-    container_name: tesco-tracker-frontend
+    container_name: ${STACK_PREFIX}tesco-tracker-frontend
     restart: unless-stopped
     expose:
       - "80"
@@ -205,7 +205,7 @@ services:
       tesco-tracker-internal: {}
       public_ingress:
         aliases:
-          - tesco-tracker
+          - ${STACK_PREFIX}price-tracker
     depends_on:
       api:
         condition: service_started
@@ -216,7 +216,7 @@ services:
 # â”€â”€ Networks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 networks:
   tesco-tracker-internal:
-    name: tesco-tracker-internal
+    name: ${STACK_PREFIX}tesco-tracker-internal
   public_ingress:
     external: true
     name: public_ingress
