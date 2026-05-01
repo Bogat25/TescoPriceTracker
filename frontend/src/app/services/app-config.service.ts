@@ -7,6 +7,7 @@ interface RuntimeConfig {
   authLoginUrl?: string;
   authLogoutUrl?: string;
   authUserinfoUrl?: string;
+  authAccountUrl?: string;
 }
 
 declare global {
@@ -20,6 +21,7 @@ const DEFAULT_AUTH_BASE = '/auth';
 const DEFAULT_AUTH_LOGIN = '/auth/login';
 const DEFAULT_AUTH_LOGOUT = '/auth/logout';
 const DEFAULT_AUTH_USERINFO = '/auth/userinfo';
+const DEFAULT_AUTH_ACCOUNT = '/auth/account';
 
 /**
  * Reads deploy-time configuration injected by runtime-config.js.
@@ -56,6 +58,11 @@ export class AppConfigService {
   readonly authUserinfoUrl: string = this.normalize(
     window.__APP_CONFIG__?.authUserinfoUrl,
     DEFAULT_AUTH_USERINFO,
+  );
+
+  readonly authAccountUrl: string = this.normalize(
+    window.__APP_CONFIG__?.authAccountUrl,
+    DEFAULT_AUTH_ACCOUNT,
   );
 
   private normalize(raw: string | undefined, defaultValue: string): string {

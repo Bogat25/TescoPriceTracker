@@ -7,6 +7,7 @@ Contract (do not break — other services depend on it):
   GET /auth/callback?code&state   -> exchanges code, sets session cookie, 302 to returnUrl
   GET /auth/userinfo              -> {Name, Claims[]} or 401
   GET /auth/logout?returnUrl=...  -> clears cookie, 302 to Keycloak end-session
+  GET /auth/account               -> 302 to Keycloak account management (requires session)
   GET /auth/health                -> {ok: true}
 """
 
@@ -59,6 +60,7 @@ _fernet = Fernet(base64.urlsafe_b64encode(hashlib.sha256(_required("SESSION_SECR
 
 AUTH_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/protocol/openid-connect/auth"
 LOGOUT_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/protocol/openid-connect/logout"
+ACCOUNT_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/account"
 TOKEN_ENDPOINT_INTERNAL = f"{KC_INTERNAL_BASE_URL}/protocol/openid-connect/token"
 USERINFO_ENDPOINT_INTERNAL = f"{KC_INTERNAL_BASE_URL}/protocol/openid-connect/userinfo"
 
@@ -294,6 +296,14 @@ async def userinfo(request: Request):
         return resp
 
     return {"Name": name, "Claims": claims}
+
+
+@app.get("/auth/account")
+async def account(request: Request):
+    session = _read_session(request)
+    if not session:
+        return RedirectResponse(f"/auth/login?returnUrl=/auth/account", status_code=302)
+    return RedirectResponse(ACCOUNT_ENDPOINT_PUBLIC, status_code=302)
 
 
 @app.get("/auth/logout")

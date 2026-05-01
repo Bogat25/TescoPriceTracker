@@ -37,6 +37,10 @@ export class AuthService {
     return this.config.authUserinfoUrl;
   }
 
+  private get authAccountUrl() {
+    return this.config.authAccountUrl;
+  }
+
   readonly authenticated = signal(false);
   readonly loadingAuthState = signal(false);
   readonly userName = signal<string | null>(null);
@@ -83,5 +87,9 @@ export class AuthService {
   logout(returnUrl: string = window.location.origin): void {
     const sep = this.authLogoutUrl.includes('?') ? '&' : '?';
     window.location.href = `${this.authLogoutUrl}${sep}returnUrl=${encodeURIComponent(returnUrl)}`;
+  }
+
+  account(): void {
+    window.location.href = this.authAccountUrl;
   }
 }

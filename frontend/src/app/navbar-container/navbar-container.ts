@@ -37,6 +37,16 @@ export class NavbarContainer implements OnInit, OnDestroy {
       .subscribe(() => this.authService.checkSession().subscribe());
   }
 
+  get userInitials(): string {
+    const name = this.authService.userName();
+    if (!name) return 'U';
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  accountSettings(): void {
+    this.authService.account();
+  }
+
   logout(): void {
     this.authService.logout();
   }

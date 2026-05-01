@@ -28,19 +28,14 @@
     </label>
 
     @if (authService.authenticated()) {
-      <div class="dropdown dropdown-end">
-        <div tabindex="0" role="button" class="btn btn-circle btn-primary">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-          </svg>
+      <div class="dropdown dropdown-end ml-2">
+        <div tabindex="0" role="button" class="btn btn-circle bg-[#6366F1] hover:bg-[#5254D8] border-none text-white font-bold text-lg">
+          {{ userInitials }}
         </div>
-        <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52 mt-3 z-[1]">
-          <li><a routerLink="/alerts">My Alerts</a></li>
-          <li><a routerLink="/user-settings">Account Settings</a></li>
-          <li><a routerLink="/statistics">Statistics</a></li>
-          <div class="divider my-1"></div>
-          <li><button type="button" class="text-error" (click)="logout()">Logout</button></li>
+        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-2xl bg-base-200 rounded-xl w-52 mt-4 border border-white/5">
+          <li><button type="button" (click)="accountSettings()" class="hover:bg-white/5 rounded-lg py-2.5 font-medium">Account Settings</button></li>
+          <div class="h-[1px] bg-white/10 my-1"></div>
+          <li><button type="button" (click)="logout()" class="text-error hover:bg-red-500/10 rounded-lg py-2.5 font-medium">Logout</button></li>
         </ul>
       </div>
     } @else {
@@ -61,9 +56,8 @@
         }
         @if (authService.authenticated()) {
           <div class="divider my-1"></div>
-          <li><a routerLink="/user-settings">Account Settings</a></li>
-          <li><a routerLink="/statistics">Statistics</a></li>
-          <li><button type="button" class="text-error" (click)="logout()">Logout</button></li>
+          <li><button type="button" (click)="accountSettings()" class="font-medium">Account Settings</button></li>
+          <li><button type="button" (click)="logout()" class="text-error font-medium">Logout</button></li>
         }
       </ul>
     </div>
