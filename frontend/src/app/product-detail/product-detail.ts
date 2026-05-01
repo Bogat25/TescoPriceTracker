@@ -32,7 +32,7 @@ import {
   ProductsService,
 } from '../services/products.service';
 import { AuthService } from '../services/auth.service';
-import { AlertDirection, AlertsService } from '../services/alerts.service';
+import { AlertType, AlertsService, CreateAlertRequest } from '../services/alerts.service';
 
 Chart.register(
   LineController,
@@ -68,12 +68,19 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   readonly error = signal('');
 
   // Alert form state.
-  alertThreshold: number | null = null;
-  alertDirection: AlertDirection = 'below';
+  alertType: AlertType = 'TARGET_PRICE';
+  alertTargetPrice: number | null = null;
+  alertDropPercentage: number | null = null;
   readonly alertSaving = signal(false);
   readonly alertMessage = signal('');
 
   private chart?: Chart;
+
+  /** Current effective price for use in alert form validation. */
+  get currentPrice(): number | null {
+    const s = this.stats();
+    return s?.current ?? null;
+  }
 
   ngAfterViewInit(): void {
     this.route.paramMap.subscribe((params) => {
@@ -146,22 +153,49 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   }
 
   saveAlert(): void {
-    const threshold = this.alertThreshold;
     const tpnc = this.tpnc();
-    if (!tpnc || threshold === null || Number.isNaN(threshold)) {
-      this.alertMessage.set('Enter a numeric threshold.');
-      return;
-    }
-    this.alertSaving.set(true);
+    if (!tpnc) return;
+
     this.alertMessage.set('');
-    this.alertsApi.create({ tpnc, threshold, direction: this.alertDirection }).subscribe({
+
+    let req: CreateAlertRequest;
+
+    if (this.alertType === 'TARGET_PRICE') {
+      const target = this.alertTargetPrice;
+      if (target === null || Number.isNaN(target) || target <= 0) {
+        this.alertMessage.set('Enter a valid target price greater than 0.');
+        return;
+      }
+      if (this.currentPrice !== null && target >= this.currentPrice) {
+        this.alertMessage.set('Target price must be below the current price.');
+        return;
+      }
+      req = { productId: tpnc, alertType: 'TARGET_PRICE', targetPrice: target };
+    } else {
+      const pct = this.alertDropPercentage;
+      if (pct === null || Number.isNaN(pct) || pct <= 0 || pct > 100) {
+        this.alertMessage.set('Enter a percentage between 1 and 100.');
+        return;
+      }
+      const basePrice = this.currentPrice;
+      if (basePrice === null || basePrice <= 0) {
+        this.alertMessage.set('Current price is unavailable — cannot create percentage alert.');
+        return;
+      }
+      req = { productId: tpnc, alertType: 'PERCENTAGE_DROP', dropPercentage: pct, basePriceAtCreation: basePrice };
+    }
+
+    this.alertSaving.set(true);
+    this.alertsApi.create(req).subscribe({
       next: () => {
-        this.alertMessage.set('Alert saved.');
+        this.alertMessage.set('Alert saved!');
         this.alertSaving.set(false);
-        this.alertThreshold = null;
+        this.alertTargetPrice = null;
+        this.alertDropPercentage = null;
       },
       error: (err) => {
-        this.alertMessage.set(err?.error?.error || 'Failed to save alert.');
+        const detail = err?.error?.detail;
+        this.alertMessage.set(detail || err?.error?.error || 'Failed to save alert.');
         this.alertSaving.set(false);
       },
     });
