@@ -155,10 +155,7 @@ services:
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
-      tesco-tracker-internal: {}
-      public_ingress:
-        aliases:
-          - ${STACK_PREFIX}tesco-price-tracker-api
+      - tesco-tracker-internal
     depends_on:
       mongo:
         condition: service_healthy
