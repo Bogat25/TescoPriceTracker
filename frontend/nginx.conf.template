@@ -27,11 +27,13 @@ server {
     }
 
     # ── Auth gateway ───────────────────────────────────────────────────────
-    # /auth/<path>  →  http://tesco-tracker-auth-gateway:8080/auth/<path>
+    # /auth/<path>  →  http://auth-gateway:8080/auth/<path>
     # The gateway owns the OIDC dance with Keycloak and exposes a small
     # cookie-based session API to the SPA. Same-origin so cookies just work.
+    # Uses the compose service name so this resolves on the internal network
+    # regardless of STACK_PREFIX (pub vs prod stack).
     location /auth/ {
-        proxy_pass http://tesco-tracker-auth-gateway:8080/auth/;
+        proxy_pass http://auth-gateway:8080/auth/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
