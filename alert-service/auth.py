@@ -72,21 +72,33 @@ def _decode(token: str) -> dict:
 def _validate_bearer(token: str) -> dict:
     try:
         claims = _decode(token)
-    except PyJWTError:
+    except PyJWTError as first_err:
         # Could be key rotation — drop cache and retry once.
         _jwks.invalidate()
         try:
             claims = _decode(token)
         except PyJWTError as e:
-            logger.debug("JWT validation failed: %s", e)
+            # Log at WARNING with type+message so 401s are diagnosable in prod.
+            # Most common causes: ExpiredSignatureError, InvalidIssuerError
+            # (KC_ISSUER mismatch), InvalidSignatureError (wrong realm/JWKS).
+            logger.warning(
+                "JWT validation failed: %s: %s (first attempt: %s: %s); expected iss=%s",
+                type(e).__name__, e,
+                type(first_err).__name__, first_err,
+                settings.KC_ISSUER,
+            )
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
 
     azp = claims.get("azp")
     if azp and azp != settings.KC_CLIENT_ID:
-        # Tokens issued for a different client are not for us.
+        logger.warning(
+            "JWT azp mismatch: token azp=%r, expected KC_CLIENT_ID=%r",
+            azp, settings.KC_CLIENT_ID,
+        )
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token audience")
 
     if not claims.get("sub"):
+        logger.warning("JWT missing sub claim; claims keys=%s", list(claims.keys()))
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing sub claim")
 
     return claims
