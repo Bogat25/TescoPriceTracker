@@ -31,6 +31,29 @@ async def create_alert(
     return AlertOut(**doc)
 
 
+# ── Literal-path routes FIRST ────────────────────────────────────────────────
+# /prefs must be defined BEFORE /{alert_id} so FastAPI (Starlette) doesn't
+# treat "prefs" as a path parameter value when matching PATCH /prefs.
+
+@router.get("/prefs", response_model=EmailPreference)
+async def get_email_prefs(user: dict = Depends(current_user)) -> EmailPreference:
+    """Return the current user's email notification preference."""
+    enabled = await alert_repo.get_email_preference(user["sub"])
+    return EmailPreference(emailEnabled=enabled)
+
+
+@router.patch("/prefs", response_model=EmailPreference)
+async def set_email_prefs(
+    body: EmailPreference,
+    user: dict = Depends(current_user),
+) -> EmailPreference:
+    """Update the current user's email notification preference."""
+    enabled = await alert_repo.set_email_preference(user["sub"], body.emailEnabled)
+    return EmailPreference(emailEnabled=enabled)
+
+
+# ── Parameterised-path routes AFTER ──────────────────────────────────────────
+
 @router.delete("/{alert_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_alert(
     alert_id: str,
@@ -51,20 +74,3 @@ async def toggle_alert(
     if doc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
     return AlertOut(**doc)
-
-
-@router.get("/prefs", response_model=EmailPreference)
-async def get_email_prefs(user: dict = Depends(current_user)) -> EmailPreference:
-    """Return the current user's email notification preference."""
-    enabled = await alert_repo.get_email_preference(user["sub"])
-    return EmailPreference(emailEnabled=enabled)
-
-
-@router.patch("/prefs", response_model=EmailPreference)
-async def set_email_prefs(
-    body: EmailPreference,
-    user: dict = Depends(current_user),
-) -> EmailPreference:
-    """Update the current user's email notification preference."""
-    enabled = await alert_repo.set_email_preference(user["sub"], body.emailEnabled)
-    return EmailPreference(emailEnabled=enabled)

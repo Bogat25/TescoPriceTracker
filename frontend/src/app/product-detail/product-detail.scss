@@ -39,6 +39,7 @@
   text-decoration: none;
   transition: border-color 150ms, color 150ms;
   flex-shrink: 0;
+  margin-left: auto;
   &:hover { border-color: #00539F; color: #00539F; }
 }
 .pd-title {
@@ -58,10 +59,24 @@
   margin-top: 2px;
 }
 .pd-sep { color: var(--border-color); }
-.pd-tesco-link {
-  color: var(--text-muted);
+/* ── Open in Tesco button ────────────────────── */
+.pd-tesco-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #00539F;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
   text-decoration: none;
-  &:hover { color: #00539F; }
+  cursor: pointer;
+  margin-bottom: 20px;
+  transition: background 150ms, transform 100ms;
+  &:hover { background: #003f78; transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
 }
 
 /* ── KPI row ─────────────────────────────────── */

@@ -11,6 +11,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { TranslationService } from '../services/translation.service';
+import { TranslatePipe } from '../shared/translate.pipe';
 import { HexIcon }    from '../shared/hex-icon/hex-icon';
 import { SecLabel }   from '../shared/sec-label/sec-label';
 import {
@@ -51,12 +53,13 @@ Chart.register(
 
 @Component({
   selector: 'app-product-detail',
-  imports: [CommonModule, FormsModule, RouterLink, HexIcon, SecLabel],
+  imports: [CommonModule, FormsModule, RouterLink, HexIcon, SecLabel, TranslatePipe],
   templateUrl: './product-detail.html',
   styleUrl: './product-detail.scss',
 })
 export class ProductDetail implements AfterViewInit, OnDestroy {
   @ViewChild('chartCanvas') chartCanvas?: ElementRef<HTMLCanvasElement>;
+  readonly tl = inject(TranslationService);
 
   private route = inject(ActivatedRoute);
   private products = inject(ProductsService);

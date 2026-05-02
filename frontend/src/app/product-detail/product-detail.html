@@ -1,4 +1,4 @@
-﻿<div class="pd-page hex-slide-in">
+<div class="pd-page hex-slide-in">
   @if (loading()) {
     <div class="pd-loading">
       <span class="loading loading-spinner loading-lg"></span>
@@ -16,11 +16,6 @@
 
     <!-- â”€â”€ Back + Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     <div class="pd-header">
-      <a routerLink="/" class="pd-back-btn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-        Back
-      </a>
       <app-hex-icon [letter]="categoryLetter()" accent="#00539F" [size]="36"/>
       <div>
         <h1 class="pd-title">{{ p.name || p.tpnc }}</h1>
@@ -32,16 +27,25 @@
             <span class="pd-sep">Â·</span>
             <span class="font-mono-prices" style="font-size:11px;opacity:.6">{{ p.tpnc }}</span>
           }
-          <a [href]="'https://bevasarlas.tesco.hu/shop/hu-HU/products/' + p.tpnc"
-             target="_blank" rel="noopener noreferrer" class="pd-tesco-link" title="Open in Tesco">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
-              <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
-            </svg>
-          </a>
         </div>
       </div>
+      <a routerLink="/" class="pd-back-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        {{ 'product.btn.back' | translate }}
+      </a>
     </div>
+
+    @if (p.tpnc) {
+      <a [href]="'https://bevasarlas.tesco.hu/shop/hu-HU/products/' + p.tpnc"
+         target="_blank" rel="noopener noreferrer" class="pd-tesco-btn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8.636 3.5a.5.5 0 0 0-.5-.5H1.5A1.5 1.5 0 0 0 0 4.5v10A1.5 1.5 0 0 0 1.5 16h10a1.5 1.5 0 0 0 1.5-1.5V7.864a.5.5 0 0 0-1 0V14.5a.5.5 0 0 1-.5.5h-10a.5.5 0 0 1-.5-.5v-10a.5.5 0 0 1 .5-.5h6.636a.5.5 0 0 0 .5-.5z"/>
+          <path d="M16 .5a.5.5 0 0 0-.5-.5h-5a.5.5 0 0 0 0 1h3.793L6.146 9.146a.5.5 0 1 0 .708.708L15 1.707V5.5a.5.5 0 0 0 1 0v-5z"/>
+        </svg>
+        {{ 'product.btn.tesco' | translate }}
+      </a>
+    }
 
     <!-- â”€â”€ KPI Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     @if (stats(); as s) {

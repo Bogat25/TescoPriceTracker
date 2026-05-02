@@ -30,7 +30,7 @@
            aria-hidden="true">
         <path [attr.d]="item.iconPath"/>
       </svg>
-      <span class="sidebar-label">{{ item.label }}</span>
+      <span class="sidebar-label">{{ item.label | translate }}</span>
       @if (item.id === 'alerts' && alertCount() > 0) {
         <span class="sidebar-alert-badge">{{ alertCount() }}</span>
       }
@@ -59,13 +59,24 @@
      THEME TOGGLE
 ════════════════════════════ -->
 <div class="sidebar-footer">
+  <!-- Language toggle — shown at the top of the footer -->
+  <div class="sidebar-lang-toggle">
+    <button type="button" class="sidebar-lang-btn" [class.active]="tl.lang() === 'en'" (click)="tl.setLang('en')" title="English">
+      🇬🇧 <span class="sidebar-label">EN</span>
+    </button>
+    <div class="sidebar-lang-sep"></div>
+    <button type="button" class="sidebar-lang-btn" [class.active]="tl.lang() === 'hu'" (click)="tl.setLang('hu')" title="Magyar">
+      🇭🇺 <span class="sidebar-label">HU</span>
+    </button>
+  </div>
+
   <button type="button" class="sidebar-theme-toggle" (click)="toggleTheme()"
           [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
     <div class="sidebar-theme-icon">
       {{ theme.theme() === 'dark' ? '🌙' : '☀️' }}
     </div>
     <span class="sidebar-theme-label">
-      {{ theme.theme() === 'dark' ? 'Dark mode' : 'Light mode' }}
+      {{ theme.theme() === 'dark' ? ('sidebar.theme.dark' | translate) : ('sidebar.theme.light' | translate) }}
     </span>
     <!-- Toggle pill -->
     <div class="sidebar-toggle-pill" [class.on]="theme.theme() === 'dark'">
@@ -76,7 +87,9 @@
   <!-- User chip -->
   @if (auth.authenticated()) {
     <div class="sidebar-user">
-      <div class="sidebar-user-avatar">{{ userInitials }}</div>
+      <button type="button" class="sidebar-user-avatar" (click)="account()" title="Account settings">
+        {{ userInitials }}
+      </button>
       <div class="sidebar-user-info">
         <div class="sidebar-user-name">{{ auth.userName() || 'User' }}</div>
         <div class="sidebar-user-sub">Member · Clubcard</div>
@@ -84,10 +97,10 @@
       <button type="button" class="sidebar-user-menu-btn" title="Account options"
               (click)="account()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+             stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </button>
     </div>
   } @else {
-    <button type="button" class="sidebar-login-btn" (click)="login()">Login</button>
+    <button type="button" class="sidebar-login-btn" (click)="login()">{{ 'sidebar.login' | translate }}</button>
   }
 </div>

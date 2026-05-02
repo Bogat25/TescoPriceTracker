@@ -5,6 +5,8 @@ import { filter, Subscription, catchError, of } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { ThemeService } from '../services/theme.service';
 import { AlertsService } from '../services/alerts.service';
+import { TranslationService } from '../services/translation.service';
+import { TranslatePipe } from '../shared/translate.pipe';
 
 interface NavItem {
   id: string;
@@ -17,31 +19,31 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   {
     id: 'home',
-    label: 'Dashboard',
+    label: 'nav.dashboard',
     path: '/',
     iconPath: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
   },
   {
     id: 'search',
-    label: 'Search',
+    label: 'nav.search',
     path: '/search',
     iconPath: 'M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z',
   },
   {
     id: 'products',
-    label: 'Catalogue',
+    label: 'nav.catalogue',
     path: '/products',
     iconPath: 'M4 6h16M4 10h16M4 14h16M4 18h16',
   },
   {
     id: 'statistics',
-    label: 'Analytics',
+    label: 'nav.analytics',
     path: '/statistics',
     iconPath: 'M18 20V10M12 20V4M6 20v-6',
   },
   {
     id: 'alerts',
-    label: 'Alerts',
+    label: 'nav.alerts',
     path: '/alerts',
     authRequired: true,
     iconPath: 'M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0',
@@ -50,13 +52,14 @@ const NAV_ITEMS: NavItem[] = [
 
 @Component({
   selector: 'app-sidebar',
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, TranslatePipe],
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
 })
 export class Sidebar implements OnInit, OnDestroy {
   public auth    = inject(AuthService);
   public theme   = inject(ThemeService);
+  public tl      = inject(TranslationService);
   private alerts = inject(AlertsService);
   private router = inject(Router);
 

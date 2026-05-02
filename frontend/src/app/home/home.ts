@@ -6,13 +6,15 @@ import { catchError, of } from 'rxjs';
 import { AppConfigService } from '../services/app-config.service';
 import { PlatformStatsService, DiscountByWeekday } from '../services/platform-stats.service';
 import { AuthService } from '../services/auth.service';
+import { TranslationService } from '../services/translation.service';
+import { TranslatePipe } from '../shared/translate.pipe';
 import { HexKpi }   from '../shared/hex-kpi/hex-kpi';
 import { HexIcon }  from '../shared/hex-icon/hex-icon';
 import { SecLabel } from '../shared/sec-label/sec-label';
 
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, RouterLink, HexKpi, SecLabel],
+  imports: [CommonModule, RouterLink, HexKpi, SecLabel, TranslatePipe],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
@@ -21,6 +23,7 @@ export class Home implements OnInit {
   private config = inject(AppConfigService);
   private statsService = inject(PlatformStatsService);
   readonly auth = inject(AuthService);
+  readonly tl   = inject(TranslationService);
 
   readonly healthOk = signal<boolean | null>(null);
   readonly productCount = signal<number | null>(null);
@@ -126,9 +129,8 @@ export class Home implements OnInit {
 
   timeOfDay(): string {
     const h = new Date().getHours();
-    if (h < 12) return 'morning';
-    if (h < 18) return 'afternoon';
-    return 'evening';
+    const key = h < 12 ? 'home.greeting.morning' : h < 18 ? 'home.greeting.afternoon' : 'home.greeting.evening';
+    return this.tl.t(key);
   }
 
   readonly hexGrid = (() => {
@@ -145,9 +147,9 @@ export class Home implements OnInit {
   })();
 
   readonly steps = [
-    { n: 1, title: 'Search',  desc: 'Find a product by name or TPNC code.' },
-    { n: 2, title: 'Explore', desc: 'View full price history across all channels.' },
-    { n: 3, title: 'Analyse', desc: 'Open statistics for deep analytics and insights.' },
-    { n: 4, title: 'Alert',   desc: 'Set a target price and buy at the right moment.' },
+    { n: 1, titleKey: 'home.step1.title', descKey: 'home.step1.desc' },
+    { n: 2, titleKey: 'home.step2.title', descKey: 'home.step2.desc' },
+    { n: 3, titleKey: 'home.step3.title', descKey: 'home.step3.desc' },
+    { n: 4, titleKey: 'home.step4.title', descKey: 'home.step4.desc' },
   ];
 }

@@ -3,22 +3,25 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductsService, ProductSummary } from '../services/products.service';
+import { TranslationService } from '../services/translation.service';
+import { TranslatePipe } from '../shared/translate.pipe';
 import { HexIcon }   from '../shared/hex-icon/hex-icon';
 import { SecLabel }  from '../shared/sec-label/sec-label';
 
-type SortField = 'name' | 'price' | 'category';
+type SortField = 'name' | 'price' | 'category' | 'rating';
 type SortDir   = 'asc' | 'desc';
 
 const PAGE_SIZE = 100;
 
 @Component({
   selector: 'app-products-list',
-  imports: [CommonModule, RouterLink, FormsModule, HexIcon, SecLabel],
+  imports: [CommonModule, RouterLink, FormsModule, HexIcon, SecLabel, TranslatePipe],
   templateUrl: './products-list.html',
   styleUrl: './products-list.scss',
 })
 export class ProductsList implements OnInit {
   private productsApi = inject(ProductsService);
+  readonly tl = inject(TranslationService);
 
   readonly allProducts = signal<ProductSummary[]>([]);
   readonly loading     = signal(true);
@@ -77,6 +80,9 @@ export class ProductsList implements OnInit {
         const pa = a.currentPrice ?? 0;
         const pb = b.currentPrice ?? 0;
         return d * (pa - pb);
+      }
+      if (f === 'rating') {
+        return d * ((a.rating ?? -1) - (b.rating ?? -1));
       }
       if (f === 'category') {
         return d * (a.category ?? '').localeCompare(b.category ?? '');

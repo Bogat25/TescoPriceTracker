@@ -101,6 +101,42 @@
   gap: 8px;
 }
 
+/* ── Language toggle ────────────────────────── */
+.sidebar-lang-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--border-color);
+  border-radius: 8px;
+  width: fit-content;
+}
+.sidebar-lang-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 120ms;
+  &.active {
+    background: var(--surface-card);
+    color: var(--text-primary);
+    box-shadow: 0 1px 3px rgba(0,0,0,.12);
+  }
+  &:hover:not(.active) { color: var(--text-primary); }
+}
+.sidebar-lang-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--sidebar-border);
+}
+
 /* ── Theme toggle ───────────────────────────── */
 .sidebar-theme-toggle {
   display: flex;
@@ -178,6 +214,10 @@
   font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
+  border: none;
+  cursor: pointer;
+  transition: opacity 120ms;
+  &:hover { opacity: 0.85; }
 }
 .sidebar-user-name {
   font-size: 12px;
@@ -197,7 +237,8 @@
   padding: 4px;
   border-radius: 4px;
   display: flex;
-  &:hover { background: var(--hover-bg); }
+  svg { color: var(--text-muted); }
+  &:hover { background: var(--hover-bg); svg { color: #00539F; } }
 }
 
 /* ── Login button ───────────────────────────── */
@@ -254,12 +295,13 @@
 
   .sidebar-footer { align-items: center; padding: 10px 4px 14px; }
 
+  .sidebar-lang-toggle { padding: 3px; gap: 2px; }
+  .sidebar-lang-btn { padding: 4px 6px; gap: 0; }
+
   .sidebar-user {
     justify-content: center;
-    .sidebar-user-menu-btn {
-      display: flex; /* still visible — lets user access logout */
-      padding: 6px;
-    }
+    /* In collapsed mode: only the avatar button is visible — it triggers account() */
+    .sidebar-user-menu-btn { display: none; }
   }
 
   /* Login button: compact icon-only version */

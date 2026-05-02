@@ -1,18 +1,18 @@
 ﻿<div class="al-page hex-slide-in">
   <div class="al-title-row">
     <div>
-      <h1 class="al-title">My Alerts</h1>
-      <p class="al-subtitle">Set price triggers from any product page.</p>
+      <h1 class="al-title">{{ 'alerts.title' | translate }}</h1>
+      <p class="al-subtitle">{{ 'alerts.subtitle' | translate }}</p>
     </div>
   </div>
 
   <!-- KPI hexes -->
   @if (!loading() && !error()) {
     <div class="al-kpi-row">
-      <app-hex-kpi [value]="totalCount()"    label="Total alerts" accent="var(--hex1)"/>
-      <app-hex-kpi [value]="enabledCount()"  label="Enabled"      accent="var(--hex5)"/>
-      <app-hex-kpi [value]="disabledCount()" label="Disabled"     accent="var(--hex2)"/>
-      <app-hex-kpi [value]="triggeredCount()" label="Triggered"   accent="var(--hex3)"/>
+      <app-hex-kpi [value]="totalCount()"    [label]="'alerts.kpi.total' | translate" accent="var(--hex1)"/>
+      <app-hex-kpi [value]="enabledCount()"  [label]="'alerts.kpi.enabled' | translate"      accent="var(--hex5)"/>
+      <app-hex-kpi [value]="disabledCount()" [label]="'alerts.kpi.disabled' | translate"     accent="var(--hex2)"/>
+      <app-hex-kpi [value]="triggeredCount()" [label]="'alerts.kpi.triggered' | translate"   accent="var(--hex3)"/>
     </div>
 
     <!-- Email notification toggle -->
@@ -21,8 +21,8 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
         </svg>
-        <span class="al-email-label">Email notifications</span>
-        <span class="al-email-desc">Receive digest emails when alerts are triggered</span>
+        <span class="al-email-label">{{ 'alerts.email.label' | translate }}</span>
+        <span class="al-email-desc">{{ 'alerts.email.desc' | translate }}</span>
       </div>
       <button class="al-email-toggle-btn" type="button"
               [class.active]="emailEnabled()"
@@ -35,7 +35,7 @@
           <span class="al-toggle-track" [class.on]="emailEnabled()">
             <span class="al-toggle-thumb"></span>
           </span>
-          <span>{{ emailEnabled() ? 'On' : 'Off' }}</span>
+          <span>{{ emailEnabled() ? ('alerts.email.on' | translate) : ('alerts.email.off' | translate) }}</span>
         }
       </button>
     </div>
@@ -53,9 +53,9 @@
                    fill="rgba(0,83,159,.1)" stroke="#00539F" stroke-width="1.5"/>
           <text x="28" y="36" text-anchor="middle" font-size="20" fill="#00539F">&#x1F512;</text>
         </svg>
-        <div class="al-signin-title">Sign in to view your alerts</div>
+        <div class="al-signin-title">{{ 'alerts.signin.title' | translate }}</div>
         <p class="al-signin-desc">Alerts are personal. Log in with your Tesco Tracker account to view and manage price alerts.</p>
-        <a [href]="authService.loginUrl" class="al-signin-btn">Sign in &rarr;</a>
+        <button type="button" class="al-signin-btn" (click)="authService.login()">{{ 'alerts.signin.btn' | translate }}</button>
       </div>
     } @else {
       <div class="al-error-banner">
@@ -72,17 +72,17 @@
         <polygon points="28,0 56,16 56,48 28,64 0,48 0,16" fill="none" stroke="currentColor" stroke-width="2"/>
         <polygon points="28,10 46,20 46,44 28,54 10,44 10,20" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/>
       </svg>
-      <div class="al-empty-title">No alerts yet</div>
+      <div class="al-empty-title">{{ 'alerts.empty.title' | translate }}</div>
       <p class="al-empty-sub">Open any product and set a price trigger to be notified when prices change.</p>
       <a routerLink="/search" class="al-browse-link">Browse products &rarr;</a>
     </div>
   } @else {
-    <app-sec-label text="Your price triggers" accent="#00539F"/>
+    <app-sec-label [text]="'alerts.sec.triggers' | translate" accent="#00539F"/>
     <div class="al-list">
       @for (a of sortedAlerts(); track a.id; let i = $index) {
         @if (i > 0 && !sortedAlerts()[i-1].enabled === false && !a.enabled && sortedAlerts()[i-1].enabled) {
           <div class="al-divider">
-            <span>Disabled alerts</span>
+            <span>{{ 'alerts.divider.disabled' | translate }}</span>
           </div>
         }
         <div class="al-row" [class.enabled]="a.enabled" [class.disabled]="!a.enabled" [class.triggered]="isTriggered(a)">

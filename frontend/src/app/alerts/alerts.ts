@@ -6,13 +6,15 @@ import { catchError } from 'rxjs/operators';
 import { AlertsService, PriceAlert } from '../services/alerts.service';
 import { AuthService } from '../services/auth.service';
 import { ProductsService, ProductSummary } from '../services/products.service';
+import { TranslationService } from '../services/translation.service';
+import { TranslatePipe } from '../shared/translate.pipe';
 import { HexIcon } from '../shared/hex-icon/hex-icon';
 import { HexKpi }  from '../shared/hex-kpi/hex-kpi';
 import { SecLabel } from '../shared/sec-label/sec-label';
 
 @Component({
   selector: 'app-alerts',
-  imports: [CommonModule, RouterLink, HexIcon, HexKpi, SecLabel],
+  imports: [CommonModule, RouterLink, HexIcon, HexKpi, SecLabel, TranslatePipe],
   templateUrl: './alerts.html',
   styleUrl: './alerts.scss',
 })
@@ -20,6 +22,7 @@ export class Alerts implements OnInit {
   private alertsApi = inject(AlertsService);
   private productsApi = inject(ProductsService);
   readonly authService = inject(AuthService);
+  readonly tl = inject(TranslationService);
 
   readonly alerts  = signal<PriceAlert[]>([]);
   readonly loading = signal(true);

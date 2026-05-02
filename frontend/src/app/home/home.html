@@ -9,14 +9,14 @@
         @if (auth.authenticated()) {
           Good {{ timeOfDay() }}, <span class="hm-name">{{ auth.userName() }}</span>
         } @else {
-          Tesco Price Tracker
+          {{ 'home.hero.title' | translate }}
         }
       </div>
-      <p class="hm-hero-sub">Live price history, analytics and alerts for every Tesco product.</p>
+      <p class="hm-hero-sub">{{ 'home.hero.sub' | translate }}</p>
       <div class="hm-action-row">
-        <a routerLink="/search"     class="hm-btn hm-btn-primary">Search products</a>
-        <a routerLink="/products"   class="hm-btn hm-btn-outline">Browse catalogue</a>
-        <a routerLink="/statistics" class="hm-btn hm-btn-outline">Analytics</a>
+        <a routerLink="/search"     class="hm-btn hm-btn-primary">{{ 'home.btn.search' | translate }}</a>
+        <a routerLink="/products"   class="hm-btn hm-btn-outline">{{ 'home.btn.browse' | translate }}</a>
+        <a routerLink="/statistics" class="hm-btn hm-btn-outline">{{ 'home.btn.analytics' | translate }}</a>
       </div>
     </div>
 
@@ -40,25 +40,25 @@
   <!-- â”€â”€ Platform KPI hex row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <div class="hm-kpi-row">
     @if (productCount() !== null) {
-      <app-hex-kpi [value]="(productCount() | number) || '—'" label="Products tracked" accent="var(--hex1)"/>
+      <app-hex-kpi [value]="(productCount() | number) || '—'" [label]="'home.kpi.products' | translate" accent="var(--hex1)"/>
     } @else {
-      <app-hex-kpi value="—" label="Products tracked" accent="var(--hex1)"/>
+      <app-hex-kpi value="—" [label]="'home.kpi.products' | translate" accent="var(--hex1)"/>
     }
     <app-hex-kpi
       [value]="statsLoading() ? '…' : (volatility() || '—')"
-      label="Volatility"
+      [label]="'home.kpi.volatility' | translate"
       accent="var(--hex5)"/>
     <app-hex-kpi
       [value]="statsLoading() ? '…' : (trend30d() || '—')"
-      label="30d trend"
+      [label]="'home.kpi.trend30d' | translate"
       [accent]="trend30d().startsWith('â†“') ? 'var(--hex5)' : trend30d().startsWith('â†‘') ? 'var(--hex3)' : 'var(--hex2)'"/>
     <app-hex-kpi
       [value]="statsLoading() ? '…' : (bestWeekday() || '—')"
-      label="Best shop day"
+      [label]="'home.kpi.shopday' | translate"
       accent="var(--hex4)"/>
     <app-hex-kpi
       [value]="statsLoading() ? '…' : (maxDiscount() || '—')"
-      label="Best discount"
+      [label]="'home.kpi.discount' | translate"
       accent="var(--hex2)"/>
   </div>
 
@@ -68,30 +68,28 @@
     <div class="hm-status-pill">
       @if (healthOk() === null) {
         <span class="hm-dot hm-dot-idle"></span>
-        <span>Connecting…</span>
+        <span>{{ 'home.status.connecting' | translate }}</span>
       } @else if (healthOk()) {
         <span class="hm-dot hm-dot-ok"></span>
-        <span>All systems operational</span>
+        <span>{{ 'home.status.ok' | translate }}</span>
       } @else {
         <span class="hm-dot hm-dot-err"></span>
-        <span>API degraded</span>
+        <span>{{ 'home.status.degraded' | translate }}</span>
       }
     </div>
     <div style="display:flex;gap:4px">
       <a routerLink="/alerts" class="hm-chip">
         <svg width="10" height="11" viewBox="0 0 10 11"><polygon points="5,0 10,2.75 10,8.25 5,11 0,8.25 0,2.75" fill="var(--hex3)" opacity="0.7"/></svg>
-        My Alerts
+        {{ 'home.chip.alerts' | translate }}
       </a>
-      @if (auth.authenticated()) {
-        <a routerLink="/user-settings" class="hm-chip">Settings</a>
-      } @else {
-        <button type="button" class="hm-chip" (click)="auth.login()">Sign in</button>
+      @if (!auth.authenticated()) {
+        <button type="button" class="hm-chip" (click)="auth.login()">{{ 'home.chip.signin' | translate }}</button>
       }
     </div>
   </div>
 
   <!-- â”€â”€ Feature cards row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-  <app-sec-label text="What you can do" accent="#00539F"/>
+  <app-sec-label [text]="'home.sec.features' | translate" accent="#00539F"/>
   <div class="hm-features">
 
     <a routerLink="/search" class="hm-feature-card">
@@ -101,8 +99,8 @@
           <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex1)" font-weight="800">S</text>
         </svg>
       </div>
-      <div class="hm-feature-title">Search</div>
-      <p class="hm-feature-desc">Find any tracked Tesco product by name or TPNC. Current price shown instantly.</p>
+      <div class="hm-feature-title">{{ 'home.feat.search.title' | translate }}</div>
+      <p class="hm-feature-desc">{{ 'home.feat.search.desc' | translate }}</p>
     </a>
 
     <a routerLink="/products" class="hm-feature-card">
@@ -112,8 +110,8 @@
           <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex2)" font-weight="800">C</text>
         </svg>
       </div>
-      <div class="hm-feature-title">Catalogue</div>
-      <p class="hm-feature-desc">Browse the full list of tracked items with prices, categories and ratings.</p>
+      <div class="hm-feature-title">{{ 'home.feat.catalogue.title' | translate }}</div>
+      <p class="hm-feature-desc">{{ 'home.feat.catalogue.desc' | translate }}</p>
     </a>
 
     <a routerLink="/statistics" class="hm-feature-card">
@@ -123,8 +121,8 @@
           <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex4)" font-weight="800">A</text>
         </svg>
       </div>
-      <div class="hm-feature-title">Analytics</div>
-      <p class="hm-feature-desc">11 charts, 12 KPI tiles, smart insights and platform-wide statistics.</p>
+      <div class="hm-feature-title">{{ 'home.feat.analytics.title' | translate }}</div>
+      <p class="hm-feature-desc">{{ 'home.feat.analytics.desc' | translate }}</p>
     </a>
 
     <a routerLink="/alerts" class="hm-feature-card">
@@ -134,14 +132,14 @@
           <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex5)" font-weight="800">!</text>
         </svg>
       </div>
-      <div class="hm-feature-title">Alerts</div>
-      <p class="hm-feature-desc">Set target price or % drop triggers and never miss a deal.</p>
+      <div class="hm-feature-title">{{ 'home.feat.alerts.title' | translate }}</div>
+      <p class="hm-feature-desc">{{ 'home.feat.alerts.desc' | translate }}</p>
     </a>
 
   </div>
 
   <!-- â”€â”€ How it works â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-  <app-sec-label text="How it works" accent="var(--text-muted)"/>
+  <app-sec-label [text]="'home.sec.how' | translate" accent="var(--text-muted)"/>
   <div class="hm-steps">
     @for (step of steps; track step.n) {
       <div class="hm-step">
@@ -151,8 +149,8 @@
                    stroke="#00539F" stroke-width="1.5"/>
           <text x="18" y="23" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#00539F" font-weight="800">{{ step.n }}</text>
         </svg>
-        <div class="hm-step-title">{{ step.title }}</div>
-        <p class="hm-step-desc">{{ step.desc }}</p>
+        <div class="hm-step-title">{{ step.titleKey | translate }}</div>
+        <p class="hm-step-desc">{{ step.descKey | translate }}</p>
       </div>
     }
   </div>

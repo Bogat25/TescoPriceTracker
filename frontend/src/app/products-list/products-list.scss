@@ -181,10 +181,10 @@
 
 /* ── Cell content ────────────────────────────── */
 .pl-thumb {
-  width: 32px;
-  height: 32px;
+  width: 52px;
+  height: 52px;
   object-fit: contain;
-  border-radius: 6px;
+  border-radius: 8px;
   border: 1px solid var(--border-color);
 }
 .pl-name {
@@ -290,7 +290,7 @@
     text-align: right;
     flex-shrink: 0;
   }
-  .pl-thumb { width: 36px; height: 36px; }
+  .pl-thumb { width: 40px; height: 40px; }
   .pl-name { max-width: none; font-size: 13px; }
 }
 
@@ -300,5 +300,5 @@
   .pl-th { font-size: 11px; padding: 12px 14px; }
   .pl-td { padding: 12px 14px; }
   .pl-name { font-size: 13px; max-width: 400px; }
-  .pl-thumb { width: 40px; height: 40px; }
+  .pl-thumb { width: 48px; height: 48px; }
 }

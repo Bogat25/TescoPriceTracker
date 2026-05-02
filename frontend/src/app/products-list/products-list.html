@@ -3,7 +3,7 @@
   <!-- Header row -->
   <div class="pl-header">
     <div>
-      <h1 class="pl-title">Product Catalogue</h1>
+      <h1 class="pl-title">{{ 'catalogue.title' | translate }}</h1>
       <p class="pl-subtitle">
         @if (!loading()) {
           {{ filtered().length | number }} of {{ total() | number }} items
@@ -92,16 +92,18 @@
           <tr>
             <th class="pl-th pl-th-icon"></th>
             <th class="pl-th pl-th-sortable" (click)="setSort('name')">
-              Product <span class="pl-sort-icon">{{ sortIcon('name') }}</span>
+              {{ 'catalogue.col.product' | translate }} <span class="pl-sort-icon">{{ sortIcon('name') }}</span>
             </th>
             <th class="pl-th pl-th-sortable" (click)="setSort('category')">
-              Category <span class="pl-sort-icon">{{ sortIcon('category') }}</span>
+              {{ 'catalogue.col.category' | translate }} <span class="pl-sort-icon">{{ sortIcon('category') }}</span>
             </th>
             <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('price')">
-              Price <span class="pl-sort-icon">{{ sortIcon('price') }}</span>
+              {{ 'catalogue.col.price' | translate }} <span class="pl-sort-icon">{{ sortIcon('price') }}</span>
             </th>
-            <th class="pl-th pl-th-right">Rating</th>
-            <th class="pl-th pl-th-right">Reviews</th>
+            <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('rating')">
+              {{ 'catalogue.col.rating' | translate }} <span class="pl-sort-icon">{{ sortIcon('rating') }}</span>
+            </th>
+            <th class="pl-th pl-th-right">{{ 'catalogue.col.reviews' | translate }}</th>
             <th class="pl-th"></th>
           </tr>
         </thead>
