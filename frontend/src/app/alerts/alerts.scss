@@ -1,6 +1,6 @@
 .al-page {
-  padding: 22px 24px;
-  max-width: 860px;
+  padding: clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px);
+  max-width: clamp(700px, 85vw, 960px);
   position: relative;
   z-index: 1;
 }
@@ -134,5 +134,53 @@
   flex-shrink: 0;
   transition: border-color 150ms, color 150ms;
   &:hover { border-color: var(--hex3); color: var(--hex3); }
+}
+
+/* ── Mobile ──────────────────────────────────── */
+@media (max-width: 639px) {
+  .al-title { font-size: 20px; }
+  .al-row { flex-wrap: wrap; gap: 8px; }
+  .al-row-desc { white-space: normal; }
+  .al-type-badge, .al-status { font-size: 9px; }
+  .al-remove-btn { margin-left: auto; }
+}
+
+/* ── Sign-in prompt ──────────────────────────── */
+.al-signin-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 48px 24px;
+  border: 1px solid rgba(0,83,159,.2);
+  border-radius: 16px;
+  background: rgba(0,83,159,.03);
+}
+.al-signin-hex { opacity: 0.8; margin-bottom: 16px; }
+.al-signin-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+.al-signin-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 360px;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.al-signin-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 24px;
+  background: #00539F;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: opacity 150ms;
+  &:hover { opacity: 0.88; }
 }
 

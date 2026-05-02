@@ -1,8 +1,8 @@
 :host { display: block; }
 
 .st-page {
-  padding: 22px 24px;
-  max-width: 1160px;
+  padding: clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px);
+  max-width: clamp(900px, 90vw, 1360px);
   position: relative;
   z-index: 1;
 }
@@ -336,3 +336,22 @@
   line-height: 1.55;
 }
 
+/* ── Mobile breakpoints ──────────────────────── */
+@media (max-width: 639px) {
+  .st-header { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .st-tabs   { flex-wrap: wrap; }
+  .st-grid-2, .st-grid-3, .st-grid-3-1, .st-grid-1-2, .st-grid-2-1 {
+    grid-template-columns: 1fr;
+  }
+  .st-chart-sm { height: 180px; }
+  .st-chart-md { height: 220px; }
+  .st-chart-lg { height: 260px; }
+  .st-kpi-row  { gap: 8px; }
+}
+
+/* ── Tablet breakpoints ──────────────────────── */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .st-grid-3, .st-grid-3-1, .st-grid-1-2, .st-grid-2-1 {
+    grid-template-columns: 1fr;
+  }
+}

@@ -4,11 +4,12 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ProductsService, ProductSummary } from '../services/products.service';
 import { HexIcon }   from '../shared/hex-icon/hex-icon';
-import { DeltaBadge } from '../shared/delta-badge/delta-badge';
 import { SecLabel }  from '../shared/sec-label/sec-label';
 
 type SortField = 'name' | 'price' | 'category';
 type SortDir   = 'asc' | 'desc';
+
+const PAGE_SIZE = 100;
 
 @Component({
   selector: 'app-products-list',
@@ -21,10 +22,15 @@ export class ProductsList implements OnInit {
 
   readonly allProducts = signal<ProductSummary[]>([]);
   readonly loading     = signal(true);
+  readonly loadingMore = signal(false);
   readonly error       = signal('');
   readonly query       = signal('');
   readonly sortField   = signal<SortField>('name');
   readonly sortDir     = signal<SortDir>('asc');
+  readonly total       = signal(0);
+  private  skip        = 0;
+
+  readonly hasMore = computed(() => this.allProducts().length < this.total());
 
   readonly filtered = computed(() => {
     const q = this.query().toLowerCase().trim();
@@ -51,17 +57,30 @@ export class ProductsList implements OnInit {
   });
 
   ngOnInit(): void {
-    this.productsApi.search('').subscribe({
-      next: (res: any) => {
-        const items: ProductSummary[] = (res?.results ?? []);
-        this.allProducts.set(items);
+    this.loadPage();
+  }
+
+  private loadPage(): void {
+    this.productsApi.browse(this.skip, PAGE_SIZE).subscribe({
+      next: (res) => {
+        this.allProducts.update(prev => [...prev, ...res.results]);
+        this.total.set(res.total);
+        this.skip += res.results.length;
         this.loading.set(false);
+        this.loadingMore.set(false);
       },
       error: () => {
         this.error.set('Could not load products.');
         this.loading.set(false);
+        this.loadingMore.set(false);
       },
     });
+  }
+
+  loadMore(): void {
+    if (this.loadingMore() || !this.hasMore()) return;
+    this.loadingMore.set(true);
+    this.loadPage();
   }
 
   setSort(field: SortField): void {

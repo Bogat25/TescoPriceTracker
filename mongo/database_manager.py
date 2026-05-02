@@ -196,6 +196,42 @@ def get_product_stats(tpnc):
     }
 
 
+def browse_products(skip=0, limit=100):
+    """Return lightweight product summaries for the catalogue view.
+
+    Projects only the fields needed by the frontend list (no price_history).
+
+    Returns
+    -------
+    dict with keys: results (list), total (int), skip (int), limit (int)
+    """
+    coll = get_db()
+    total = coll.count_documents({})
+    projection = {
+        "_id": 1,
+        "tpnc": 1,
+        "name": 1,
+        "default_image_url": 1,
+        "last_scraped_price": 1,
+        "unit_of_measure": 1,
+        "pack_size_value": 1,
+        "pack_size_unit": 1,
+        "brand_name": 1,
+        "super_department_name": 1,
+        "department_name": 1,
+        "overall_rating": 1,
+        "number_of_reviews": 1,
+    }
+    cursor = coll.find({}, projection).sort("name", 1).skip(skip).limit(limit)
+    results = []
+    for doc in cursor:
+        doc.pop("_id", None)
+        if not doc.get("tpnc") and doc.get("_id"):
+            doc["tpnc"] = doc["_id"]
+        results.append(doc)
+    return {"results": results, "total": total, "skip": skip, "limit": limit}
+
+
 def search_products(query):
     results = []
     if not query:

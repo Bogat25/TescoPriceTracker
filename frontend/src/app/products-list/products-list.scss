@@ -1,6 +1,6 @@
 .pl-page {
-  padding: 22px 24px;
-  max-width: 1100px;
+  padding: clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px);
+  max-width: clamp(900px, 90vw, 1400px);
   position: relative;
   z-index: 1;
 }
@@ -173,4 +173,71 @@
   white-space: nowrap;
   transition: background 130ms;
   &:hover { background: rgba(0,83,159,.1); }
+}
+
+/* ── Load more ───────────────────────────────── */
+.pl-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 20px 0 8px;
+}
+.pl-load-more-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: 1px solid rgba(0,83,159,.25);
+  border-radius: 8px;
+  background: transparent;
+  color: #00539F;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms;
+  &:hover:not(:disabled) { background: rgba(0,83,159,.08); }
+  &:disabled { opacity: 0.6; cursor: default; }
+}
+
+/* ── Mobile — collapse table to cards ────────── */
+@media (max-width: 639px) {
+  .pl-title { font-size: 20px; }
+  .pl-header { flex-direction: column; align-items: stretch; }
+  .pl-search-wrap { max-width: 100%; }
+
+  /* Stack table as cards */
+  .pl-table-wrap { border: none; background: transparent; box-shadow: none; }
+  .pl-table thead { display: none; }
+  .pl-table tbody { display: flex; flex-direction: column; gap: 10px; }
+  .pl-table tr {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--surface-card);
+    box-shadow: var(--shadow-sm);
+  }
+  .pl-table tr.pl-row-even { background: var(--surface-card); }
+  .pl-td { padding: 0; border: none; }
+  .pl-td-icon { width: 36px; flex-shrink: 0; }
+  .pl-td:nth-child(2) { flex: 1; min-width: 0; }
+  .pl-td-right, .pl-td-action { display: none; }
+  /* Show price inline */
+  .pl-td:nth-child(4) {
+    display: block;
+    text-align: right;
+    flex-shrink: 0;
+  }
+  .pl-thumb { width: 36px; height: 36px; }
+  .pl-name { max-width: none; font-size: 13px; }
+}
+
+/* ── Large screens ───────────────────────────── */
+@media (min-width: 1440px) {
+  .pl-table { font-size: 13px; }
+  .pl-th { font-size: 11px; padding: 12px 14px; }
+  .pl-td { padding: 12px 14px; }
+  .pl-name { font-size: 13px; max-width: 400px; }
+  .pl-thumb { width: 40px; height: 40px; }
 }

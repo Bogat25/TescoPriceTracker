@@ -127,10 +127,26 @@ export function toSummary(p: ProductResponse): ProductSummary {
 export class ProductsService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
-  private readonly base = '/api/v1/products';
+  private get base() { return this.config.tescoApiBaseUrl + '/products'; }
 
   list(): Observable<unknown> {
     return this.http.get(this.base);
+  }
+
+  /** Paginated catalogue browse — returns summaries without price_history. */
+  browse(skip = 0, limit = 100): Observable<{ results: ProductSummary[]; total: number; skip: number; limit: number }> {
+    return this.http.get<any[]>(`${this.base}/browse`, { params: { skip, limit } }).pipe(
+      map((res: any) => {
+        const raw: any[] = Array.isArray(res) ? res : (res?.results ?? []);
+        const total: number = res?.total ?? raw.length;
+        return {
+          results: raw.map(p => toSummary(p as ProductResponse)),
+          total,
+          skip: res?.skip ?? skip,
+          limit: res?.limit ?? limit,
+        };
+      }),
+    );
   }
 
   /** Full-text search; upstream returns ProductResponse[]. */

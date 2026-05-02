@@ -41,6 +41,10 @@ export class AuthService {
     return this.config.authAccountUrl;
   }
 
+  get loginUrl() {
+    return this.config.authLoginUrl;
+  }
+
   readonly authenticated = signal(false);
   readonly loadingAuthState = signal(false);
   readonly userName = signal<string | null>(null);

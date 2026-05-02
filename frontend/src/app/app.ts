@@ -1,12 +1,12 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { Sidebar } from './sidebar/sidebar';
 import { BeehiveBg } from './shared/beehive-bg/beehive-bg';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, Sidebar, BeehiveBg],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Sidebar, BeehiveBg],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

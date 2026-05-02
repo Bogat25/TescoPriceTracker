@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { AlertsService, PriceAlert } from '../services/alerts.service';
+import { AuthService } from '../services/auth.service';
 import { HexIcon } from '../shared/hex-icon/hex-icon';
 import { HexKpi }  from '../shared/hex-kpi/hex-kpi';
 import { SecLabel } from '../shared/sec-label/sec-label';
@@ -14,6 +15,7 @@ import { SecLabel } from '../shared/sec-label/sec-label';
 })
 export class Alerts implements OnInit {
   private alertsApi = inject(AlertsService);
+  readonly authService = inject(AuthService);
 
   readonly alerts  = signal<PriceAlert[]>([]);
   readonly loading = signal(true);

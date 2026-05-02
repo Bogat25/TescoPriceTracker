@@ -214,3 +214,47 @@
   transition: opacity 150ms;
   &:hover { opacity: 0.88; }
 }
+
+/* ══════════════════════════════════════════
+   TABLET ICON-ONLY MODE (640px – 1023px)
+══════════════════════════════════════════ */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .sidebar-logo-name,
+  .sidebar-logo-sub,
+  .sidebar-nav-item span,
+  .sidebar-alert-badge,
+  .sidebar-theme-label,
+  .sidebar-toggle-pill,
+  .sidebar-user-info,
+  .sidebar-user-menu-btn,
+  .sidebar-login-btn,
+  .sidebar-hex-cluster { display: none; }
+
+  .sidebar-logo {
+    padding: 14px 0;
+    justify-content: center;
+    border-bottom: 1px solid var(--sidebar-border);
+  }
+
+  .sidebar-nav { padding: 10px 4px; }
+
+  .sidebar-nav-item {
+    justify-content: center;
+    padding: 10px 0;
+    border-radius: 8px;
+    gap: 0;
+
+    svg { width: 20px; height: 20px; }
+  }
+
+  .sidebar-theme-toggle {
+    justify-content: center;
+    padding: 8px 0;
+  }
+
+  .sidebar-theme-icon { margin: 0 auto; }
+
+  .sidebar-footer { align-items: center; padding: 10px 4px 14px; }
+
+  .sidebar-user { justify-content: center; }
+}

@@ -20,17 +20,26 @@
       <span class="loading loading-spinner loading-md"></span>
     </div>
   } @else if (error()) {
-    <div class="al-error-banner">
-      <svg width="20" height="23" viewBox="0 0 20 23" style="flex-shrink:0">
-        <polygon points="10,0 20,5.75 20,17.25 10,23 0,17.25 0,5.75"
-                 fill="rgba(238,28,37,.2)" stroke="var(--hex3)" stroke-width="1.5"/>
-      </svg>
-      @if (error() === 'unauthorized') {
-        <span>Your session has expired. Please log in again.</span>
-      } @else {
+    @if (error() === 'unauthorized') {
+      <div class="al-signin-prompt">
+        <svg width="56" height="64" viewBox="0 0 56 64" class="al-signin-hex" aria-hidden="true">
+          <polygon points="28,0 56,16 56,48 28,64 0,48 0,16"
+                   fill="rgba(0,83,159,.1)" stroke="#00539F" stroke-width="1.5"/>
+          <text x="28" y="36" text-anchor="middle" font-size="20" fill="#00539F">🔒</text>
+        </svg>
+        <div class="al-signin-title">Sign in to view your alerts</div>
+        <p class="al-signin-desc">Alerts are personal. Log in with your Tesco Tracker account to view and manage price alerts.</p>
+        <a [href]="authService.loginUrl" class="al-signin-btn">Sign in →</a>
+      </div>
+    } @else {
+      <div class="al-error-banner">
+        <svg width="20" height="23" viewBox="0 0 20 23" style="flex-shrink:0">
+          <polygon points="10,0 20,5.75 20,17.25 10,23 0,17.25 0,5.75"
+                   fill="rgba(238,28,37,.2)" stroke="var(--hex3)" stroke-width="1.5"/>
+        </svg>
         <span>Could not load alerts. Please try again later.</span>
-      }
-    </div>
+      </div>
+    }
   } @else if (alerts().length === 0) {
     <div class="al-empty">
       <svg width="56" height="64" viewBox="0 0 56 64" style="opacity:.2;margin-bottom:14px" aria-hidden="true">

@@ -1,6 +1,6 @@
 .pd-page {
-  padding: 22px 24px;
-  max-width: 1100px;
+  padding: clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px);
+  max-width: clamp(900px, 88vw, 1300px);
   position: relative;
   z-index: 1;
 }
@@ -67,7 +67,7 @@
 /* ── KPI row ─────────────────────────────────── */
 .pd-kpi-row {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
   margin-bottom: 20px;
 }
@@ -303,3 +303,19 @@
   line-height: 1.55;
 }
 
+/* ── Mobile ──────────────────────────────────── */
+@media (max-width: 639px) {
+  .pd-main-grid { grid-template-columns: 1fr; }
+  .pd-bottom-grid { grid-template-columns: 1fr; }
+  .pd-kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .pd-title { font-size: 16px; }
+  .pd-chart-wrap { height: 180px; }
+  .pd-range-btns { flex-wrap: wrap; }
+  .pd-alert-input-row { flex-direction: column; align-items: stretch; }
+}
+
+/* ── Tablet ───────────────────────────────────── */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .pd-main-grid { grid-template-columns: 1fr; }
+  .pd-kpi-row { grid-template-columns: repeat(3, 1fr); }
+}

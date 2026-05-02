@@ -5,13 +5,9 @@
     <div>
       <h1 class="pl-title">Product Catalogue</h1>
       <p class="pl-subtitle">
-        @if (!loading()) { {{ filtered().length | number }} items }
-        @else { Loading… }
-      </p>
-    </div>
-
-    <!-- Search -->
-    <div class="pl-search-wrap">
+        @if (!loading()) {
+          {{ filtered().length | number }} of {{ total() | number }} items
+        } @else { Loading… }
       <svg class="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -117,5 +113,18 @@
         </tbody>
       </table>
     </div>
+
+    <!-- Load more -->
+    @if (hasMore() && !query()) {
+      <div class="pl-load-more">
+        <button class="pl-load-more-btn" (click)="loadMore()" [disabled]="loadingMore()">
+          @if (loadingMore()) {
+            <span class="loading loading-spinner loading-sm"></span> Loading…
+          } @else {
+            Load more ({{ total() - allProducts().length | number }} remaining)
+          }
+        </button>
+      </div>
+    }
   }
 </div>

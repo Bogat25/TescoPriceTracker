@@ -54,6 +54,15 @@ def list_product_ids(
     return db.get_all_product_ids(skip=skip, limit=limit)
 
 
+@app.get("/api/v1/products/browse")
+def browse_products(
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """Return paginated product summaries for the catalogue view (no price history)."""
+    return db.browse_products(skip=skip, limit=limit)
+
+
 @app.get("/api/v1/products/search")
 def search_products(q: str = Query(default="", min_length=1)):
     """Full-text / regex search on product names. Returns up to 20 results."""
