@@ -248,30 +248,33 @@ def browse_products(skip=0, limit=100):
     return {"results": results, "total": total, "skip": skip, "limit": limit}
 
 
-def search_products(query):
+def search_products(query, skip: int = 0, limit: int = 50):
     results = []
     if not query:
-        return results
+        return {"results": [], "total": 0, "skip": skip, "limit": limit}
 
     coll = get_db()
+    SEARCH_MAX = 100
 
     # Try text index search first
-    cursor = coll.find(
+    text_cursor = coll.find(
         {"$text": {"$search": query}},
         {"score": {"$meta": "textScore"}}
-    ).sort([("score", {"$meta": "textScore"})]).limit(20)
+    ).sort([("score", {"$meta": "textScore"})]).limit(SEARCH_MAX)
 
-    results = list(cursor)
+    results = list(text_cursor)
 
     if not results:
         # Fallback to regex scan (handles Hungarian chars, TPNC, partial names)
         regex_query = {"$regex": query, "$options": "i"}
-        cursor = coll.find({"$or": [{"name": regex_query}, {"_id": regex_query}]}).limit(20)
-        results = list(cursor)
+        results = list(coll.find({"$or": [{"name": regex_query}, {"_id": regex_query}]}).limit(SEARCH_MAX))
+
+    total = len(results)
+    page_docs = results[skip: skip + limit]
 
     # Inject current_price into each result and strip heavy fields
     cleaned = []
-    for doc in results:
+    for doc in page_docs:
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc["tpnc"] = tpnc
         doc.pop("_id", None)
@@ -280,7 +283,7 @@ def search_products(query):
         doc["last_scraped_price"] = _extract_current_price(doc)
         cleaned.append(doc)
 
-    return cleaned
+    return {"results": cleaned, "total": total, "skip": skip, "limit": limit}
 
 # ---------------------------------------------------------------------------
 # Stats cache helpers

@@ -115,41 +115,15 @@
         </div>
       }
 
-      <!-- Row: Price tiers + Category avg -->
-      <div class="st-grid-2">
-        @if (priceTiers().length) {
-          <div class="st-card">
-            <app-sec-label text="Product distribution by price tier"/>
-            <div class="st-chart-area st-chart-md">
-              <canvas #platformTiersChart></canvas>
-            </div>
+      <!-- Row: Price tiers -->
+      @if (priceTiers().length) {
+        <div class="st-card">
+          <app-sec-label text="Product distribution by price tier"/>
+          <div class="st-chart-area st-chart-md">
+            <canvas #platformTiersChart></canvas>
           </div>
-        }
-        @if (categoryDiff()) {
-          <div class="st-card">
-            <app-sec-label text="Average price by channel"/>
-            <div class="st-chart-area st-chart-md">
-              <canvas #platformCategoryChart></canvas>
-            </div>
-            @if (categoryDiff(); as cd) {
-              <div class="st-channel-stats">
-                <div class="st-channel-stat">
-                  <span>Discount vs Normal</span>
-                  <strong [style.color]="cd.discount_vs_normal_pct !== null && cd.discount_vs_normal_pct < 0 ? 'var(--hex5)' : 'var(--hex3)'">
-                    {{ cd.discount_vs_normal_pct !== null ? (cd.discount_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
-                  </strong>
-                </div>
-                <div class="st-channel-stat">
-                  <span>Clubcard vs Normal</span>
-                  <strong [style.color]="cd.clubcard_vs_normal_pct !== null && cd.clubcard_vs_normal_pct < 0 ? 'var(--hex5)' : 'var(--hex3)'">
-                    {{ cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
-                  </strong>
-                </div>
-              </div>
-            }
-          </div>
-        }
-      </div>
+        </div>
+      }
 
       <!-- Row: Discount by weekday + Volatility -->
       <div class="st-grid-2">
@@ -447,22 +421,14 @@
         </div>
       }
 
-      <!-- Charts row 1: price history + channel doughnut -->
-      <div class="st-grid-2 st-grid-3-1">
-        <div class="st-card">
-          <div class="st-card-header" style="margin-bottom:12px">
-            <app-sec-label text="Price history"/>
-            <span style="font-size:11px;color:var(--text-muted)">Normal Â· Discount Â· Clubcard</span>
-          </div>
-          <div class="st-chart-area st-chart-lg">
-            <canvas #lineChart></canvas>
-          </div>
+      <!-- Charts row 1: price history only -->
+      <div class="st-card">
+        <div class="st-card-header" style="margin-bottom:12px">
+          <app-sec-label text="Price history"/>
+          <span style="font-size:11px;color:var(--text-muted)">Normal · Discount · Clubcard</span>
         </div>
-        <div class="st-card">
-          <app-sec-label text="Entries by channel"/>
-          <div class="st-chart-area st-chart-lg">
-            <canvas #channelDoughnut></canvas>
-          </div>
+        <div class="st-chart-area st-chart-lg">
+          <canvas #lineChart></canvas>
         </div>
       </div>
 
@@ -482,19 +448,11 @@
         </div>
       </div>
 
-      <!-- Charts row 3: clubcard savings + polar -->
-      <div class="st-grid-2 st-grid-2-1">
-        <div class="st-card">
-          <app-sec-label text="Clubcard savings vs normal price"/>
-          <div class="st-chart-area st-chart-md">
-            <canvas #savingsBar></canvas>
-          </div>
-        </div>
-        <div class="st-card">
-          <app-sec-label text="Avg price by channel"/>
-          <div class="st-chart-area st-chart-md">
-            <canvas #polarChart></canvas>
-          </div>
+      <!-- Charts row 3: clubcard savings only -->
+      <div class="st-card">
+        <app-sec-label text="Clubcard savings vs normal price"/>
+        <div class="st-chart-area st-chart-md">
+          <canvas #savingsBar></canvas>
         </div>
       </div>
 
@@ -528,27 +486,6 @@
         </div>
       </div>
 
-      <!-- Charts row 5: cumulative savings + promo density -->
-      <div class="st-grid-2">
-        <div class="st-card">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-            <app-sec-label text="Cumulative Clubcard savings"/>
-            <span style="font-size:10px;color:var(--text-muted)">running total vs normal</span>
-          </div>
-          <div class="st-chart-area st-chart-sm">
-            <canvas #cumulativeSavings></canvas>
-          </div>
-        </div>
-        <div class="st-card">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-            <app-sec-label text="Promo density by month"/>
-            <span style="font-size:10px;color:var(--text-muted)">% of entries with active promo</span>
-          </div>
-          <div class="st-chart-area st-chart-sm">
-            <canvas #promoDensityBar></canvas>
-          </div>
-        </div>
-      </div>
 
     }
   } <!-- end activeTab === 'product' -->

@@ -9,6 +9,7 @@
 .sidebar-logo {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 18px 16px 14px;
   border-bottom: 1px solid var(--sidebar-border);
@@ -315,8 +316,8 @@
     font-size: 0; /* hide text */
     border-radius: 50%;
     &::before {
-      content: '→';
-      font-size: 16px;
+      content: '';
     }
+    .sidebar-login-icon { display: flex; }
   }
 }

@@ -136,7 +136,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
   @ViewChild('deltaBar') deltaBar?: ElementRef<HTMLCanvasElement>;
   @ViewChild('cumulativeSavings') cumulativeSavings?: ElementRef<HTMLCanvasElement>;
   @ViewChild('promoDensityBar') promoDensityBar?: ElementRef<HTMLCanvasElement>;
-
+    
   private products = inject(ProductsService);
   private platformStats = inject(PlatformStatsService);
   private cdr = inject(ChangeDetectorRef);
@@ -185,19 +185,20 @@ export class Statistics implements AfterViewInit, OnDestroy {
         debounceTime(300),
         switchMap((q) => {
           const term = q.trim();
+          const empty = of({ results: [] as ProductResponse[], total: 0, skip: 0, limit: 10 });
           if (term.length < 2) {
             this.searching.set(false);
-            return of<ProductResponse[]>([]);
+            return empty;
           }
           this.searching.set(true);
-          return this.products.searchRaw(term).pipe(
-            catchError(() => of<ProductResponse[]>([])),
+          return this.products.searchRaw(term, 0, 10).pipe(
+            catchError(() => empty),
           );
         }),
       )
-      .subscribe((arr) => {
+      .subscribe((resp) => {
         this.searching.set(false);
-        this.suggestions.set((arr ?? []).slice(0, 10).map(toSummary));
+        this.suggestions.set((resp?.results ?? []).slice(0, 10).map(toSummary));
       });
   }
 
@@ -758,16 +759,12 @@ export class Statistics implements AfterViewInit, OnDestroy {
     if (!this.viewReady) return;
     this.destroyCharts();
     this.safeChart(() => this.renderLineChart(p));
-    this.safeChart(() => this.renderChannelDoughnut(p));
     this.safeChart(() => this.renderPromoDoughnut(p));
     this.safeChart(() => this.renderMonthlyBar(p));
     this.safeChart(() => this.renderSavingsBar(p));
-    this.safeChart(() => this.renderPolar(p));
     this.safeChart(() => this.renderDistribution(p));
     this.safeChart(() => this.renderYoyBar(p));
     this.safeChart(() => this.renderDeltaBar(p));
-    this.safeChart(() => this.renderCumulativeSavings(p));
-    this.safeChart(() => this.renderPromoDensity(p));
   }
 
   private destroyCharts(): void {

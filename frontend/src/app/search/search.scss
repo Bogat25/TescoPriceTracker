@@ -1,9 +1,14 @@
 /* Search page */
 .sr-page {
   padding: clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px);
-  max-width: 1200px;
+  max-width: 2200px;
   position: relative;
   z-index: 1;
+}
+
+/* Extra wide screens: full-width layout */
+@media (min-width: 1600px) {
+  .sr-page { padding-left: clamp(24px, 4vw, 80px); padding-right: clamp(24px, 4vw, 80px); }
 }
 
 /* ── Header ─────────────────────────────────── */
@@ -157,10 +162,10 @@
   font-weight: 600;
 }
 
-/* ── Card grid: up to 4 columns ─────────────── */
+/* ── Card grid: responsive up to 10 columns ─── */
 .sr-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 14px;
   list-style: none;
   padding: 0;
@@ -247,9 +252,7 @@
 }
 
 /* ── Responsive grid ─────────────────────────── */
-@media (max-width: 1023px) and (min-width: 640px) {
-  .sr-grid { grid-template-columns: repeat(3, 1fr); }
-}
+
 @media (max-width: 639px) {
   .sr-form { flex-direction: column; }
   .sr-btn  { width: 100%; justify-content: center; }
@@ -257,4 +260,33 @@
 }
 @media (max-width: 399px) {
   .sr-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Pagination ──────────────────────────────── */
+.sr-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+.sr-page-btn {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 120ms;
+  &:hover:not(:disabled) { border-color: #00539F; color: #00539F; }
+  &.active { background: #00539F; color: #fff; border-color: #00539F; }
+  &:disabled { opacity: 0.35; cursor: not-allowed; }
 }

@@ -101,6 +101,14 @@
       </button>
     </div>
   } @else {
-    <button type="button" class="sidebar-login-btn" (click)="login()">{{ 'sidebar.login' | translate }}</button>
+    <button type="button" class="sidebar-login-btn" (click)="login()">
+    <svg class="sidebar-login-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+         aria-hidden="true">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+    <span class="sidebar-label">{{ 'sidebar.login' | translate }}</span>
+  </button>
   }
 </div>

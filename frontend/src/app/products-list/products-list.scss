@@ -172,19 +172,19 @@
 }
 
 .pl-td {
-  padding: 10px 12px;
+  padding: 12px 12px;
   vertical-align: middle;
-  &-icon   { width: 44px; text-align: center; }
+  &-icon   { width: 56px; text-align: center; }
   &-right  { text-align: right; }
   &-action { width: 70px; text-align: right; }
 }
 
 /* ── Cell content ────────────────────────────── */
 .pl-thumb {
-  width: 52px;
-  height: 52px;
+  width: 70px;
+  height: 70px;
   object-fit: contain;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border-color);
 }
 .pl-name {
@@ -290,7 +290,7 @@
     text-align: right;
     flex-shrink: 0;
   }
-  .pl-thumb { width: 40px; height: 40px; }
+  .pl-thumb { width: 50px; height: 50px; }
   .pl-name { max-width: none; font-size: 13px; }
 }
 
@@ -300,5 +300,5 @@
   .pl-th { font-size: 11px; padding: 12px 14px; }
   .pl-td { padding: 12px 14px; }
   .pl-name { font-size: 13px; max-width: 400px; }
-  .pl-thumb { width: 48px; height: 48px; }
+  .pl-thumb { width: 60px; height: 60px; }
 }

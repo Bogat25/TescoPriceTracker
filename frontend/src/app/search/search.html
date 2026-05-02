@@ -73,7 +73,13 @@
   }
 
   @if (results().length) {
-    <div class="sr-count">{{ results().length }} result{{ results().length === 1 ? '' : 's' }}</div>
+    <div class="sr-count">
+      @if (totalResults() > pageSize()) {
+        Showing {{ currentPage() * pageSize() + 1 }}–{{ currentPage() * pageSize() + results().length }} of {{ totalResults() }} results
+      } @else {
+        {{ totalResults() }} result{{ totalResults() === 1 ? '' : 's' }}
+      }
+    </div>
     <ul class="sr-grid">
       @for (p of results(); track p.tpnc) {
         <li>
@@ -117,6 +123,22 @@
         </li>
       }
     </ul>
+    <!-- Pagination -->
+    @if (totalPages() > 1) {
+      <nav class="sr-pagination">
+        <button class="sr-page-btn" [disabled]="currentPage() === 0" (click)="goToPage(currentPage() - 1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        @for (pageNum of pageNumbers(); track pageNum) {
+          <button class="sr-page-btn" [class.active]="pageNum === currentPage()" (click)="goToPage(pageNum)">
+            {{ pageNum + 1 }}
+          </button>
+        }
+        <button class="sr-page-btn" [disabled]="currentPage() === totalPages() - 1" (click)="goToPage(currentPage() + 1)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </nav>
+    }
   }
 
 </div>

@@ -153,17 +153,22 @@ export class ProductsService {
     );
   }
 
-  /** Full-text search; upstream returns ProductResponse[]. */
-  searchRaw(query: string): Observable<ProductResponse[]> {
-    const params = new HttpParams().set('q', query);
-    return this.http.get<ProductResponse[]>(`${this.base}/search`, { params });
+  /** Full-text search; upstream returns {results, total, skip, limit}. */
+  searchRaw(query: string, skip = 0, limit = 50): Observable<{ results: ProductResponse[]; total: number; skip: number; limit: number }> {
+    const params = new HttpParams().set('q', query).set('skip', skip).set('limit', limit);
+    return this.http.get<{ results: ProductResponse[]; total: number; skip: number; limit: number }>(`${this.base}/search`, { params });
   }
 
-  /** Backwards-compat wrapper used by existing search component. */
-  search(query: string): Observable<{ results: ProductSummary[] }> {
-    return this.searchRaw(query).pipe(
-      map((arr) => ({ results: (Array.isArray(arr) ? arr : []).map(toSummary) })),
+  /** Paged search returning ProductSummary list plus total count. */
+  searchPaged(query: string, skip = 0, limit = 50): Observable<{ results: ProductSummary[]; total: number }> {
+    return this.searchRaw(query, skip, limit).pipe(
+      map((r) => ({ results: (r.results ?? []).map(toSummary), total: r.total ?? 0 })),
     );
+  }
+
+  /** Backwards-compat wrapper — returns first page. */
+  search(query: string): Observable<{ results: ProductSummary[] }> {
+    return this.searchPaged(query, 0, 50);
   }
 
   /** Full upstream document — contains price_history for charting. */

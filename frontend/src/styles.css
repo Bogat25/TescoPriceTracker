@@ -157,7 +157,18 @@ body {
 /* ── 4K / ≥ 1920px — expand sidebar, scale content ─── */
 @media (min-width: 1920px) {
   :root { --sidebar-width: 220px; }
-  .hex-scroll > * { max-width: 1600px; }
+  .hex-scroll > * { max-width: 2200px; }
+  .hex-scroll {
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(0,83,159,0.07) 0%, transparent 70%);
+  }
+}
+
+/* ── Ultra-wide ≥ 2560px ─── */
+@media (min-width: 2560px) {
+  :root { --sidebar-width: 240px; }
+  .hex-scroll {
+    background-image: radial-gradient(ellipse at 50% 0%, rgba(0,83,159,0.10) 0%, transparent 65%);
+  }
 }
 
 /* ── Tablet landscape / small desktop: 768–1023px ── */

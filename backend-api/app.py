@@ -65,11 +65,13 @@ def browse_products(
 
 
 @app.get("/api/v1/products/search")
-def search_products(q: str = Query(default="", min_length=1)):
-    """Full-text / regex search on product names. Returns up to 20 results with current price."""
-    results = db.search_products(q)
-    # search_products now returns pre-cleaned docs with last_scraped_price injected
-    return results
+def search_products(
+    q: str = Query(default="", min_length=1),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+):
+    """Full-text / regex search. Returns up to 100 results (paged) with current price."""
+    return db.search_products(q, skip=skip, limit=limit)
 
 
 @app.get("/api/v1/products/{tpnc}/trend")
@@ -159,6 +161,10 @@ def get_product(tpnc: str):
     else:
         history = {"normal": [], "discount": [], "clubcard": []}
         
+    # Inject the numeric current price (extracted from price_history) so the
+    # frontend's parsePrice() can parse it. The stored last_scraped_price field
+    # is a scrape-timestamp string, not a price number.
+    current_price = db._extract_current_price(prod)
     return {
         "tpnc": prod.get("tpnc"),
         "name": prod.get("name"),
@@ -166,7 +172,7 @@ def get_product(tpnc: str):
         "default_image_url": prod.get("default_image_url"),
         "pack_size_value": prod.get("pack_size_value"),
         "pack_size_unit": prod.get("pack_size_unit"),
-        "last_scraped_price": prod.get("last_scraped_price"),
+        "last_scraped_price": current_price,
         "price_history": history
     }
 
@@ -177,6 +183,8 @@ def get_product_detailed(tpnc: str):
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     prod.pop("_id", None)
+    # Inject numeric current price before popping price_history
+    prod["last_scraped_price"] = db._extract_current_price(prod)
     raw_history = prod.pop("price_history", []) or []
     if isinstance(raw_history, list):
         prod["price_history"] = _daily_to_channel_history(raw_history)
