@@ -16,4 +16,12 @@ export class App implements OnInit {
   ngOnInit(): void {
     this.authService.checkSession().subscribe();
   }
+
+  mobileAccount(): void {
+    if (this.authService.authenticated()) {
+      this.authService.account();
+    } else {
+      this.authService.login();
+    }
+  }
 }

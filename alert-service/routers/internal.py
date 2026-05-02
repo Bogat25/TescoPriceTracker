@@ -49,9 +49,20 @@ async def trigger(
     by_user = evaluator.group_by_user(triggered)
 
     user_emails = await user_repo.emails_for(by_user.keys())
+    # Fetch email preferences in parallel for all triggered users
+    import asyncio as _asyncio
+    prefs_list = await _asyncio.gather(
+        *(alert_repo.get_email_preference(uid) for uid in by_user.keys())
+    )
+    user_email_prefs: dict[str, bool] = dict(zip(by_user.keys(), prefs_list))
+
     skipped = 0
     by_user_email: dict[str, list[dict]] = {}
     for uid, items in by_user.items():
+        if not user_email_prefs.get(uid, True):
+            logger.info("userId=%s has opted out of email notifications — skipping", uid)
+            skipped += len(items)
+            continue
         email = user_emails.get(uid)
         if not email:
             logger.warning("no cached email for userId=%s — skipping %d items", uid, len(items))

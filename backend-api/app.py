@@ -1,12 +1,13 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from mongo import database_manager as db
 from mongo import stats_manager
 import uvicorn
 
-app = FastAPI(title="Tesco Price Tracker API", version="2.0")
+app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
 
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 if not allowed_origins or allowed_origins == [""]:
@@ -65,14 +66,10 @@ def browse_products(
 
 @app.get("/api/v1/products/search")
 def search_products(q: str = Query(default="", min_length=1)):
-    """Full-text / regex search on product names. Returns up to 20 results."""
+    """Full-text / regex search on product names. Returns up to 20 results with current price."""
     results = db.search_products(q)
-    cleaned = []
-    for prod in results:
-        prod.pop("_id", None)
-        prod.pop("price_history", None)
-        cleaned.append(prod)
-    return cleaned
+    # search_products now returns pre-cleaned docs with last_scraped_price injected
+    return results
 
 
 @app.get("/api/v1/products/{tpnc}/trend")

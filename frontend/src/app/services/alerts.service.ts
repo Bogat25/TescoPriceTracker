@@ -40,4 +40,12 @@ export class AlertsService {
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }
+
+  getEmailPreference(): Observable<{ emailEnabled: boolean }> {
+    return this.http.get<{ emailEnabled: boolean }>(`${this.base}/prefs`);
+  }
+
+  setEmailPreference(emailEnabled: boolean): Observable<{ emailEnabled: boolean }> {
+    return this.http.patch<{ emailEnabled: boolean }>(`${this.base}/prefs`, { emailEnabled });
+  }
 }

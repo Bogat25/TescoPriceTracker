@@ -19,6 +19,10 @@ def _coll():
     return db()["alerts"]
 
 
+def _prefs_coll():
+    return db()["user_prefs"]
+
+
 def _to_out(doc: dict) -> dict:
     return {
         "id": str(doc["_id"]),
@@ -85,6 +89,24 @@ async def toggle(user_id: str, alert_id: str, enabled: bool) -> dict | None:
 def _chunks(items: list[str], size: int) -> Iterable[list[str]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]
+
+
+async def get_email_preference(user_id: str) -> bool:
+    """Return the user's emailEnabled preference (default: True)."""
+    doc = await _prefs_coll().find_one({"userId": user_id}, {"emailEnabled": 1})
+    if doc is None:
+        return True
+    return doc.get("emailEnabled", True)
+
+
+async def set_email_preference(user_id: str, email_enabled: bool) -> bool:
+    """Upsert the user's emailEnabled preference. Returns the stored value."""
+    await _prefs_coll().update_one(
+        {"userId": user_id},
+        {"$set": {"emailEnabled": email_enabled}},
+        upsert=True,
+    )
+    return email_enabled
 
 
 async def find_active_for_products(product_ids: list[str]) -> list[dict]:

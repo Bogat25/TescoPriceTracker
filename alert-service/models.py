@@ -49,6 +49,10 @@ class ToggleAlertRequest(BaseModel):
     enabled: bool
 
 
+class EmailPreference(BaseModel):
+    emailEnabled: bool
+
+
 class PriceDrop(BaseModel):
     productId: str = Field(min_length=1)
     newPrice: float = Field(gt=0)

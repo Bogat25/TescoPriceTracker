@@ -8,14 +8,47 @@
   </div>
 
   <form (ngSubmit)="submit()" class="sr-form">
-    <div class="sr-input-wrap">
+    <div class="sr-input-wrap" style="position:relative">
       <svg class="sr-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input type="search" class="sr-input"
              placeholder="Search by product name or TPNC…"
-             [(ngModel)]="query" name="q" autocomplete="off"/>
+             [value]="query"
+             (input)="onInput($any($event.target).value)"
+             (blur)="closeDropdown()"
+             name="q" autocomplete="off"/>
+      @if (suggesting()) {
+        <span class="loading loading-spinner loading-sm" style="position:absolute;right:12px;top:50%;transform:translateY(-50%)"></span>
+      }
+      <!-- Live suggestion dropdown -->
+      @if (showDropdown() && suggestions().length) {
+        <ul class="sr-dropdown">
+          @for (s of suggestions(); track s.tpnc) {
+            <li>
+              <button type="button" class="sr-dropdown-item" (mousedown)="pickSuggestion(s)">
+                <div class="sr-dropdown-img">
+                  @if (s.imageUrl) {
+                    <img [src]="s.imageUrl" [alt]="s.name || s.tpnc" loading="lazy" referrerpolicy="no-referrer"/>
+                  } @else {
+                    <svg width="20" height="23" viewBox="0 0 20 23">
+                      <polygon points="10,0 20,5.75 20,17.25 10,23 0,17.25 0,5.75" fill="rgba(0,83,159,.15)" stroke="#00539F" stroke-width="1.2"/>
+                    </svg>
+                  }
+                </div>
+                <div class="sr-dropdown-info">
+                  <div class="sr-dropdown-name">{{ s.name || s.tpnc }}</div>
+                  <div class="sr-dropdown-meta">{{ s.tpnc }}@if (s.packSize) { · {{ s.packSize }}}@if (s.unit) { · {{ s.unit }}}</div>
+                </div>
+                @if (s.currentPrice !== undefined) {
+                  <span class="sr-dropdown-price font-mono-prices">{{ s.currentPrice | number:'1.2-2' }} Ft</span>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      }
     </div>
     <button type="submit" class="sr-btn" [disabled]="loading() || !query.trim()">
       @if (loading()) {

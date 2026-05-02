@@ -30,16 +30,45 @@ export class ProductsList implements OnInit {
   readonly total       = signal(0);
   private  skip        = 0;
 
+  /** Active category filters */
+  readonly selectedSuper = signal<string | null>(null);
+  readonly selectedDept  = signal<string | null>(null);
+
   readonly hasMore = computed(() => this.allProducts().length < this.total());
 
+  /** Unique super-departments from all loaded products, sorted. */
+  readonly superDepartments = computed(() => {
+    const seen = new Set<string>();
+    for (const p of this.allProducts()) {
+      if (p.superDepartment) seen.add(p.superDepartment);
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b));
+  });
+
+  /** Unique departments within the selected super-department, sorted. */
+  readonly departments = computed(() => {
+    const superDept = this.selectedSuper();
+    if (!superDept) return [];
+    const seen = new Set<string>();
+    for (const p of this.allProducts()) {
+      if (p.superDepartment === superDept && p.department) seen.add(p.department);
+    }
+    return [...seen].sort((a, b) => a.localeCompare(b));
+  });
+
   readonly filtered = computed(() => {
-    const q = this.query().toLowerCase().trim();
-    let list = q
-      ? this.allProducts().filter(p =>
-          (p.name  ?? '').toLowerCase().includes(q) ||
-          p.tpnc.includes(q) ||
-          (p.category ?? '').toLowerCase().includes(q))
-      : this.allProducts();
+    const q      = this.query().toLowerCase().trim();
+    const superD = this.selectedSuper();
+    const dept   = this.selectedDept();
+
+    let list = this.allProducts();
+
+    if (superD) list = list.filter(p => p.superDepartment === superD);
+    if (dept)   list = list.filter(p => p.department === dept);
+    if (q)      list = list.filter(p =>
+      (p.name  ?? '').toLowerCase().includes(q) ||
+      p.tpnc.includes(q) ||
+      (p.category ?? '').toLowerCase().includes(q));
 
     const f = this.sortField();
     const d = this.sortDir() === 'asc' ? 1 : -1;
@@ -90,6 +119,15 @@ export class ProductsList implements OnInit {
       this.sortField.set(field);
       this.sortDir.set('asc');
     }
+  }
+
+  selectSuper(s: string | null): void {
+    this.selectedSuper.set(s);
+    this.selectedDept.set(null); // reset sub-filter when parent changes
+  }
+
+  selectDept(d: string | null): void {
+    this.selectedDept.set(d);
   }
 
   sortIcon(field: SortField): string {

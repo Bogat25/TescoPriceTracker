@@ -18,25 +18,23 @@
 ════════════════════════════ -->
 <nav class="sidebar-nav">
   @for (item of navItems; track item.id) {
-    @if (!item.authRequired || auth.authenticated()) {
-      <a
-        [routerLink]="item.path"
-        class="sidebar-nav-item"
-        [class.active]="isActive(item.path)"
-        [attr.aria-current]="isActive(item.path) ? 'page' : null"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2"
-             stroke-linecap="round" stroke-linejoin="round"
-             aria-hidden="true">
-          <path [attr.d]="item.iconPath"/>
-        </svg>
-        {{ item.label }}
-        @if (item.id === 'alerts' && alertCount() > 0) {
-          <span class="sidebar-alert-badge">{{ alertCount() }}</span>
-        }
-      </a>
-    }
+    <a
+      [routerLink]="item.path"
+      class="sidebar-nav-item"
+      [class.active]="isActive(item.path)"
+      [attr.aria-current]="isActive(item.path) ? 'page' : null"
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"
+           aria-hidden="true">
+        <path [attr.d]="item.iconPath"/>
+      </svg>
+      <span class="sidebar-label">{{ item.label }}</span>
+      @if (item.id === 'alerts' && alertCount() > 0) {
+        <span class="sidebar-alert-badge">{{ alertCount() }}</span>
+      }
+    </a>
   }
 </nav>
 

@@ -196,6 +196,20 @@ def get_product_stats(tpnc):
     }
 
 
+def _extract_current_price(doc: dict):
+    """Return the most recent normal price from a product document, or None."""
+    history = doc.get("price_history", [])
+    if not isinstance(history, list) or not history:
+        return None
+    # history is stored oldest-first; take the last entry with a normal price
+    for entry in reversed(history):
+        if isinstance(entry, dict):
+            normal = entry.get("normal")
+            if normal and normal.get("price") is not None:
+                return normal["price"]
+    return None
+
+
 def browse_products(skip=0, limit=100):
     """Return lightweight product summaries for the catalogue view.
 
@@ -212,7 +226,6 @@ def browse_products(skip=0, limit=100):
         "tpnc": 1,
         "name": 1,
         "default_image_url": 1,
-        "last_scraped_price": 1,
         "unit_of_measure": 1,
         "pack_size_value": 1,
         "pack_size_unit": 1,
@@ -221,13 +234,16 @@ def browse_products(skip=0, limit=100):
         "department_name": 1,
         "overall_rating": 1,
         "number_of_reviews": 1,
+        "price_history": 1,
     }
     cursor = coll.find({}, projection).sort("name", 1).skip(skip).limit(limit)
     results = []
     for doc in cursor:
+        tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc.pop("_id", None)
-        if not doc.get("tpnc") and doc.get("_id"):
-            doc["tpnc"] = doc["_id"]
+        doc["tpnc"] = tpnc
+        doc["last_scraped_price"] = _extract_current_price(doc)
+        doc.pop("price_history", None)
         results.append(doc)
     return {"results": results, "total": total, "skip": skip, "limit": limit}
 
@@ -248,12 +264,23 @@ def search_products(query):
     results = list(cursor)
 
     if not results:
-        # Fallback to regex scan if text doesn't match well or for tpnc
+        # Fallback to regex scan (handles Hungarian chars, TPNC, partial names)
         regex_query = {"$regex": query, "$options": "i"}
         cursor = coll.find({"$or": [{"name": regex_query}, {"_id": regex_query}]}).limit(20)
         results = list(cursor)
 
-    return results
+    # Inject current_price into each result and strip heavy fields
+    cleaned = []
+    for doc in results:
+        tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
+        doc["tpnc"] = tpnc
+        doc.pop("_id", None)
+        doc.pop("price_history", None)
+        doc.pop("score", None)
+        doc["last_scraped_price"] = _extract_current_price(doc)
+        cleaned.append(doc)
+
+    return cleaned
 
 # ---------------------------------------------------------------------------
 # Stats cache helpers

@@ -24,6 +24,8 @@ export class Alerts implements OnInit {
   readonly alerts  = signal<PriceAlert[]>([]);
   readonly loading = signal(true);
   readonly error   = signal('');
+  readonly emailEnabled = signal(true);
+  readonly savingEmailPref = signal(false);
 
   /** Map of tpnc → product summary (name + current price). */
   readonly productMap = signal<Map<string, ProductSummary>>(new Map());
@@ -31,6 +33,14 @@ export class Alerts implements OnInit {
   readonly totalCount    = computed(() => this.alerts().length);
   readonly enabledCount  = computed(() => this.alerts().filter(a => a.enabled).length);
   readonly disabledCount = computed(() => this.alerts().filter(a => !a.enabled).length);
+
+  /** Alerts sorted: enabled first, then disabled at the bottom. */
+  readonly sortedAlerts = computed(() =>
+    [...this.alerts()].sort((a, b) => {
+      if (a.enabled === b.enabled) return 0;
+      return a.enabled ? -1 : 1;
+    })
+  );
 
   /** Triggered: enabled alerts where the price condition is currently met. */
   readonly triggeredCount = computed(() => {
@@ -52,6 +62,12 @@ export class Alerts implements OnInit {
   });
 
   ngOnInit(): void {
+    // Show login prompt immediately if not authenticated — no API call needed
+    if (!this.authService.authenticated()) {
+      this.error.set('unauthorized');
+      this.loading.set(false);
+      return;
+    }
     this.alertsApi.list().subscribe({
       next: (res) => {
         const list = res.alerts || [];
@@ -67,6 +83,11 @@ export class Alerts implements OnInit {
         }
         this.loading.set(false);
       },
+    });
+    // Load email preference in parallel
+    this.alertsApi.getEmailPreference().subscribe({
+      next: (prefs) => this.emailEnabled.set(prefs.emailEnabled),
+      error: () => { /* keep default true */ },
     });
   }
 
@@ -115,13 +136,25 @@ export class Alerts implements OnInit {
 
   toggle(a: PriceAlert): void {
     const newEnabled = !a.enabled;
+    // Optimistic update — change the UI immediately without waiting for the API
+    this.alerts.update(list =>
+      list.map(x => x.id === a.id ? { ...x, enabled: newEnabled } : x)
+    );
     this.alertsApi.toggle(a.id, newEnabled).subscribe({
       next: (updated) => {
+        // Confirm with the server response
         this.alerts.update(list =>
           list.map(x => x.id === updated.id ? { ...x, enabled: updated.enabled } : x)
         );
       },
-      error: () => this.error.set('Failed to update alert.'),
+      error: () => {
+        // Revert on failure — no reload needed
+        this.alerts.update(list =>
+          list.map(x => x.id === a.id ? { ...x, enabled: a.enabled } : x)
+        );
+        this.error.set('Could not update alert. Please try again.');
+        setTimeout(() => this.error.set(''), 4000);
+      },
     });
   }
 
@@ -129,6 +162,22 @@ export class Alerts implements OnInit {
     this.alertsApi.remove(id).subscribe({
       next: () => this.alerts.update((list) => list.filter((a) => a.id !== id)),
       error: () => this.error.set('Failed to delete alert.'),
+    });
+  }
+
+  toggleEmailEnabled(): void {
+    const newVal = !this.emailEnabled();
+    this.emailEnabled.set(newVal); // optimistic
+    this.savingEmailPref.set(true);
+    this.alertsApi.setEmailPreference(newVal).subscribe({
+      next: (prefs) => {
+        this.emailEnabled.set(prefs.emailEnabled);
+        this.savingEmailPref.set(false);
+      },
+      error: () => {
+        this.emailEnabled.set(!newVal); // revert
+        this.savingEmailPref.set(false);
+      },
     });
   }
 

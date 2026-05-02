@@ -14,6 +14,31 @@
       <app-hex-kpi [value]="disabledCount()" label="Disabled"     accent="var(--hex2)"/>
       <app-hex-kpi [value]="triggeredCount()" label="Triggered"   accent="var(--hex3)"/>
     </div>
+
+    <!-- Email notification toggle -->
+    <div class="al-email-toggle-row">
+      <div class="al-email-toggle-info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
+        </svg>
+        <span class="al-email-label">Email notifications</span>
+        <span class="al-email-desc">Receive digest emails when alerts are triggered</span>
+      </div>
+      <button class="al-email-toggle-btn" type="button"
+              [class.active]="emailEnabled()"
+              [disabled]="savingEmailPref()"
+              (click)="toggleEmailEnabled()"
+              [attr.aria-pressed]="emailEnabled()">
+        @if (savingEmailPref()) {
+          <span class="loading loading-spinner loading-xs"></span>
+        } @else {
+          <span class="al-toggle-track" [class.on]="emailEnabled()">
+            <span class="al-toggle-thumb"></span>
+          </span>
+          <span>{{ emailEnabled() ? 'On' : 'Off' }}</span>
+        }
+      </button>
+    </div>
   }
 
   @if (loading()) {
@@ -54,7 +79,12 @@
   } @else {
     <app-sec-label text="Your price triggers" accent="#00539F"/>
     <div class="al-list">
-      @for (a of alerts(); track a.id) {
+      @for (a of sortedAlerts(); track a.id; let i = $index) {
+        @if (i > 0 && !sortedAlerts()[i-1].enabled === false && !a.enabled && sortedAlerts()[i-1].enabled) {
+          <div class="al-divider">
+            <span>Disabled alerts</span>
+          </div>
+        }
         <div class="al-row" [class.enabled]="a.enabled" [class.disabled]="!a.enabled" [class.triggered]="isTriggered(a)">
 
           <!-- Hex icon -->

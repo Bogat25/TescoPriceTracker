@@ -17,6 +17,44 @@
 .pl-title    { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; }
 .pl-subtitle { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
+/* ── Category Filter ─────────────────────────── */
+.pl-cat-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.pl-cat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.pl-cat-sub {
+  padding-left: 12px;
+  border-left: 3px solid rgba(0,83,159,.2);
+}
+.pl-cat-pill {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 120ms;
+  white-space: nowrap;
+  &:hover { border-color: #00539F; color: #00539F; }
+  &.active { background: #00539F; color: #fff; border-color: #00539F; }
+}
+.pl-cat-pill-sub {
+  font-size: 11px;
+  padding: 3px 10px;
+  &.active { background: var(--hex4); border-color: var(--hex4); }
+  &:hover:not(.active) { border-color: var(--hex4); color: var(--hex4); }
+}
+
 /* ── Search ──────────────────────────────────── */
 .pl-search-wrap {
   position: relative;

@@ -63,6 +63,8 @@ export interface ProductSummary {
   packSize?: string;
   brand?: string;
   category?: string;
+  superDepartment?: string;
+  department?: string;
   rating?: number;
   reviewCount?: number;
 }
@@ -118,6 +120,8 @@ export function toSummary(p: ProductResponse): ProductSummary {
     packSize,
     brand: p.brand_name,
     category: categoryParts,
+    superDepartment: p.super_department_name,
+    department: p.department_name,
     rating: p.overall_rating,
     reviewCount: p.number_of_reviews
   };

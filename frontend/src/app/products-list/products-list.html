@@ -59,6 +59,32 @@
       <p class="pl-empty-sub">Try a different search term.</p>
     </div>
   } @else {
+    <!-- ── Category filter ─────────────────────────── -->
+    @if (superDepartments().length) {
+      <div class="pl-cat-filter">
+        <!-- Layer 1: super-departments -->
+        <div class="pl-cat-row" role="group" aria-label="Filter by category">
+          <button class="pl-cat-pill" [class.active]="selectedSuper() === null"
+                  type="button" (click)="selectSuper(null)">All</button>
+          @for (s of superDepartments(); track s) {
+            <button class="pl-cat-pill" [class.active]="selectedSuper() === s"
+                    type="button" (click)="selectSuper(s)">{{ s }}</button>
+          }
+        </div>
+        <!-- Layer 2: departments within selected super (only shown when a super is selected) -->
+        @if (selectedSuper() && departments().length > 1) {
+          <div class="pl-cat-row pl-cat-sub" role="group" [attr.aria-label]="'Filter within ' + selectedSuper()">
+            <button class="pl-cat-pill pl-cat-pill-sub" [class.active]="selectedDept() === null"
+                    type="button" (click)="selectDept(null)">All {{ selectedSuper() }}</button>
+            @for (d of departments(); track d) {
+              <button class="pl-cat-pill pl-cat-pill-sub" [class.active]="selectedDept() === d"
+                      type="button" (click)="selectDept(d)">{{ d }}</button>
+            }
+          </div>
+        }
+      </div>
+    }
+
     <app-sec-label text="All tracked items" accent="#00539F"/>
     <div class="pl-table-wrap">
       <table class="pl-table">

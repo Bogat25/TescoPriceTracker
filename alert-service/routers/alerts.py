@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from auth import current_user
-from models import AlertListResponse, AlertOut, CreateAlertRequest, ToggleAlertRequest
+from models import AlertListResponse, AlertOut, CreateAlertRequest, EmailPreference, ToggleAlertRequest
 from services import alert_repo
 
 
@@ -51,3 +51,20 @@ async def toggle_alert(
     if doc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
     return AlertOut(**doc)
+
+
+@router.get("/prefs", response_model=EmailPreference)
+async def get_email_prefs(user: dict = Depends(current_user)) -> EmailPreference:
+    """Return the current user's email notification preference."""
+    enabled = await alert_repo.get_email_preference(user["sub"])
+    return EmailPreference(emailEnabled=enabled)
+
+
+@router.patch("/prefs", response_model=EmailPreference)
+async def set_email_prefs(
+    body: EmailPreference,
+    user: dict = Depends(current_user),
+) -> EmailPreference:
+    """Update the current user's email notification preference."""
+    enabled = await alert_repo.set_email_preference(user["sub"], body.emailEnabled)
+    return EmailPreference(emailEnabled=enabled)

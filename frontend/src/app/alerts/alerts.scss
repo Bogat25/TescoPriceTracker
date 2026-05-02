@@ -18,7 +18,63 @@
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+/* ── Email notification toggle ───────────────── */
+.al-email-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 10px 16px;
   margin-bottom: 22px;
+}
+.al-email-toggle-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  svg { color: #00539F; flex-shrink: 0; }
+}
+.al-email-label { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.al-email-desc  { font-size: 11px; color: var(--text-muted); width: 100%; margin-top: 1px; }
+.al-email-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 5px 12px;
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: all 120ms;
+  flex-shrink: 0;
+  &.active { color: var(--hex5); border-color: var(--hex5); background: rgba(0,138,0,.07); }
+  &:disabled { opacity: .6; cursor: not-allowed; }
+}
+.al-toggle-track {
+  width: 28px; height: 16px;
+  background: var(--border-color);
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  transition: background 150ms;
+  &.on { background: var(--hex5); }
+}
+.al-toggle-thumb {
+  width: 12px; height: 12px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 150ms;
+  .al-toggle-track.on & { transform: translateX(12px); }
 }
 
 /* ── States ──────────────────────────────────── */
@@ -182,6 +238,29 @@
   &:hover { border-color: #00539F; color: #00539F; }
 }
 .al-row.triggered { border-color: rgba(0,138,0,.35); background: rgba(0,138,0,.02); }
+.al-row.disabled  { opacity: 0.6; }
+
+/* ── Divider between enabled/disabled ───────── */
+.al-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 4px;
+  span {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  &::before, &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-color);
+  }
+}
 
 /* ── Mobile ──────────────────────────────────── */
 @media (max-width: 639px) {

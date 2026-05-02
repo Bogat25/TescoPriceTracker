@@ -221,13 +221,11 @@
 @media (max-width: 1023px) and (min-width: 640px) {
   .sidebar-logo-name,
   .sidebar-logo-sub,
-  .sidebar-nav-item span,
+  .sidebar-label,
   .sidebar-alert-badge,
   .sidebar-theme-label,
   .sidebar-toggle-pill,
   .sidebar-user-info,
-  .sidebar-user-menu-btn,
-  .sidebar-login-btn,
   .sidebar-hex-cluster { display: none; }
 
   .sidebar-logo {
@@ -256,5 +254,27 @@
 
   .sidebar-footer { align-items: center; padding: 10px 4px 14px; }
 
-  .sidebar-user { justify-content: center; }
+  .sidebar-user {
+    justify-content: center;
+    .sidebar-user-menu-btn {
+      display: flex; /* still visible — lets user access logout */
+      padding: 6px;
+    }
+  }
+
+  /* Login button: compact icon-only version */
+  .sidebar-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    font-size: 0; /* hide text */
+    border-radius: 50%;
+    &::before {
+      content: '→';
+      font-size: 16px;
+    }
+  }
 }
