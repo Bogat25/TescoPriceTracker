@@ -19,10 +19,11 @@ import { Component, input, computed } from '@angular/core';
             />
           }
         </svg>
-        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 8px;text-align:center">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:0 10px;text-align:center;overflow:hidden">
           <div
             class="font-mono-prices"
-            style="font-size:20px;font-weight:800;line-height:1"
+            [style.fontSize.px]="valueFontSize()"
+            style="font-weight:800;line-height:1.1;word-break:break-all;hyphens:auto"
             [style.color]="accent()"
           >{{ value() }}</div>
           <div
@@ -44,6 +45,16 @@ export class HexKpi {
   private readonly s = 46;
   private readonly cx = 55;
   private readonly cy = 63;
+
+  /** Dynamically reduce font size for long values so they fit inside the hexagon. */
+  readonly valueFontSize = computed(() => {
+    const len = String(this.value()).length;
+    if (len <= 4)  return 20;
+    if (len <= 7)  return 16;
+    if (len <= 10) return 13;
+    if (len <= 13) return 11;
+    return 9;
+  });
 
   get innerPoints(): string {
     return Array.from({ length: 6 }, (_, i) => {

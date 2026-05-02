@@ -139,6 +139,12 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Center all direct page children within the scroll container */
+.hex-scroll > * {
+  margin-left: auto;
+  margin-right: auto;
+}
+
 /* ── Bottom tab bar (mobile only, hidden on desktop) ─── */
 .hex-bottom-nav {
   display: none;

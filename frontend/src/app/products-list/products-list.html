@@ -25,7 +25,31 @@
       <span class="loading loading-spinner loading-lg"></span>
     </div>
   } @else if (error()) {
-    <div class="pl-error-banner">{{ error() }}</div>
+    <div class="pl-error-banner pl-scraper-notice">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <div class="pl-scraper-title">Data collection is in progress</div>
+        <div class="pl-scraper-sub">The product catalogue will appear here after the scraper completes its first run. This usually takes a few minutes.</div>
+      </div>
+    </div>
+  } @else if (total() === 0) {
+    <div class="pl-error-banner pl-scraper-notice">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      <div>
+        <div class="pl-scraper-title">Waiting for the first scrape</div>
+        <div class="pl-scraper-sub">No products have been collected yet. The scraper is scheduled to run shortly. Please check back in a few minutes.</div>
+      </div>
+    </div>
   } @else if (filtered().length === 0) {
     <div class="pl-empty">
       <svg width="44" height="50" viewBox="0 0 44 50" style="opacity:.2;margin-bottom:12px">

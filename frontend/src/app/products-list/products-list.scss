@@ -57,6 +57,29 @@
   color: var(--hex3);
   font-size: 13px;
 }
+.pl-scraper-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: rgba(0,83,159,.05);
+  border-color: rgba(0,83,159,.25);
+  color: var(--text-secondary);
+  padding: 20px 24px;
+  border-radius: 14px;
+  svg { flex-shrink: 0; color: rgba(0,83,159,.5); margin-top: 2px; }
+}
+.pl-scraper-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.pl-scraper-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
 .pl-empty {
   text-align: center;
   padding: 48px 0;

@@ -42,7 +42,7 @@
     @if (platformLoading()) {
       <div class="st-loading">
         <span class="loading loading-spinner loading-lg"></span>
-        <span>Loading platform statisticsâ€¦</span>
+        <span>Loading platform statistics…</span>
       </div>
     }
 
@@ -58,37 +58,52 @@
           <app-hex-kpi [value]="(vol.total | number) || '—'" label="Products tracked" accent="var(--hex1)"/>
         }
         @if (globalAvg(); as ga) {
-          <app-hex-kpi [value]="(ga.avg_price | number:'1.0-0') + ' Ft'" label="Avg price" accent="var(--hex2)"/>
+          <app-hex-kpi [value]="ga.avg_price != null ? ((ga.avg_price | number:'1.0-0') + ' Ft') : '—'" label="Avg price" accent="var(--hex2)"/>
         }
         @if (inflation30d(); as inf) {
           <app-hex-kpi
-            [value]="inf.pct_change !== null ? ((inf.pct_change > 0 ? '+' : '') + (inf.pct_change | number:'1.1-1') + '%') : 'â€”'"
+            [value]="inf.pct_change !== null ? ((inf.pct_change > 0 ? '+' : '') + (inf.pct_change | number:'1.1-1') + '%') : '—'"
             label="30d inflation"
             [accent]="inf.pct_change !== null && inf.pct_change > 0 ? 'var(--hex3)' : 'var(--hex5)'"/>
         }
         @if (bestShoppingDay(); as bsd) {
-          <app-hex-kpi [value]="bsd.date ?? 'â€”'" label="Best shop day" accent="var(--hex4)"/>
+          <app-hex-kpi [value]="bsd.date ?? '—'" label="Best shop day" accent="var(--hex4)"/>
         }
         @if (categoryDiff(); as cd) {
           <app-hex-kpi
-            [value]="cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : 'â€”'"
+            [value]="cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : '—'"
             label="Clubcard saving" accent="var(--hex2)"/>
         }
       </div>
+
+      <!-- Empty state: scraper hasn't run yet -->
+      @if (!productVolume() || productVolume()!.total === 0) {
+        <div class="st-empty-notice">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="st-empty-icon">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div class="st-empty-notice-title">Data collection is in progress</div>
+          <div class="st-empty-notice-sub">The scraper hasn&#39;t completed its first run yet. Analytics will appear here once products have been collected. Check back in a few minutes.</div>
+        </div>
+      }
+
 
       <!-- Price Index chart (full-width, hero) -->
       @if (priceIndex().length) {
         <div class="st-card st-card-full">
           <div class="st-card-header">
-            <app-sec-label text="Price Index â€” inflation tracker" accent="#00539F"/>
+            <app-sec-label text="Price Index — inflation tracker" accent="#00539F"/>
             @if (priceIndex().length > 1) {
               <span class="st-badge"
                     [style.background]="priceIndex()[priceIndex().length - 1].index > 100 ? 'rgba(238,28,37,.12)' : 'rgba(0,138,0,.12)'"
                     [style.color]="priceIndex()[priceIndex().length - 1].index > 100 ? 'var(--hex3)' : 'var(--hex5)'">
                 @if (priceIndex()[priceIndex().length - 1].index > 100) {
-                  â†‘ {{ (priceIndex()[priceIndex().length - 1].index - 100) | number:'1.1-1' }}% since start
+                  &#x2191; {{ (priceIndex()[priceIndex().length - 1].index - 100) | number:'1.1-1' }}% since start
                 } @else {
-                  â†“ {{ (100 - priceIndex()[priceIndex().length - 1].index) | number:'1.1-1' }}% since start
+                  &#x2193; {{ (100 - priceIndex()[priceIndex().length - 1].index) | number:'1.1-1' }}% since start
                 }
               </span>
             }
@@ -121,13 +136,13 @@
                 <div class="st-channel-stat">
                   <span>Discount vs Normal</span>
                   <strong [style.color]="cd.discount_vs_normal_pct !== null && cd.discount_vs_normal_pct < 0 ? 'var(--hex5)' : 'var(--hex3)'">
-                    {{ cd.discount_vs_normal_pct !== null ? (cd.discount_vs_normal_pct | number:'1.1-1') + '%' : 'â€”' }}
+                    {{ cd.discount_vs_normal_pct !== null ? (cd.discount_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
                   </strong>
                 </div>
                 <div class="st-channel-stat">
                   <span>Clubcard vs Normal</span>
                   <strong [style.color]="cd.clubcard_vs_normal_pct !== null && cd.clubcard_vs_normal_pct < 0 ? 'var(--hex5)' : 'var(--hex3)'">
-                    {{ cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : 'â€”' }}
+                    {{ cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
                   </strong>
                 </div>
               </div>
@@ -243,7 +258,7 @@
       <app-sec-label text="Pick a product to analyse" accent="#00539F"/>
       <div style="position:relative">
         <input type="search" class="st-search-input"
-               placeholder="Search by name or TPNC (min. 2 chars)â€¦"
+               placeholder="Search by name or TPNC (min. 2 chars)…"
                [value]="query()"
                (input)="onSearchInput($any($event.target).value)"
                autocomplete="off"/>
@@ -281,7 +296,7 @@
     @if (loading()) {
       <div class="st-loading">
         <span class="loading loading-spinner loading-lg"></span>
-        <span>Crunching the numbersâ€¦</span>
+        <span>Crunching the numbers…</span>
       </div>
     }
 
@@ -345,30 +360,30 @@
 
       <!-- KPI hex tiles row 1 -->
       <div class="st-kpi-row">
-        <app-hex-kpi [value]="kpi().current !== undefined ? (kpi().current | number:'1.2-2') + ' Ft' : 'â€”'" label="Current"        accent="var(--hex1)"/>
-        <app-hex-kpi [value]="kpi().min !== undefined ? (kpi().min | number:'1.2-2') + ' Ft' : 'â€”'"     label="All-time low"   accent="var(--hex5)"/>
-        <app-hex-kpi [value]="kpi().max !== undefined ? (kpi().max | number:'1.2-2') + ' Ft' : 'â€”'"     label="All-time high"  accent="var(--hex3)"/>
-        <app-hex-kpi [value]="kpi().avg !== undefined ? (kpi().avg | number:'1.2-2') + ' Ft' : 'â€”'"     label="Historical avg" accent="var(--hex4)"/>
-        <app-hex-kpi [value]="kpi().clubcardMin !== undefined ? (kpi().clubcardMin | number:'1.2-2') + ' Ft' : 'â€”'" label="Clubcard low" accent="var(--hex2)"/>
-        <app-hex-kpi [value]="kpi().savingsPct !== undefined ? (kpi().savingsPct | number:'1.0-1') + '%' : 'â€”'" label="Max savings" accent="#00539F"/>
+        <app-hex-kpi [value]="kpi().current !== undefined ? (kpi().current | number:'1.2-2') + ' Ft' : '—'" label="Current"        accent="var(--hex1)"/>
+        <app-hex-kpi [value]="kpi().min !== undefined ? (kpi().min | number:'1.2-2') + ' Ft' : '—'"     label="All-time low"   accent="var(--hex5)"/>
+        <app-hex-kpi [value]="kpi().max !== undefined ? (kpi().max | number:'1.2-2') + ' Ft' : '—'"     label="All-time high"  accent="var(--hex3)"/>
+        <app-hex-kpi [value]="kpi().avg !== undefined ? (kpi().avg | number:'1.2-2') + ' Ft' : '—'"     label="Historical avg" accent="var(--hex4)"/>
+        <app-hex-kpi [value]="kpi().clubcardMin !== undefined ? (kpi().clubcardMin | number:'1.2-2') + ' Ft' : '—'" label="Clubcard low" accent="var(--hex2)"/>
+        <app-hex-kpi [value]="kpi().savingsPct !== undefined ? (kpi().savingsPct | number:'1.0-1') + '%' : '—'" label="Max savings" accent="#00539F"/>
       </div>
 
       <!-- KPI hex tiles row 2 -->
       <div class="st-kpi-row">
         <app-hex-kpi [value]="volatilityLabel(kpi().volatility)"         label="Volatility"     [accent]="volatilityClass(kpi().volatility).includes('success') ? 'var(--hex5)' : volatilityClass(kpi().volatility).includes('error') ? 'var(--hex3)' : 'var(--hex2)'"/>
         <app-hex-kpi [value]="trendLabel(kpi().trendPct)"                label="30d trend"      [accent]="trendClass(kpi().trendPct).includes('success') ? 'var(--hex5)' : 'var(--hex3)'"/>
-        <app-hex-kpi [value]="kpi().bestMonth || 'â€”'"                    label="Best month"     accent="var(--hex5)"/>
-        <app-hex-kpi [value]="kpi().promoFreqPct !== undefined ? (kpi().promoFreqPct | number:'1.0-1') + '%' : 'â€”'" label="Promo rate" accent="var(--hex2)"/>
-        <app-hex-kpi [value]="kpi().priceChanges ?? 'â€”'"                 label="Price changes"  accent="var(--hex4)"/>
-        <app-hex-kpi [value]="kpi().daysTracked ?? 'â€”'"                  label="Days tracked"   accent="var(--hex1)"/>
+        <app-hex-kpi [value]="kpi().bestMonth || '—'"                    label="Best month"     accent="var(--hex5)"/>
+        <app-hex-kpi [value]="kpi().promoFreqPct !== undefined ? (kpi().promoFreqPct | number:'1.0-1') + '%' : '—'" label="Promo rate" accent="var(--hex2)"/>
+        <app-hex-kpi [value]="kpi().priceChanges ?? '—'"                 label="Price changes"  accent="var(--hex4)"/>
+        <app-hex-kpi [value]="kpi().daysTracked ?? '—'"                  label="Days tracked"   accent="var(--hex1)"/>
       </div>
 
       <!-- Secondary metrics row -->
       <div class="st-meta-grid">
         <div class="st-meta-tile"><div class="st-meta-label">Total data points</div><div class="st-meta-value font-mono-prices">{{ kpi().entryCount }}</div></div>
         <div class="st-meta-tile"><div class="st-meta-label">Promo records</div><div class="st-meta-value font-mono-prices">{{ kpi().promoCount }}</div></div>
-        <div class="st-meta-tile"><div class="st-meta-label">Tracking since</div><div class="st-meta-value">{{ kpi().firstSeen ? (kpi().firstSeen | date:'mediumDate') : 'â€”' }}</div></div>
-        <div class="st-meta-tile"><div class="st-meta-label">Last observation</div><div class="st-meta-value">{{ kpi().lastSeen ? (kpi().lastSeen | date:'mediumDate') : 'â€”' }}</div></div>
+        <div class="st-meta-tile"><div class="st-meta-label">Tracking since</div><div class="st-meta-value">{{ kpi().firstSeen ? (kpi().firstSeen | date:'mediumDate') : '—' }}</div></div>
+        <div class="st-meta-tile"><div class="st-meta-label">Last observation</div><div class="st-meta-value">{{ kpi().lastSeen ? (kpi().lastSeen | date:'mediumDate') : '—' }}</div></div>
       </div>
 
       <!-- Clubcard savings callout -->
@@ -485,7 +500,7 @@
 
       <!-- Chart: price distribution -->
       <div class="st-card">
-        <app-sec-label text="Price distribution â€” frequency histogram"/>
+        <app-sec-label text="Price distribution — frequency histogram"/>
         <div class="st-chart-area st-chart-md">
           <canvas #distributionBar></canvas>
         </div>

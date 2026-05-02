@@ -66,6 +66,22 @@ async def delete(user_id: str, alert_id: str) -> bool:
     return result.deleted_count == 1
 
 
+async def toggle(user_id: str, alert_id: str, enabled: bool) -> dict | None:
+    """Set the enabled flag on a specific alert. Returns the updated doc or None."""
+    try:
+        oid = ObjectId(alert_id)
+    except (InvalidId, TypeError):
+        return None
+    result = await _coll().find_one_and_update(
+        {"_id": oid, "userId": user_id},
+        {"$set": {"enabled": enabled}},
+        return_document=True,
+    )
+    if result is None:
+        return None
+    return _to_out(result)
+
+
 def _chunks(items: list[str], size: int) -> Iterable[list[str]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]

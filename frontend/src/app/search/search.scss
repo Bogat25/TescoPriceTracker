@@ -1,7 +1,7 @@
 /* Search page */
 .sr-page {
   padding: clamp(16px, 3vw, 36px) clamp(16px, 3vw, 36px);
-  max-width: 900px;
+  max-width: 1200px;
   position: relative;
   z-index: 1;
 }
@@ -16,6 +16,7 @@
   display: flex;
   gap: 10px;
   margin-bottom: 24px;
+  max-width: 700px;
 }
 .sr-input-wrap {
   flex: 1;
@@ -94,56 +95,62 @@
   margin-bottom: 12px;
   font-weight: 600;
 }
+
+/* ── Card grid: up to 4 columns ─────────────── */
 .sr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
   list-style: none;
   padding: 0;
   margin: 0;
 }
+
+/* ── Individual card (vertical layout) ──────── */
 .sr-card {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 12px;
+  flex-direction: column;
+  border-radius: 14px;
   border: 1px solid var(--border-color);
   background: var(--surface-card);
   text-decoration: none;
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
   transition: border-color 160ms, box-shadow 160ms, transform 160ms;
   &:hover {
     border-color: rgba(0,83,159,.4);
     box-shadow: var(--shadow-md);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
   }
 }
 .sr-card-img {
-  width: 56px;
-  height: 56px;
-  flex-shrink: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
   background: var(--surface-card-alt);
-  border: 1px solid var(--border-color);
-  overflow: hidden;
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px;
+  box-sizing: border-box;
   img {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    padding: 4px;
-    box-sizing: border-box;
+    max-width: 160px;
+    max-height: 160px;
   }
 }
-.sr-card-body { flex: 1; min-width: 0; }
+.sr-card-body {
+  flex: 1;
+  padding: 12px 12px 6px;
+  min-width: 0;
+}
 .sr-card-name {
-  font-size: 13px;
+  font-size: clamp(11px, 1vw, 13px);
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.3;
+  line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -152,27 +159,41 @@
 .sr-card-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 3px;
+  margin-top: 5px;
   font-size: 10px;
   color: var(--text-muted);
 }
+.sr-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 12px;
+}
 .sr-card-price {
-  font-size: 15px;
+  font-size: clamp(14px, 1.2vw, 16px);
   font-weight: 800;
-  color: var(--text-primary);
-  flex-shrink: 0;
-  white-space: nowrap;
+  color: #00539F;
+}
+.sr-card-no-price {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 .sr-card-arrow {
   flex-shrink: 0;
   color: var(--text-muted);
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
-/* ── Mobile ──────────────────────────────────── */
-@media (max-width: 480px) {
+/* ── Responsive grid ─────────────────────────── */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .sr-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 639px) {
   .sr-form { flex-direction: column; }
   .sr-btn  { width: 100%; justify-content: center; }
-  .sr-card-price, .sr-card-arrow { display: none; }
+  .sr-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+}
+@media (max-width: 399px) {
+  .sr-grid { grid-template-columns: 1fr; }
 }

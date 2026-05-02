@@ -45,35 +45,41 @@
       @for (p of results(); track p.tpnc) {
         <li>
           <a [routerLink]="['/products', p.tpnc]" class="sr-card">
+            <!-- Product image (square, full-width top) -->
             <div class="sr-card-img">
               @if (p.imageUrl) {
                 <img [src]="p.imageUrl" [alt]="p.name || p.tpnc"
                      loading="lazy" referrerpolicy="no-referrer"/>
               } @else {
-                <svg width="28" height="32" viewBox="0 0 28 32">
-                  <polygon points="14,0 28,8 28,24 14,32 0,24 0,8" fill="rgba(0,83,159,.12)" stroke="#00539F" stroke-width="1.5"/>
-                  <text x="14" y="19" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#00539F" font-weight="800">
+                <svg width="48" height="55" viewBox="0 0 48 55">
+                  <polygon points="24,0 48,13.75 48,41.25 24,55 0,41.25 0,13.75" fill="rgba(0,83,159,.1)" stroke="#00539F" stroke-width="1.5"/>
+                  <text x="24" y="31" text-anchor="middle" dominant-baseline="central" font-size="18" fill="#00539F" font-weight="800">
                     {{ (p.name || p.tpnc).charAt(0).toUpperCase() }}
                   </text>
                 </svg>
               }
             </div>
+            <!-- Card body -->
             <div class="sr-card-body">
               <div class="sr-card-name">{{ p.name || p.tpnc }}</div>
               <div class="sr-card-meta">
                 <span>{{ p.tpnc }}</span>
                 @if (p.packSize) { <span>· {{ p.packSize }}</span> }
                 @if (p.unit) { <span>· {{ p.unit }}</span> }
-                @if (p.category) { <span>· {{ p.category }}</span> }
               </div>
             </div>
-            @if (p.currentPrice !== undefined) {
-              <div class="sr-card-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</div>
-            }
-            <svg class="sr-card-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
+            <!-- Footer: price + arrow -->
+            <div class="sr-card-footer">
+              @if (p.currentPrice !== undefined) {
+                <span class="sr-card-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+              } @else {
+                <span class="sr-card-no-price">No price</span>
+              }
+              <svg class="sr-card-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
           </a>
         </li>
       }

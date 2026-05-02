@@ -33,6 +33,10 @@ export class AlertsService {
     return this.http.post<PriceAlert>(`${this.base}/`, req);
   }
 
+  toggle(id: string, enabled: boolean): Observable<PriceAlert> {
+    return this.http.patch<PriceAlert>(`${this.base}/${id}/toggle`, { enabled });
+  }
+
   remove(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/${id}`);
   }

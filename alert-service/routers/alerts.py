@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from auth import current_user
-from models import AlertListResponse, AlertOut, CreateAlertRequest
+from models import AlertListResponse, AlertOut, CreateAlertRequest, ToggleAlertRequest
 from services import alert_repo
 
 
@@ -39,3 +39,15 @@ async def delete_alert(
     deleted = await alert_repo.delete(user["sub"], alert_id)
     if not deleted:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
+
+
+@router.patch("/{alert_id}/toggle", response_model=AlertOut)
+async def toggle_alert(
+    alert_id: str,
+    body: ToggleAlertRequest,
+    user: dict = Depends(current_user),
+) -> AlertOut:
+    doc = await alert_repo.toggle(user["sub"], alert_id, body.enabled)
+    if doc is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
+    return AlertOut(**doc)

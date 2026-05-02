@@ -40,24 +40,24 @@
   <!-- â”€â”€ Platform KPI hex row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
   <div class="hm-kpi-row">
     @if (productCount() !== null) {
-      <app-hex-kpi [value]="(productCount() | number) || 'â€”'" label="Products tracked" accent="var(--hex1)"/>
+      <app-hex-kpi [value]="(productCount() | number) || '—'" label="Products tracked" accent="var(--hex1)"/>
     } @else {
-      <app-hex-kpi value="â€”" label="Products tracked" accent="var(--hex1)"/>
+      <app-hex-kpi value="—" label="Products tracked" accent="var(--hex1)"/>
     }
     <app-hex-kpi
-      [value]="statsLoading() ? 'â€¦' : (volatility() || 'â€”')"
+      [value]="statsLoading() ? '…' : (volatility() || '—')"
       label="Volatility"
       accent="var(--hex5)"/>
     <app-hex-kpi
-      [value]="statsLoading() ? 'â€¦' : (trend30d() || 'â€”')"
+      [value]="statsLoading() ? '…' : (trend30d() || '—')"
       label="30d trend"
       [accent]="trend30d().startsWith('â†“') ? 'var(--hex5)' : trend30d().startsWith('â†‘') ? 'var(--hex3)' : 'var(--hex2)'"/>
     <app-hex-kpi
-      [value]="statsLoading() ? 'â€¦' : (bestWeekday() || 'â€”')"
+      [value]="statsLoading() ? '…' : (bestWeekday() || '—')"
       label="Best shop day"
       accent="var(--hex4)"/>
     <app-hex-kpi
-      [value]="statsLoading() ? 'â€¦' : (maxDiscount() || 'â€”')"
+      [value]="statsLoading() ? '…' : (maxDiscount() || '—')"
       label="Best discount"
       accent="var(--hex2)"/>
   </div>
@@ -68,7 +68,7 @@
     <div class="hm-status-pill">
       @if (healthOk() === null) {
         <span class="hm-dot hm-dot-idle"></span>
-        <span>Connectingâ€¦</span>
+        <span>Connecting…</span>
       } @else if (healthOk()) {
         <span class="hm-dot hm-dot-ok"></span>
         <span>All systems operational</span>
