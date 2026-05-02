@@ -69,6 +69,25 @@ def _decode(token: str) -> dict:
     )
 
 
+def _safe_dump_claims(token: str) -> str:
+    """Best-effort decode without verification to log what's actually in the
+    token when validation fails. Values are truncated to 80 chars and tokens
+    that fail to parse return a placeholder. Never raises."""
+    try:
+        unverified = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
+        # Show short scalar claims in full; truncate longer ones; list keys for dicts/arrays.
+        safe = {}
+        for k, v in unverified.items():
+            if isinstance(v, (str, int, float, bool)) or v is None:
+                s = str(v)
+                safe[k] = s if len(s) <= 80 else f"{s[:77]}..."
+            else:
+                safe[k] = f"<{type(v).__name__} keys={list(v.keys()) if isinstance(v, dict) else len(v)}>"
+        return repr(safe)
+    except Exception as e:
+        return f"<unparseable: {type(e).__name__}: {e}>"
+
+
 def _validate_bearer(token: str) -> dict:
     try:
         claims = _decode(token)
@@ -80,12 +99,14 @@ def _validate_bearer(token: str) -> dict:
         except PyJWTError as e:
             # Log at WARNING with type+message so 401s are diagnosable in prod.
             # Most common causes: ExpiredSignatureError, InvalidIssuerError
-            # (KC_ISSUER mismatch), InvalidSignatureError (wrong realm/JWKS).
+            # (KC_ISSUER mismatch), InvalidSignatureError (wrong realm/JWKS),
+            # MissingRequiredClaimError (Keycloak client/scope not emitting it).
             logger.warning(
-                "JWT validation failed: %s: %s (first attempt: %s: %s); expected iss=%s",
+                "JWT validation failed: %s: %s (first attempt: %s: %s); expected iss=%s; token claims=%s",
                 type(e).__name__, e,
                 type(first_err).__name__, first_err,
                 settings.KC_ISSUER,
+                _safe_dump_claims(token),
             )
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
 
