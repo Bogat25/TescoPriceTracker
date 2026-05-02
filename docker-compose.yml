@@ -258,14 +258,17 @@ services:
     expose:
       - "80"
     environment:
-      # Nginx upstream for /api/tesco/* proxy (internal service-to-service)
-      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM}
+      # Nginx upstream for /api/tesco/* proxy.
+      # Derived from the STACK_PREFIX-qualified container name so each stack
+      # instance always routes to its OWN api container, never another stack's.
+      # Override TESCO_API_UPSTREAM in .env only when the backend is external.
+      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM:-http://${STACK_PREFIX}tesco-price-tracker-api:50202}
       # Nginx upstream for /auth/* proxy. Standalone mode: in-stack auth-gateway.
       # Embedded mode: an external gateway reachable on a shared network.
       AUTH_UPSTREAM: ${AUTH_UPSTREAM}
-      # Nginx upstream for /api/alerts/* proxy. Standalone mode default points
-      # at the in-stack alert-service. Embedded mode normally bypasses nginx.
-      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://alert-service:8080}
+      # Nginx upstream for /api/alerts/* proxy.
+      # Same STACK_PREFIX isolation as TESCO_API_UPSTREAM above.
+      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://${STACK_PREFIX}tesco-alert-service:8080}
       # Runtime config injected into window.__APP_CONFIG__ by envsubst at startup
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
       AUTH_BASE_URL: ${AUTH_BASE_URL}

@@ -245,9 +245,9 @@ services:
     expose:
     - '80'
     environment:
-      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM}
+      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM:-http://${STACK_PREFIX}tesco-price-tracker-api:50202}
       AUTH_UPSTREAM: ${AUTH_UPSTREAM}
-      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://alert-service:8080}
+      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://${STACK_PREFIX}tesco-alert-service:8080}
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
       AUTH_BASE_URL: ${AUTH_BASE_URL}
       AUTH_LOGIN_URL: ${AUTH_LOGIN_URL}

@@ -12,8 +12,13 @@ server {
     # /api/tesco/<path>  →  ${TESCO_API_UPSTREAM}/api/v1/<path>
     # TESCO_API_UPSTREAM is injected at container startup via envsubst.
     # This avoids CORS issues — the browser always talks to the same origin.
+    # resolver 127.0.0.11 ensures Docker DNS is used per-request so the correct
+    # STACK_PREFIX-scoped container is always reached even after restarts.
     location /api/tesco/ {
-        proxy_pass ${TESCO_API_UPSTREAM}/api/v1/;
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $tesco_upstream ${TESCO_API_UPSTREAM};
+        rewrite ^/api/tesco/(.*)$ /api/v1/$1 break;
+        proxy_pass $tesco_upstream;
         proxy_http_version 1.1;
         # When upstream is HTTPS (e.g. https://api.example.com)
         # the upstream's TLS cert is for its own hostname, so forward that as
