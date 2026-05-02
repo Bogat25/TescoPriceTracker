@@ -27,7 +27,16 @@ async def lifespan(_: FastAPI):
         await alert_db.close()
 
 
-app = FastAPI(title="alert-service", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="alert-service",
+    version="1.0.0",
+    lifespan=lifespan,
+    # FastAPI's default trailing-slash redirect builds an absolute URL from the
+    # Host header. Behind nginx that header is the upstream service name, so the
+    # 307 leaks an unreachable internal URL to the browser (mixed-content). We
+    # accept both forms explicitly on the routes instead.
+    redirect_slashes=False,
+)
 
 
 _cors_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()]

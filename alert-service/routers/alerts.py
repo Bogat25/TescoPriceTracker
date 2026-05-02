@@ -10,13 +10,19 @@ from services import alert_repo
 router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
 
 
-@router.get("", response_model=AlertListResponse)
+# Both "" and "/" are registered so the bare-collection endpoint works whether
+# the upstream caller (nginx, YARP, curl) sends a trailing slash or not. With
+# redirect_slashes disabled at the app level, FastAPI no longer normalises them
+# automatically.
+@router.get("", response_model=AlertListResponse, include_in_schema=False)
+@router.get("/", response_model=AlertListResponse)
 async def list_alerts(user: dict = Depends(current_user)) -> AlertListResponse:
     docs = await alert_repo.list_for_user(user["sub"])
     return AlertListResponse(alerts=[AlertOut(**d) for d in docs])
 
 
-@router.post("", response_model=AlertOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=AlertOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post("/", response_model=AlertOut, status_code=status.HTTP_201_CREATED)
 async def create_alert(
     body: CreateAlertRequest,
     user: dict = Depends(current_user),
