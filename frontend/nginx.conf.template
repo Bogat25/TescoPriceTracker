@@ -40,7 +40,13 @@ server {
     location /api/alerts/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $alerts_upstream ${ALERTS_API_UPSTREAM};
-        proxy_pass $alerts_upstream/api/v1/alerts/;
+        # Use an explicit rewrite so that all HTTP methods (GET, POST, PATCH,
+        # DELETE) are forwarded with the correct /api/v1/alerts/* URI.
+        # A proxy_pass with a variable+path suffix may skip the location-prefix
+        # stripping; the rewrite+break pattern guarantees the right upstream path
+        # regardless of method.
+        rewrite ^/api/alerts/(.*)$ /api/v1/alerts/$1 break;
+        proxy_pass $alerts_upstream;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
         proxy_set_header Host $proxy_host;

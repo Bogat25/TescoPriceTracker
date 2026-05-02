@@ -283,6 +283,14 @@
   margin-bottom: 24px;
 }
 
+/* ── Analytics grid ──────────────────────────── */
+.pd-analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
 /* ── Details table ───────────────────────────── */
 .pd-details-table { display: flex; flex-direction: column; gap: 0; }
 .pd-detail-row {

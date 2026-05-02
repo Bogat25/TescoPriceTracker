@@ -278,9 +278,9 @@ def search_products(query, skip: int = 0, limit: int = 50):
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc["tpnc"] = tpnc
         doc.pop("_id", None)
+        doc["last_scraped_price"] = _extract_current_price(doc)
         doc.pop("price_history", None)
         doc.pop("score", None)
-        doc["last_scraped_price"] = _extract_current_price(doc)
         cleaned.append(doc)
 
     return {"results": cleaned, "total": total, "skip": skip, "limit": limit}

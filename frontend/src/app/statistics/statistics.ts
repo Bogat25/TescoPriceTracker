@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subject, debounceTime, forkJoin, of, switchMap } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { HexIcon }   from '../shared/hex-icon/hex-icon';
@@ -139,6 +139,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
     
   private products = inject(ProductsService);
   private platformStats = inject(PlatformStatsService);
+  private router = inject(Router);
   private cdr = inject(ChangeDetectorRef);
 
   // ─── Tab state ──────────────────────────────────────────────────────
@@ -507,9 +508,8 @@ export class Statistics implements AfterViewInit, OnDestroy {
   }
 
   pick(summary: ProductSummary): void {
-    this.query.set(summary.name ?? summary.tpnc);
     this.suggestions.set([]);
-    this.load(summary.tpnc);
+    this.router.navigate(['/products', summary.tpnc]);
   }
 
   load(tpnc: string): void {

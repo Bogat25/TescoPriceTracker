@@ -171,6 +171,14 @@ export class ProductsService {
     return this.searchPaged(query, 0, 50);
   }
 
+  /** Slim search — returns only card-display fields (no price_history). */
+  searchSlim(query: string, skip = 0, limit = 50): Observable<{ results: ProductSummary[]; total: number; skip: number; limit: number }> {
+    const params = new HttpParams().set('q', query).set('skip', skip).set('limit', limit);
+    return this.http.get<{ results: ProductResponse[]; total: number; skip: number; limit: number }>(`${this.base}/search/slim`, { params }).pipe(
+      map(r => ({ results: (r.results ?? []).map(toSummary), total: r.total ?? 0, skip: r.skip ?? skip, limit: r.limit ?? limit })),
+    );
+  }
+
   /** Full upstream document — contains price_history for charting. */
   getRaw(tpnc: string): Observable<ProductResponse> {
     return this.http.get<ProductResponse>(`${this.base}/${encodeURIComponent(tpnc)}/detailed`);

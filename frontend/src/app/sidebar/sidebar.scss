@@ -111,6 +111,7 @@
   background: var(--border-color);
   border-radius: 8px;
   width: fit-content;
+  align-self: center; /* center horizontally in the footer column */
 }
 .sidebar-lang-btn {
   display: flex;
@@ -244,6 +245,9 @@
 
 /* ── Login button ───────────────────────────── */
 .sidebar-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   padding: 8px;
   border-radius: 8px;
@@ -255,6 +259,8 @@
   cursor: pointer;
   transition: opacity 150ms;
   &:hover { opacity: 0.88; }
+  /* Expanded: text only — hide the icon */
+  .sidebar-login-icon { display: none; }
 }
 
 /* ══════════════════════════════════════════
@@ -305,7 +311,7 @@
     .sidebar-user-menu-btn { display: none; }
   }
 
-  /* Login button: compact icon-only version */
+  /* Login button: collapsed = icon-only */
   .sidebar-login-btn {
     display: flex;
     align-items: center;
@@ -313,11 +319,21 @@
     width: 36px;
     height: 36px;
     padding: 0;
-    font-size: 0; /* hide text */
+    font-size: 0; /* hide text label */
     border-radius: 50%;
-    &::before {
-      content: '';
-    }
-    .sidebar-login-icon { display: flex; }
+    .sidebar-login-icon { display: flex; } /* show icon */
+    .sidebar-label { display: none; }      /* explicit belt-and-braces */
+  }
+
+  /* EN/HU toggle: vertical stack when collapsed */
+  .sidebar-lang-toggle {
+    flex-direction: column;
+    align-items: center;
+    width: auto;
+  }
+  .sidebar-lang-sep {
+    width: 100%;
+    height: 1px;
+    flex-shrink: 0;
   }
 }

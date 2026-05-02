@@ -137,6 +137,10 @@ body {
   position: relative;
   /* Smooth scrolling on iOS */
   -webkit-overflow-scrolling: touch;
+  /* Infinite tiling SVG hexagon honeycomb */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='138.56'%3E%3Cpath d='M80,0 L160,0 L200,69.28 L160,138.56 L80,138.56 L40,69.28 Z M0,69.28 L40,69.28 M200,69.28 L240,69.28' fill='none' stroke='%2300539F' stroke-width='1.5' stroke-opacity='0.07'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 240px 138.56px;
 }
 
 /* Center all direct page children within the scroll container */
@@ -158,17 +162,11 @@ body {
 @media (min-width: 1920px) {
   :root { --sidebar-width: 220px; }
   .hex-scroll > * { max-width: 2200px; }
-  .hex-scroll {
-    background-image: radial-gradient(ellipse at 50% 0%, rgba(0,83,159,0.07) 0%, transparent 70%);
-  }
 }
 
 /* ── Ultra-wide ≥ 2560px ─── */
 @media (min-width: 2560px) {
   :root { --sidebar-width: 240px; }
-  .hex-scroll {
-    background-image: radial-gradient(ellipse at 50% 0%, rgba(0,83,159,0.10) 0%, transparent 65%);
-  }
 }
 
 /* ── Tablet landscape / small desktop: 768–1023px ── */

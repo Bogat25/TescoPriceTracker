@@ -277,7 +277,100 @@
       </div>
     </div>
 
+    <!-- ── Analytics Section ──────────────────────────────────────── -->
+    @if (kpi().entryCount > 0) {
+      <app-sec-label text="Price Analytics" accent="#00539F"/>
+
+      <!-- Analytics KPI row -->
+      <div class="pd-kpi-row" style="margin-top:12px">
+        <app-hex-kpi [value]="kpi().entryCount"  label="Price records"   accent="var(--hex1)"/>
+        <app-hex-kpi [value]="kpi().daysTracked ?? '—'" label="Days tracked" accent="var(--hex2)"/>
+        <app-hex-kpi [value]="kpi().priceChanges ?? '—'" label="Price changes" accent="var(--hex4)"/>
+        @if (kpi().promoFreqPct !== undefined) {
+          <app-hex-kpi [value]="(kpi().promoFreqPct! | number:'1.0-0') + '%'" label="Promo frequency" accent="var(--hex3)"/>
+        }
+        @if (kpi().volatility !== undefined) {
+          <app-hex-kpi [value]="volatilityLabel(kpi().volatility)" label="Volatility" accent="var(--hex5)"/>
+        }
+        @if (kpi().trendPct !== undefined) {
+          <app-hex-kpi [value]="trendLabel(kpi().trendPct)" label="30d trend" [accent]="(kpi().trendPct ?? 0) >= 0 ? 'var(--hex3)' : 'var(--hex5)'"/>
+        }
+        <app-hex-kpi [value]="buySignalLabel(kpi())" label="Buy signal" accent="#00539F"/>
+        @if (kpi().bestMonth) {
+          <app-hex-kpi [value]="kpi().bestMonth!" label="Best month" accent="var(--hex2)"/>
+        }
+      </div>
+
+      <!-- Insights list -->
+      @if (insights().length) {
+        <div class="pd-card pd-card-amber" style="margin-top:16px">
+          <app-sec-label text="Data Insights" accent="var(--hex2)"/>
+          <ul class="pd-insights-list" style="list-style:none;padding:0;margin:8px 0 0">
+            @for (ins of insights(); track ins) {
+              <li class="pd-insight-row">
+                <svg width="16" height="18" viewBox="0 0 16 18" style="flex-shrink:0"><polygon points="8,0 16,4.5 16,13.5 8,18 0,13.5 0,4.5" fill="rgba(0,83,159,.15)" stroke="#00539F" stroke-width="1"/></svg>
+                <span class="pd-insight-text">{{ ins }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      }
+
+      <!-- Multi-channel price history chart -->
+      <div class="pd-card" style="margin-top:16px">
+        <app-sec-label text="Multi-channel price history" accent="#00539F"/>
+        <div class="pd-chart-wrap" style="height:280px">
+          <canvas #multiLineChart></canvas>
+        </div>
+      </div>
+
+      <!-- Analytics charts grid -->
+      <div class="pd-analytics-grid" style="margin-top:16px">
+
+        <div class="pd-card">
+          <app-sec-label text="Promo vs Regular" accent="var(--hex3)"/>
+          <div class="pd-chart-wrap" style="height:220px">
+            <canvas #promoDoughnut></canvas>
+          </div>
+        </div>
+
+        <div class="pd-card">
+          <app-sec-label text="Monthly avg price" accent="#00539F"/>
+          <div class="pd-chart-wrap" style="height:220px">
+            <canvas #monthlyBar></canvas>
+          </div>
+        </div>
+
+        <div class="pd-card">
+          <app-sec-label text="Clubcard savings %" accent="var(--hex2)"/>
+          <div class="pd-chart-wrap" style="height:220px">
+            <canvas #savingsBar></canvas>
+          </div>
+        </div>
+
+        <div class="pd-card">
+          <app-sec-label text="Price distribution" accent="var(--hex4)"/>
+          <div class="pd-chart-wrap" style="height:220px">
+            <canvas #distributionBar></canvas>
+          </div>
+        </div>
+
+        <div class="pd-card">
+          <app-sec-label text="Year-over-year" accent="var(--hex5)"/>
+          <div class="pd-chart-wrap" style="height:220px">
+            <canvas #yoyBar></canvas>
+          </div>
+        </div>
+
+        <div class="pd-card">
+          <app-sec-label text="Month-on-month delta" accent="var(--hex3)"/>
+          <div class="pd-chart-wrap" style="height:220px">
+            <canvas #deltaBar></canvas>
+          </div>
+        </div>
+
+      </div>
+    }
+
   }
 </div>
-
-    <div class="flex items-center justify-center gap-3 py-20">

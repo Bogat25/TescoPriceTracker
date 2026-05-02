@@ -74,6 +74,22 @@ def search_products(
     return db.search_products(q, skip=skip, limit=limit)
 
 
+_SLIM_FIELDS = {"tpnc", "name", "default_image_url", "last_scraped_price",
+                "pack_size_value", "pack_size_unit", "unit_of_measure", "brand_name"}
+
+
+@app.get("/api/v1/products/search/slim")
+def search_products_slim(
+    q: str = Query(default="", min_length=1),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=100),
+):
+    """Like /search but returns only the fields needed to render search-result cards."""
+    full = db.search_products(q, skip=skip, limit=limit)
+    slim_results = [{k: v for k, v in r.items() if k in _SLIM_FIELDS} for r in full["results"]]
+    return {"results": slim_results, "total": full["total"], "skip": full["skip"], "limit": full["limit"]}
+
+
 @app.get("/api/v1/products/{tpnc}/trend")
 def get_product_trend(tpnc: str):
     """Price trend for a single product — cheap, computed on-demand.
