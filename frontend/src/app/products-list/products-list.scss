@@ -158,7 +158,7 @@
     &:hover { color: #00539F; }
   }
   &-right { text-align: right; }
-  &-icon  { width: 140px; }
+  &-icon  { width: 170px; }
 }
 .pl-sort-icon { font-size: 10px; opacity: 0.7; margin-left: 2px; }
 
@@ -174,15 +174,15 @@
 .pl-td {
   padding: 10px 12px;
   vertical-align: middle;
-  &-icon   { width: 140px; text-align: center; padding: 6px 8px; }
+  &-icon   { width: 170px; text-align: center; padding: 6px 8px; }
   &-right  { text-align: right; }
   &-action { width: 70px; text-align: right; }
 }
 
 /* ── Cell content ────────────────────────────── */
 .pl-thumb {
-  width: 120px;
-  height: 120px;
+  width: 150px;
+  height: 150px;
   object-fit: contain;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -300,5 +300,13 @@
   .pl-th { font-size: 11px; padding: 12px 14px; }
   .pl-td { padding: 12px 14px; }
   .pl-name { font-size: 13px; max-width: 400px; }
-  .pl-thumb { width: 60px; height: 60px; }
+}
+
+/* ── Collapsed sidebar (768–1023px): hide category col, fill image cell ── */
+@media (max-width: 1023px) and (min-width: 640px) {
+  .pl-th-cat,
+  .pl-td-cat  { display: none; }
+  .pl-td-icon { padding: 4px; }
+  .pl-th.pl-th-icon { width: 170px; }
+  .pl-thumb   { width: 162px; height: 162px; }
 }

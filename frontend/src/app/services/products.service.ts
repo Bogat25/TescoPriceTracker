@@ -179,6 +179,24 @@ export class ProductsService {
     );
   }
 
+  /** Category-aware catalogue search — respects active super_department / department filters. */
+  catalogueSearch(
+    query: string,
+    superDepartment?: string,
+    department?: string,
+    skip = 0,
+    limit = 64,
+  ): Observable<{ results: ProductSummary[]; total: number; skip: number; limit: number }> {
+    let params = new HttpParams().set('q', query).set('skip', skip).set('limit', limit);
+    if (superDepartment) params = params.set('super_department', superDepartment);
+    if (department)      params = params.set('department', department);
+    return this.http.get<{ results: ProductResponse[]; total: number; skip: number; limit: number }>(
+      `${this.base}/catalogue/search`, { params },
+    ).pipe(
+      map(r => ({ results: (r.results ?? []).map(toSummary), total: r.total ?? 0, skip: r.skip ?? skip, limit: r.limit ?? limit })),
+    );
+  }
+
   /** Full upstream document — contains price_history for charting. */
   getRaw(tpnc: string): Observable<ProductResponse> {
     return this.http.get<ProductResponse>(`${this.base}/${encodeURIComponent(tpnc)}/detailed`);

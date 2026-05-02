@@ -285,6 +285,66 @@ def search_products(query, skip: int = 0, limit: int = 50):
 
     return {"results": cleaned, "total": total, "skip": skip, "limit": limit}
 
+
+def search_products_with_category(
+    query: str,
+    super_department=None,
+    department=None,
+    skip: int = 0,
+    limit: int = 64,
+):
+    """Full-text search with optional super_department / department filters.
+
+    Used by the catalogue page so search results respect the active category pill.
+    """
+    if not query:
+        return {"results": [], "total": 0, "skip": skip, "limit": limit}
+
+    coll = get_db()
+    SEARCH_MAX = 200
+
+    # Build optional category filter
+    cat_filter: dict = {}
+    if super_department:
+        cat_filter["super_department_name"] = super_department
+    if department:
+        cat_filter["department_name"] = department
+
+    # Try MongoDB text-index search first
+    text_query: dict = {"$text": {"$search": query}}
+    if cat_filter:
+        text_query.update(cat_filter)
+
+    text_cursor = coll.find(
+        text_query,
+        {"score": {"$meta": "textScore"}},
+    ).sort([("score", {"$meta": "textScore"})]).limit(SEARCH_MAX)
+
+    results = list(text_cursor)
+
+    if not results:
+        # Fallback: regex scan (handles Hungarian chars, TPNC, partial names)
+        regex_q = {"$regex": query, "$options": "i"}
+        regex_filter: dict = {"$or": [{"name": regex_q}, {"_id": regex_q}, {"tpnc": regex_q}]}
+        combined: dict = {"$and": [regex_filter, cat_filter]} if cat_filter else regex_filter
+        results = list(coll.find(combined).limit(SEARCH_MAX))
+
+    total = len(results)
+    page_docs = results[skip: skip + limit]
+
+    cleaned = []
+    for doc in page_docs:
+        tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
+        doc["tpnc"] = tpnc
+        doc.pop("_id", None)
+        doc["last_scraped_price"] = _extract_current_price(doc)
+        doc.pop("price_history", None)
+        doc.pop("score", None)
+        cleaned.append(doc)
+
+    return {"results": cleaned, "total": total, "skip": skip, "limit": limit}
+
+
 # ---------------------------------------------------------------------------
 # Stats cache helpers
 # ---------------------------------------------------------------------------

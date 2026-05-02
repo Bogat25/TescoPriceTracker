@@ -2,6 +2,9 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ProductsService, ProductSummary } from '../services/products.service';
 import { TranslationService } from '../services/translation.service';
 import { TranslatePipe } from '../shared/translate.pipe';
@@ -33,6 +36,12 @@ export class ProductsList implements OnInit {
   readonly total       = signal(0);
   private  skip        = 0;
 
+  /** Backend catalogue search results (used when a query is typed) */
+  readonly searchResults    = signal<ProductSummary[]>([]);
+  readonly searchTotal      = signal(0);
+  readonly backendSearching = signal(false);
+  private  searchQuery$     = new Subject<string>();
+
   /** Active category filters */
   readonly selectedSuper = signal<string | null>(null);
   readonly selectedDept  = signal<string | null>(null);
@@ -60,36 +69,58 @@ export class ProductsList implements OnInit {
   });
 
   readonly filtered = computed(() => {
-    const q      = this.query().toLowerCase().trim();
+    const q      = this.query().trim();
     const superD = this.selectedSuper();
     const dept   = this.selectedDept();
+    const f      = this.sortField();
+    const d      = this.sortDir() === 'asc' ? 1 : -1;
+
+    const sortFn = (a: ProductSummary, b: ProductSummary): number => {
+      if (f === 'price')    return d * ((a.currentPrice ?? 0) - (b.currentPrice ?? 0));
+      if (f === 'rating')   return d * ((a.rating ?? -1) - (b.rating ?? -1));
+      if (f === 'category') return d * (a.category ?? '').localeCompare(b.category ?? '');
+      return d * (a.name ?? a.tpnc).localeCompare(b.name ?? b.tpnc);
+    };
+
+    if (q) {
+      // Server already applied category filter — just sort the results
+      return [...this.searchResults()].sort(sortFn);
+    }
 
     let list = this.allProducts();
-
     if (superD) list = list.filter(p => p.superDepartment === superD);
     if (dept)   list = list.filter(p => p.department === dept);
-    if (q)      list = list.filter(p =>
-      (p.name  ?? '').toLowerCase().includes(q) ||
-      p.tpnc.includes(q) ||
-      (p.category ?? '').toLowerCase().includes(q));
-
-    const f = this.sortField();
-    const d = this.sortDir() === 'asc' ? 1 : -1;
-    return [...list].sort((a, b) => {
-      if (f === 'price') {
-        const pa = a.currentPrice ?? 0;
-        const pb = b.currentPrice ?? 0;
-        return d * (pa - pb);
-      }
-      if (f === 'rating') {
-        return d * ((a.rating ?? -1) - (b.rating ?? -1));
-      }
-      if (f === 'category') {
-        return d * (a.category ?? '').localeCompare(b.category ?? '');
-      }
-      return d * (a.name ?? a.tpnc).localeCompare(b.name ?? b.tpnc);
-    });
+    return [...list].sort(sortFn);
   });
+
+  constructor() {
+    this.searchQuery$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(q => {
+        const term = q.trim();
+        if (!term) {
+          this.searchResults.set([]);
+          this.searchTotal.set(0);
+          this.backendSearching.set(false);
+          return of(null);
+        }
+        this.backendSearching.set(true);
+        return this.productsApi.catalogueSearch(
+          term,
+          this.selectedSuper() ?? undefined,
+          this.selectedDept() ?? undefined,
+        ).pipe(catchError(() => of(null)));
+      }),
+      takeUntilDestroyed(),
+    ).subscribe(res => {
+      this.backendSearching.set(false);
+      if (res) {
+        this.searchResults.set(res.results);
+        this.searchTotal.set(res.total);
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.loadPage();
@@ -129,11 +160,18 @@ export class ProductsList implements OnInit {
 
   selectSuper(s: string | null): void {
     this.selectedSuper.set(s);
-    this.selectedDept.set(null); // reset sub-filter when parent changes
+    this.selectedDept.set(null);
+    if (this.query().trim()) this.searchQuery$.next(this.query());
   }
 
   selectDept(d: string | null): void {
     this.selectedDept.set(d);
+    if (this.query().trim()) this.searchQuery$.next(this.query());
+  }
+
+  onQueryChange(v: string): void {
+    this.query.set(v);
+    this.searchQuery$.next(v);
   }
 
   sortIcon(field: SortField): string {

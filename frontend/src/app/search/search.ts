@@ -46,8 +46,7 @@ export class Search {
 
   private _calcPageSize(): number {
     const h = window.innerHeight ?? 800;
-    // Rough heuristic: each result row ~72px tall; reserve 280px for header/pagination
-    return Math.max(10, Math.min(94, Math.floor((h - 280) / 72)));
+    return Math.max(64, Math.min(94, Math.floor((h - 280) / 72)));
   }
 
   constructor() {

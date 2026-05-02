@@ -6,7 +6,12 @@
       <h1 class="pl-title">{{ 'catalogue.title' | translate }}</h1>
       <p class="pl-subtitle">
         @if (!loading()) {
-          {{ filtered().length | number }} of {{ total() | number }} items
+          @if (query().trim()) {
+            @if (backendSearching()) { Searching… }
+            @else { {{ searchTotal() | number }} result{{ searchTotal() === 1 ? '' : 's' }} }
+          } @else {
+            {{ filtered().length | number }} of {{ total() | number }} items
+          }
         } @else { Loading… }
       <svg class="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round">
@@ -15,7 +20,7 @@
       <input type="search" class="pl-search-input"
              placeholder="Search by name, TPNC or category…"
              [ngModel]="query()"
-             (ngModelChange)="query.set($event)"
+             (ngModelChange)="onQueryChange($event)"
              autocomplete="off"/>
     </div>
   </div>
@@ -50,7 +55,7 @@
         <div class="pl-scraper-sub">No products have been collected yet. The scraper is scheduled to run shortly. Please check back in a few minutes.</div>
       </div>
     </div>
-  } @else if (filtered().length === 0) {
+  } @else if (filtered().length === 0 && !backendSearching()) {
     <div class="pl-empty">
       <svg width="44" height="50" viewBox="0 0 44 50" style="opacity:.2;margin-bottom:12px">
         <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -94,7 +99,7 @@
             <th class="pl-th pl-th-sortable" (click)="setSort('name')">
               {{ 'catalogue.col.product' | translate }} <span class="pl-sort-icon">{{ sortIcon('name') }}</span>
             </th>
-            <th class="pl-th pl-th-sortable" (click)="setSort('category')">
+            <th class="pl-th pl-th-cat pl-th-sortable" (click)="setSort('category')">
               {{ 'catalogue.col.category' | translate }} <span class="pl-sort-icon">{{ sortIcon('category') }}</span>
             </th>
             <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('price')">
@@ -131,7 +136,7 @@
               </td>
 
               <!-- Category -->
-              <td class="pl-td">
+              <td class="pl-td pl-td-cat">
                 <span class="pl-category-badge">{{ p.category || '—' }}</span>
               </td>
 

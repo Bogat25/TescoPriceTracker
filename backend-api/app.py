@@ -90,6 +90,28 @@ def search_products_slim(
     return {"results": slim_results, "total": full["total"], "skip": full["skip"], "limit": full["limit"]}
 
 
+@app.get("/api/v1/products/catalogue/search")
+def catalogue_search_products(
+    q: str = Query(default="", min_length=1),
+    super_department: str = Query(default=""),
+    department: str = Query(default=""),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=64, ge=1, le=200),
+):
+    """Category-aware search for the Product Catalogue page.
+
+    Respects the active super_department / department filter pills so results
+    stay within the currently selected category.
+    """
+    return db.search_products_with_category(
+        q,
+        super_department=super_department or None,
+        department=department or None,
+        skip=skip,
+        limit=limit,
+    )
+
+
 @app.get("/api/v1/products/{tpnc}/trend")
 def get_product_trend(tpnc: str):
     """Price trend for a single product — cheap, computed on-demand.
