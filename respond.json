@@ -1,0 +1,606 @@
+{
+    "results": [
+        {
+            "tpnc": "105004224",
+            "name": "Kubu 100% alma-görögdinnye-feketeberkenye püré 100 g",
+            "unit_of_measure": "kg",
+            "default_image_url": "https://digitalcontent.api.tesco.com/v2/media/ghs/0b6e7ad3-d15d-444a-8874-1639d01ff24d/b1bcb818-ddfe-4580-a3e7-6ce4104af3dd_1691608832.jpeg?h=225&w=225",
+            "pack_size_value": "0.1",
+            "pack_size_unit": "kg",
+            "tpnb": "105004224",
+            "gtin": "05998821513616",
+            "barcode": "05998821513616",
+            "brand_name": "Kubu",
+            "product_type": "SingleProduct",
+            "is_new": false,
+            "is_for_sale": false,
+            "status": "ProductNotFound",
+            "short_description": "Alma-görögdinnye-feketeberkenye püré. Részben sűrítményekből készült, rostos, pasztőrözött.",
+            "ingredients": [
+                "Almapűré (86%)",
+                "Gyümölcslevek sűrítményekből: görögdinnyelé (10%)",
+                "feketeberkenyelé (3",
+                "5%)",
+                "almalé (0",
+                "5%)",
+                "Aroma",
+                "Gyümölcstartalom: 100%"
+            ],
+            "nutritional_claims": [
+                "Hozzáadott cukrot nem tartalmaz",
+                "Természetes módon előforduló cukrokat tartalmaz",
+                "Élelmi rostforrás"
+            ],
+            "additives": [
+                "Nem tartalmaz Tartósítószerek"
+            ],
+            "storage": [
+                "Minőségét megőrzi a jelzett hónap végéig: lásd a termék alján. Mivel a termék tartósítószert nem tartalmaz, felbontás után hűtőben 24 óráig tartható el, feltéve, hogy a terméket nem közvetlenül a csomagolásból fogyasztják."
+            ],
+            "cooking_instructions": {
+                "oven": {
+                    "chilled": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    },
+                    "frozen": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    }
+                },
+                "microwave": {
+                    "chilled": {
+                        "detail": null
+                    },
+                    "frozen": {
+                        "detail": null
+                    }
+                },
+                "otherInstructions": [],
+                "cookingGuidelines": [],
+                "cookingPrecautions": []
+            },
+            "storage_classification": "Ambient",
+            "net_contents": "100g ℮",
+            "warnings": [
+                "Vigyázzon, a védőkupak kis méreténél fogva könnyen lenyelhető!"
+            ],
+            "features": [
+                "Hozzáadott cukrot nem tartalmaz",
+                "Természetes módon előforduló cukrokat tartalmaz",
+                "Élelmi rostforrás",
+                "Tartósítószert nem tartalmaz",
+                "Tízóraihoz ideális"
+            ],
+            "legal_notice": [
+                "While every care has been taken to ensure product information is correct, food products are constantly being reformulated, so ingredients, nutrition content, dietary and allergens may change. You should always read the product label and not rely solely on the information provided on the website.",
+                "If you have any queries, or you'd like advice on any Tesco brand products, please contact Tesco Customer Services, or the product manufacturer if not a Tesco brand product.",
+                "Although product information is regularly updated, Tesco is unable to accept liability for any incorrect information. This does not affect your statutory rights.",
+                "This information is supplied for personal use only, and may not be reproduced in any way without the prior consent of Tesco Stores Limited nor without due acknowledgement."
+            ],
+            "max_quantity_allowed": 24,
+            "last_scraped_price": null
+        },
+        {
+            "tpnc": "120602217",
+            "name": "Kubu 100% alma-banán püré C-vitaminnal 100 g",
+            "unit_of_measure": "kg",
+            "default_image_url": "https://digitalcontent.api.tesco.com/v2/media/ghs/f58b4c40-a009-4281-ae90-acea053e8a00/ce199cd0-4f37-4fce-ab1a-35d7f42cd8c6_555257365.jpeg?h=225&w=225",
+            "pack_size_value": "0.1",
+            "pack_size_unit": "kg",
+            "tpnb": "120602217",
+            "gtin": "05998821514064",
+            "barcode": "05998821514064",
+            "brand_name": "Kubu",
+            "product_type": "SingleProduct",
+            "is_new": false,
+            "is_for_sale": true,
+            "status": "AvailableForSale",
+            "super_department_name": "Italok",
+            "super_department_id": "b;SXRhbG9r",
+            "department_name": "Gyümölcs és zöldséglevek",
+            "department_id": "b;SXRhbG9rJTdDR3klQzMlQkNtJUMzJUI2bGNzJTIwJUMzJUE5cyUyMHolQzMlQjZsZHMlQzMlQTlnbGV2ZWs=",
+            "aisle_name": "Gyerek italok",
+            "aisle_id": "b;SXRhbG9rJTdDR3klQzMlQkNtJUMzJUI2bGNzJTIwJUMzJUE5cyUyMHolQzMlQjZsZHMlQzMlQTlnbGV2ZWslN0NHeWVyZWslMjBpdGFsb2s=",
+            "shelf_name": "Gyerek italok",
+            "shelf_id": "b;SXRhbG9rJTdDR3klQzMlQkNtJUMzJUI2bGNzJTIwJUMzJUE5cyUyMHolQzMlQjZsZHMlQzMlQTlnbGV2ZWslN0NHeWVyZWslMjBpdGFsb2slN0NHeWVyZWslMjBpdGFsb2s=",
+            "short_description": "Alma-banán püré C-vitaminnal.",
+            "marketing": [
+                "Élelmirost forrás.",
+                "Nem tartalmaz sem aromát, sem hozzáadott cukrot, sem tartósítószert, sem színezéket! Kizárólag a gyümölcsökben természetesen előforduló cukrokat tartalmazza."
+            ],
+            "product_marketing": [
+                "Élelmirost forrás.",
+                "Nem tartalmaz sem aromát, sem hozzáadott cukrot, sem tartósítószert, sem színezéket! Kizárólag a gyümölcsökben természetesen előforduló cukrokat tartalmazza."
+            ],
+            "brand_marketing": [
+                "100% gyümölcs, illetve zöldség egy kis tasakban!",
+                "A Kubu Püré 100% gyümölcsből, illetve zöldségből készült, természetes, tápláló gyümölcspüré, ideális gyümölcsdesszert ebéd kiegészítésére, vagy étkezések között, kényelmesen elfér az iskolatáskában.",
+                "A 100 g-os kiszerelés ideális az éhség csillapítására."
+            ],
+            "ingredients": [
+                "Almapüré (88%)",
+                "Banánpüré (6%)",
+                "Almalé sűrítményből (6%)",
+                "C-vitamin (L-aszkorbinsav)",
+                "Gyümölcstartalom: 100%."
+            ],
+            "nutritional_claims": [
+                "Hozzáadott cukrot nem tartalmaz",
+                "Természetes módon előforduló cukrokat tartalmaz",
+                "C-vitaminban gazdag, élelmirost forrás"
+            ],
+            "additives": [
+                "Nem tartalmaz Tartósítószerek"
+            ],
+            "storage": [
+                "Mivel a termék tartósítószert nem tartalmaz, felbontás után hűtőben 48 óráig tartható el."
+            ],
+            "cooking_instructions": {
+                "oven": {
+                    "chilled": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    },
+                    "frozen": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    }
+                },
+                "microwave": {
+                    "chilled": {
+                        "detail": null
+                    },
+                    "frozen": {
+                        "detail": null
+                    }
+                },
+                "otherInstructions": [],
+                "cookingGuidelines": [],
+                "cookingPrecautions": []
+            },
+            "storage_classification": "Ambient",
+            "net_contents": "100g ℮",
+            "warnings": [
+                "Vigyázzon, a védőkupak kis méreténél fogva könnyen lenyelhető!"
+            ],
+            "features": [
+                "Hozzáadott cukrot nem tartalmaz",
+                "Élelmirost forrás",
+                "Tartósítószert nem tartalmaz",
+                "Részben sűrítményből készült, rostos, pasztőrözött, hozzáadott cukrot nem tartalmaz",
+                "Természetes módon előforduló cukrokat tartalmaz",
+                "C-vitaminban gazdag, élelmirost forrás",
+                "Tízóraihoz ideális"
+            ],
+            "legal_notice": [
+                "While every care has been taken to ensure product information is correct, food products are constantly being reformulated, so ingredients, nutrition content, dietary and allergens may change. You should always read the product label and not rely solely on the information provided on the website.",
+                "If you have any queries, or you'd like advice on any Tesco brand products, please contact Tesco Customer Services, or the product manufacturer if not a Tesco brand product.",
+                "Although product information is regularly updated, Tesco is unable to accept liability for any incorrect information. This does not affect your statutory rights.",
+                "This information is supplied for personal use only, and may not be reproduced in any way without the prior consent of Tesco Stores Limited nor without due acknowledgement."
+            ],
+            "max_quantity_allowed": 24,
+            "last_scraped_price": null
+        },
+        {
+            "tpnc": "120576011",
+            "name": "Kubu 100% alma-őszibarack-banán-sárgarépa püré C-vitaminnal 100 g",
+            "unit_of_measure": "kg",
+            "default_image_url": "https://digitalcontent.api.tesco.com/v2/media/ghs/9ded4cf5-0056-44d6-b8df-b66657c71b00/faae3e56-17d1-42ba-87d5-9806b06a6ed4_486469988.jpeg?h=225&w=225",
+            "pack_size_value": "0.1",
+            "pack_size_unit": "kg",
+            "tpnb": "120576011",
+            "gtin": "05998821514118",
+            "barcode": "05998821514118",
+            "brand_name": "Kubu",
+            "product_type": "SingleProduct",
+            "is_new": false,
+            "is_for_sale": true,
+            "status": "AvailableForSale",
+            "super_department_name": "Italok",
+            "super_department_id": "b;SXRhbG9r",
+            "department_name": "Gyümölcs és zöldséglevek",
+            "department_id": "b;SXRhbG9rJTdDR3klQzMlQkNtJUMzJUI2bGNzJTIwJUMzJUE5cyUyMHolQzMlQjZsZHMlQzMlQTlnbGV2ZWs=",
+            "aisle_name": "Gyerek italok",
+            "aisle_id": "b;SXRhbG9rJTdDR3klQzMlQkNtJUMzJUI2bGNzJTIwJUMzJUE5cyUyMHolQzMlQjZsZHMlQzMlQTlnbGV2ZWslN0NHeWVyZWslMjBpdGFsb2s=",
+            "shelf_name": "Gyerek italok",
+            "shelf_id": "b;SXRhbG9rJTdDR3klQzMlQkNtJUMzJUI2bGNzJTIwJUMzJUE5cyUyMHolQzMlQjZsZHMlQzMlQTlnbGV2ZWslN0NHeWVyZWslMjBpdGFsb2slN0NHeWVyZWslMjBpdGFsb2s=",
+            "short_description": "Alma-őszibarack-banán-sárgarépa püré C-vitaminnal.",
+            "marketing": [
+                "Élelmirost forrás.",
+                "Nem tartalmaz sem aromát, sem hozzáadott cukrot, sem tartósítószert, sem színezéket! Kizárólag a gyümölcsökben természetesen előforduló cukrokat tartalmazza."
+            ],
+            "product_marketing": [
+                "Élelmirost forrás.",
+                "Nem tartalmaz sem aromát, sem hozzáadott cukrot, sem tartósítószert, sem színezéket! Kizárólag a gyümölcsökben természetesen előforduló cukrokat tartalmazza."
+            ],
+            "brand_marketing": [
+                "100% gyümölcs, illetve zöldség egy kis tasakban!",
+                "A Kubu Püré 100% gyümölcsből, illetve zöldségből készült, természetes, tápláló gyümölcspüré, ideális gyümölcsdesszert ebéd kiegészítésére, vagy étkezések között, kényelmesen elfér az iskolatáskában.",
+                "A 100 g-os kiszerelés ideális az éhség csillapítására."
+            ],
+            "ingredients": [
+                "Őszibarackpüré (40%)",
+                "Almapüré (39%)",
+                "Banánpüré (10%)",
+                "Almalé sűrítményből (10%)",
+                "Sárgarépa püré (1%)",
+                "C-vitamin (L-aszkorbinsav)",
+                "Gyümölcstartalom és zöldségtartalom: 100%."
+            ],
+            "nutritional_claims": [
+                "Hozzáadott cukrot nem tartalmaz",
+                "Természetes módon előforduló cukrokat tartalmaz",
+                "C-vitaminban gazdag, élelmirost forrás"
+            ],
+            "additives": [
+                "Nem tartalmaz Tartósítószerek"
+            ],
+            "storage": [
+                "Mivel a termék tartósítószert nem tartalmaz, felbontás után hűtőben 48 óráig tartható el."
+            ],
+            "cooking_instructions": {
+                "oven": {
+                    "chilled": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    },
+                    "frozen": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    }
+                },
+                "microwave": {
+                    "chilled": {
+                        "detail": null
+                    },
+                    "frozen": {
+                        "detail": null
+                    }
+                },
+                "otherInstructions": [],
+                "cookingGuidelines": [],
+                "cookingPrecautions": []
+            },
+            "storage_classification": "Ambient",
+            "net_contents": "100g ℮",
+            "warnings": [
+                "Vigyázzon, a védőkupak kis méreténél fogva könnyen lenyelhető!"
+            ],
+            "features": [
+                "Hozzáadott cukrot nem tartalmaz",
+                "Élelmirost forrás",
+                "Tartósítószert nem tartalmaz",
+                "Részben sűrítményből készült, rostos, pasztőrözött, hozzáadott cukrot nem tartalmaz",
+                "Természetes módon előforduló cukrokat tartalmaz",
+                "C-vitaminban gazdag, élelmirost forrás",
+                "Tízóraihoz ideális"
+            ],
+            "legal_notice": [
+                "While every care has been taken to ensure product information is correct, food products are constantly being reformulated, so ingredients, nutrition content, dietary and allergens may change. You should always read the product label and not rely solely on the information provided on the website.",
+                "If you have any queries, or you'd like advice on any Tesco brand products, please contact Tesco Customer Services, or the product manufacturer if not a Tesco brand product.",
+                "Although product information is regularly updated, Tesco is unable to accept liability for any incorrect information. This does not affect your statutory rights.",
+                "This information is supplied for personal use only, and may not be reproduced in any way without the prior consent of Tesco Stores Limited nor without due acknowledgement."
+            ],
+            "max_quantity_allowed": 24,
+            "last_scraped_price": null
+        },
+        {
+            "tpnc": "208655307",
+            "name": "Milupa Frutapura Gyümölcsvarázs 100% gyümölcspüré 6 hó+ 4 x 100 g (400 g)",
+            "unit_of_measure": "kg",
+            "default_image_url": "https://digitalcontent.api.tesco.com/v2/media/ghs/48ac23bd-e2d7-4a7a-98c0-4aebb7591616/e8b03a65-79be-4cc6-8967-5a09e0977a68.jpeg?h=225&w=225",
+            "pack_size_value": "0.4",
+            "pack_size_unit": "kg",
+            "tpnb": "208655307",
+            "gtin": "03041091264947",
+            "barcode": "03041091264947",
+            "brand_name": "Milupa",
+            "sub_brand": "Frutapura ",
+            "product_type": "SingleProduct",
+            "is_new": false,
+            "is_for_sale": true,
+            "status": "AvailableForSale",
+            "super_department_name": "Baba",
+            "super_department_id": "b;QmFiYQ==",
+            "department_name": "Bébiétel",
+            "department_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbA==",
+            "aisle_name": "Poharas bébiétel",
+            "aisle_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbCU3Q1BvaGFyYXMlMjBiJUMzJUE5YmklQzMlQTl0ZWw=",
+            "shelf_name": "Poharas bébiétel",
+            "shelf_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbCU3Q1BvaGFyYXMlMjBiJUMzJUE5YmklQzMlQTl0ZWwlN0NQb2hhcmFzJTIwYiVDMyVBOWJpJUMzJUE5dGVs",
+            "marketing": [
+                "Próbáltad már?",
+                "A Milupa 100% gyümölcspüréit adhatod magában, de babakeksszel, müzlivel vagy tejpéppel is kombinálhatod, hogy még több energiához juttasd kis örökmozgód.",
+                "- C-vitamin forrás",
+                "- Válogatott gyümölcsök",
+                "- Csak természetes módon előforduló cukrok"
+            ],
+            "product_marketing": [
+                "Próbáltad már?",
+                "A Milupa 100% gyümölcspüréit adhatod magában, de babakeksszel, müzlivel vagy tejpéppel is kombinálhatod, hogy még több energiához juttasd kis örökmozgód.",
+                "- C-vitamin forrás",
+                "- Válogatott gyümölcsök",
+                "- Csak természetes módon előforduló cukrok"
+            ],
+            "ingredients": [
+                "Alma 56%",
+                "Körte 17",
+                "5%",
+                "Sárgabarack 13",
+                "5%",
+                "Banán 13%",
+                "L-aszkorbinsav",
+                "Citromlé koncentrátum"
+            ],
+            "nutritional_claims": [
+                "Hozzáadott cukor nélkül",
+                "Csak természetes módon előforduló cukrokat tartalmaz"
+            ],
+            "storage": [
+                "Sértetlen csomagolásban, szobahőmérsékleten, száraz, hűvös helyen tárolandó. Felbontást követően hűtőszekrényben tárolva 12 órán át fogyasztható."
+            ],
+            "cooking_instructions": {
+                "oven": {
+                    "chilled": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    },
+                    "frozen": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    }
+                },
+                "microwave": {
+                    "chilled": {
+                        "detail": null
+                    },
+                    "frozen": {
+                        "detail": null
+                    }
+                },
+                "otherInstructions": [],
+                "cookingGuidelines": [],
+                "cookingPrecautions": []
+            },
+            "storage_classification": "Ambient",
+            "net_contents": "4 x 100g ℮",
+            "warnings": [
+                "Felhasználási javaslat:",
+                "Ha sérült a csomagolás, ne használd fel a terméket!"
+            ],
+            "lower_age_limit": "6 Hó",
+            "features": [
+                "Hozzáadott cukor nélkül",
+                "Gyümölcsvarázs"
+            ],
+            "legal_notice": [
+                "While every care has been taken to ensure product information is correct, food products are constantly being reformulated, so ingredients, nutrition content, dietary and allergens may change. You should always read the product label and not rely solely on the information provided on the website.",
+                "If you have any queries, or you'd like advice on any Tesco brand products, please contact Tesco Customer Services, or the product manufacturer if not a Tesco brand product.",
+                "Although product information is regularly updated, Tesco is unable to accept liability for any incorrect information. This does not affect your statutory rights.",
+                "This information is supplied for personal use only, and may not be reproduced in any way without the prior consent of Tesco Stores Limited nor without due acknowledgement."
+            ],
+            "other_information": [
+                "Ez a doboz újrahasznosított papírból készült. Óvd a környezeted te is, helyezd a dobozt a szelektív hulladékgyűjtőbe!"
+            ],
+            "max_quantity_allowed": 24,
+            "last_scraped_price": null
+        },
+        {
+            "tpnc": "208655352",
+            "name": "Milupa Frutapura alma-banán 100% gyümölcspüré 4 hó+ 4 x 100 g (400 g)",
+            "unit_of_measure": "kg",
+            "default_image_url": "https://digitalcontent.api.tesco.com/v2/media/ghs/e199dc37-658c-4504-a8cc-5c96f900ebf5/dd933051-89fd-4f84-b0de-f3bbd96db60a.jpeg?h=225&w=225",
+            "pack_size_value": "0.4",
+            "pack_size_unit": "kg",
+            "tpnb": "208655352",
+            "gtin": "05601172050081",
+            "barcode": "05601172050081",
+            "brand_name": "Milupa",
+            "sub_brand": "Frutapura",
+            "product_type": "SingleProduct",
+            "is_new": false,
+            "is_for_sale": true,
+            "status": "AvailableForSale",
+            "super_department_name": "Baba",
+            "super_department_id": "b;QmFiYQ==",
+            "department_name": "Bébiétel",
+            "department_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbA==",
+            "aisle_name": "Poharas bébiétel",
+            "aisle_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbCU3Q1BvaGFyYXMlMjBiJUMzJUE5YmklQzMlQTl0ZWw=",
+            "shelf_name": "Poharas bébiétel",
+            "shelf_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbCU3Q1BvaGFyYXMlMjBiJUMzJUE5YmklQzMlQTl0ZWwlN0NQb2hhcmFzJTIwYiVDMyVBOWJpJUMzJUE5dGVs",
+            "short_description": "100% gyümölcspüré. Alma-banán",
+            "marketing": [
+                "Próbáltad már?",
+                "A Milupa 100% gyümölcspüréit adhatod magában, de babakeksszel, müzlivel vagy tejpéppel is kombinálhatod, hogy még több energiához juttasd kis örökmozgód.",
+                "- C-vitamin forrás",
+                "- Válogatott gyümölcsök",
+                "- Csak természetes módon előforduló cukrok"
+            ],
+            "product_marketing": [
+                "Próbáltad már?",
+                "A Milupa 100% gyümölcspüréit adhatod magában, de babakeksszel, müzlivel vagy tejpéppel is kombinálhatod, hogy még több energiához juttasd kis örökmozgód.",
+                "- C-vitamin forrás",
+                "- Válogatott gyümölcsök",
+                "- Csak természetes módon előforduló cukrok"
+            ],
+            "ingredients": [
+                "Alma 75",
+                "97%",
+                "Banán 24%",
+                "L-aszkorbinsav"
+            ],
+            "nutritional_claims": [
+                "Hozzáadott cukor nélkül",
+                "Csak természetes módon előforduló cukrok",
+                "C-vitamin forrás"
+            ],
+            "storage": [
+                "Sértetlen csomagolásban, szobahőmérsékleten, száraz, hűvös helyen tárolandó.Felbontást követően hűtőszekrényben tárolva 12 órán át fogyasztható."
+            ],
+            "cooking_instructions": {
+                "oven": {
+                    "chilled": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    },
+                    "frozen": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    }
+                },
+                "microwave": {
+                    "chilled": {
+                        "detail": null
+                    },
+                    "frozen": {
+                        "detail": null
+                    }
+                },
+                "otherInstructions": [],
+                "cookingGuidelines": [],
+                "cookingPrecautions": []
+            },
+            "storage_classification": "Ambient",
+            "net_contents": "4 x 100g ℮",
+            "warnings": [
+                "Felhasználási javaslat:",
+                "Ha sérült a csomagolás, ne használd fel a terméket!"
+            ],
+            "lower_age_limit": "4 Hó",
+            "features": [
+                "Hozzáadott cukor nélkül",
+                "Gluténmentes termék"
+            ],
+            "legal_notice": [
+                "While every care has been taken to ensure product information is correct, food products are constantly being reformulated, so ingredients, nutrition content, dietary and allergens may change. You should always read the product label and not rely solely on the information provided on the website.",
+                "If you have any queries, or you'd like advice on any Tesco brand products, please contact Tesco Customer Services, or the product manufacturer if not a Tesco brand product.",
+                "Although product information is regularly updated, Tesco is unable to accept liability for any incorrect information. This does not affect your statutory rights.",
+                "This information is supplied for personal use only, and may not be reproduced in any way without the prior consent of Tesco Stores Limited nor without due acknowledgement."
+            ],
+            "other_information": [
+                "Ez a doboz újrahasznosított papírból készült. Óvd a környezeted Te is, helyezd a dobozt a szelektív hulladékgyűjtőbe!"
+            ],
+            "max_quantity_allowed": 24,
+            "last_scraped_price": null
+        },
+        {
+            "tpnc": "208655321",
+            "name": "Milupa Frutapura alma-körte 100% gyümölcspüré 4 hó+ 4 x 100 g (400 g)",
+            "unit_of_measure": "kg",
+            "default_image_url": "https://digitalcontent.api.tesco.com/v2/media/ghs/d8f71027-16ba-4dea-99aa-49836873a0fe/e3b5efa6-0c3e-4976-95e0-dab67ad7833e.jpeg?h=225&w=225",
+            "pack_size_value": "0.4",
+            "pack_size_unit": "kg",
+            "tpnb": "208655321",
+            "gtin": "05601172050074",
+            "barcode": "05601172050074",
+            "brand_name": "Milupa",
+            "sub_brand": "Frutapura",
+            "product_type": "SingleProduct",
+            "is_new": false,
+            "is_for_sale": true,
+            "status": "AvailableForSale",
+            "super_department_name": "Baba",
+            "super_department_id": "b;QmFiYQ==",
+            "department_name": "Bébiétel",
+            "department_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbA==",
+            "aisle_name": "Poharas bébiétel",
+            "aisle_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbCU3Q1BvaGFyYXMlMjBiJUMzJUE5YmklQzMlQTl0ZWw=",
+            "shelf_name": "Poharas bébiétel",
+            "shelf_id": "b;QmFiYSU3Q0IlQzMlQTliaSVDMyVBOXRlbCU3Q1BvaGFyYXMlMjBiJUMzJUE5YmklQzMlQTl0ZWwlN0NQb2hhcmFzJTIwYiVDMyVBOWJpJUMzJUE5dGVs",
+            "short_description": "100% gyümölcspüré. Alma-körte",
+            "marketing": [
+                "Próbáltad már?",
+                "A Milupa 100% gyümölcspüréit adhatod magában, de babakeksszel, müzlivel vagy tejpéppel is kombinálhatod, hogy még több energiához juttasd kis örökmozgód.",
+                "- C-vitamin forrás",
+                "- Válogatott gyümölcsök",
+                "- Csak természetes módon előforduló cukrok"
+            ],
+            "product_marketing": [
+                "Próbáltad már?",
+                "A Milupa 100% gyümölcspüréit adhatod magában, de babakeksszel, müzlivel vagy tejpéppel is kombinálhatod, hogy még több energiához juttasd kis örökmozgód.",
+                "- C-vitamin forrás",
+                "- Válogatott gyümölcsök",
+                "- Csak természetes módon előforduló cukrok"
+            ],
+            "ingredients": [
+                "Alma 64",
+                "97%",
+                "Körte 19",
+                "98%",
+                "Vilmoskörte püré 15%",
+                "Citromlé sűrítmény",
+                "L-aszkorbinsav"
+            ],
+            "nutritional_claims": [
+                "Hozzáadott cukor nélkül",
+                "Csak természetes módon előforduló cukrok",
+                "C-vitamin forrás"
+            ],
+            "storage": [
+                "Sértetlen csomagolásban, szobahőmérsékleten, száraz, hűvös helyen tárolandó.Felbontást követően hűtőszekrényben tárolva 12 órán át fogyasztható."
+            ],
+            "cooking_instructions": {
+                "oven": {
+                    "chilled": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    },
+                    "frozen": {
+                        "time": null,
+                        "temperature": null,
+                        "instructions": []
+                    }
+                },
+                "microwave": {
+                    "chilled": {
+                        "detail": null
+                    },
+                    "frozen": {
+                        "detail": null
+                    }
+                },
+                "otherInstructions": [],
+                "cookingGuidelines": [],
+                "cookingPrecautions": []
+            },
+            "storage_classification": "Ambient",
+            "net_contents": "4 x 100g ℮",
+            "warnings": [
+                "Felhasználási javaslat:",
+                "Ha sérült a csomagolás, ne használd fel a terméket!"
+            ],
+            "lower_age_limit": "4 Hó",
+            "features": [
+                "Hozzáadott cukor nélkül",
+                "Gluténmentes termék"
+            ],
+            "legal_notice": [
+                "While every care has been taken to ensure product information is correct, food products are constantly being reformulated, so ingredients, nutrition content, dietary and allergens may change. You should always read the product label and not rely solely on the information provided on the website.",
+                "If you have any queries, or you'd like advice on any Tesco brand products, please contact Tesco Customer Services, or the product manufacturer if not a Tesco brand product.",
+                "Although product information is regularly updated, Tesco is unable to accept liability for any incorrect information. This does not affect your statutory rights.",
+                "This information is supplied for personal use only, and may not be reproduced in any way without the prior consent of Tesco Stores Limited nor without due acknowledgement."
+            ],
+            "other_information": [
+                "Ez a doboz újrahasznosított papírból készült. Óvd a környezeted Te is, helyezd a dobozt a szelektív hulladékgyűjtőbe!"
+            ],
+            "max_quantity_allowed": 24,
+            "last_scraped_price": null
+        }
+    ],
+    "total": 100,
+    "skip": 0,
+    "limit": 6
+}

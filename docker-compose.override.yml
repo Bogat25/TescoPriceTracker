@@ -10,7 +10,10 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}
     networks:
-    - tesco-tracker-internal
+      tesco-tracker-internal: {}
+      admin_ingress:
+        aliases:
+        - ${STACK_PREFIX}tesco-tracker-mongo
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh -u "$$MONGO_INITDB_ROOT_USERNAME"
         -p "$$MONGO_INITDB_ROOT_PASSWORD" localhost:27017/admin --quiet || exit 1
