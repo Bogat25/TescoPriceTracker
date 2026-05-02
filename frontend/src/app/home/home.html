@@ -106,23 +106,43 @@
       <div class="grid grid-cols-2 gap-3 shrink-0 w-full md:w-64">
         <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
           <div class="text-xs opacity-50 uppercase">Volatility</div>
-          <div class="text-sm font-bold text-success mt-1">Very stable</div>
+          @if (statsLoading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            <div class="text-sm font-bold text-success mt-1">{{ volatility() || '—' }}</div>
+          }
         </div>
         <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
           <div class="text-xs opacity-50 uppercase">30d trend</div>
-          <div class="text-sm font-bold text-error mt-1">↑ +3.2%</div>
+          @if (statsLoading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            <div class="text-sm font-bold text-error mt-1">{{ trend30d() || '—' }}</div>
+          }
         </div>
         <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
-          <div class="text-xs opacity-50 uppercase">Best month</div>
-          <div class="text-sm font-bold mt-1">February</div>
+          <div class="text-xs opacity-50 uppercase">Best day</div>
+          @if (statsLoading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            <div class="text-sm font-bold mt-1">{{ bestWeekday() || '—' }}</div>
+          }
         </div>
         <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
           <div class="text-xs opacity-50 uppercase">Max savings</div>
-          <div class="text-sm font-bold text-warning mt-1">14.3%</div>
+          @if (statsLoading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            <div class="text-sm font-bold text-warning mt-1">{{ maxDiscount() || '—' }}</div>
+          }
         </div>
         <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 col-span-2 text-center">
           <div class="text-xs opacity-50 uppercase">Buy signal</div>
-          <div class="text-sm font-bold text-success mt-1">✅ Below average</div>
+          @if (statsLoading()) {
+            <span class="loading loading-spinner loading-xs"></span>
+          } @else {
+            <div class="text-sm font-bold text-success mt-1">{{ buySignal() || '—' }}</div>
+          }
         </div>
       </div>
     </div>

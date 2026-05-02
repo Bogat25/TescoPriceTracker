@@ -127,7 +127,7 @@ export function toSummary(p: ProductResponse): ProductSummary {
 export class ProductsService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
-  private readonly base = `${this.config.tescoApiBaseUrl}/products`;
+  private readonly base = '/api/v1/products';
 
   list(): Observable<unknown> {
     return this.http.get(this.base);

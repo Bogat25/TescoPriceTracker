@@ -83,7 +83,7 @@ export interface PriceDrop {
 export class PlatformStatsService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
-  private readonly base = `${this.config.tescoApiBaseUrl}/stats`;
+  private readonly base = '/api/v1/stats';
 
   priceIndex(): Observable<PriceIndexPoint[]> {
     return this.http.get<PriceIndexPoint[]>(`${this.base}/price-index`);
