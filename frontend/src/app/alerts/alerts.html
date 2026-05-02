@@ -1,15 +1,29 @@
-<section class="container mx-auto px-4 py-10 max-w-3xl">
-  <h1 class="text-3xl font-bold mb-6">My alerts</h1>
+﻿<div class="al-page hex-slide-in">
+  <div class="al-title-row">
+    <div>
+      <h1 class="al-title">My Alerts</h1>
+      <p class="al-subtitle">Set price triggers from any product page.</p>
+    </div>
+  </div>
+
+  <!-- KPI hexes -->
+  @if (!loading() && !error()) {
+    <div class="al-kpi-row">
+      <app-hex-kpi [value]="alerts().length" label="Total alerts"  accent="var(--hex1)"/>
+      <app-hex-kpi [value]="enabledCount()"  label="Active"        accent="var(--hex5)"/>
+      <app-hex-kpi [value]="disabledCount()" label="Disabled"      accent="var(--hex2)"/>
+    </div>
+  }
 
   @if (loading()) {
-    <div class="flex items-center gap-3 py-10 justify-center">
+    <div class="al-loading">
       <span class="loading loading-spinner loading-md"></span>
     </div>
   } @else if (error()) {
-    <div class="alert alert-warning">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+    <div class="al-error-banner">
+      <svg width="20" height="23" viewBox="0 0 20 23" style="flex-shrink:0">
+        <polygon points="10,0 20,5.75 20,17.25 10,23 0,17.25 0,5.75"
+                 fill="rgba(238,28,37,.2)" stroke="var(--hex3)" stroke-width="1.5"/>
       </svg>
       @if (error() === 'unauthorized') {
         <span>Your session has expired. Please log in again.</span>
@@ -18,24 +32,60 @@
       }
     </div>
   } @else if (alerts().length === 0) {
-    <div class="text-center py-12 opacity-70">
-      <p class="mb-2">You have no alerts yet.</p>
-      <p class="text-sm">Open any product and use the <span class="font-semibold">Set a price alert</span> section to add one.</p>
+    <div class="al-empty">
+      <svg width="56" height="64" viewBox="0 0 56 64" style="opacity:.2;margin-bottom:14px" aria-hidden="true">
+        <polygon points="28,0 56,16 56,48 28,64 0,48 0,16" fill="none" stroke="currentColor" stroke-width="2"/>
+        <polygon points="28,10 46,20 46,44 28,54 10,44 10,20" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+      </svg>
+      <div class="al-empty-title">No alerts yet</div>
+      <p class="al-empty-sub">Open any product and set a price trigger to be notified when prices change.</p>
+      <a routerLink="/search" class="al-browse-link">Browse products â†’</a>
     </div>
   } @else {
-    <ul class="space-y-3">
+    <app-sec-label text="Your price triggers" accent="#00539F"/>
+    <div class="al-list">
       @for (a of alerts(); track a.id) {
-        <li class="bg-base-200 border border-base-300 rounded-xl p-4 flex items-center gap-4">
-          <div class="flex-1 min-w-0">
-            <a [routerLink]="['/products', a.productId]" class="link font-semibold">{{ a.productId }}</a>
-            <div class="text-sm opacity-80">
-              {{ formatAlertDescription(a) }}
-            </div>
-            <div class="text-xs opacity-60 mt-1">Created {{ a.createdAt | date:'medium' }}</div>
+        <div class="al-row" [class.enabled]="a.enabled" [class.disabled]="!a.enabled">
+          <!-- Hex icon -->
+          <app-hex-icon [letter]="a.productId.charAt(0).toUpperCase()" [accent]="a.enabled ? '#00539F' : 'var(--text-muted)'" [size]="32"/>
+
+          <!-- Alert info -->
+          <div class="al-row-info">
+            <a [routerLink]="['/products', a.productId]" class="al-product-link font-mono-prices">
+              {{ a.productId }}
+            </a>
+            <div class="al-row-desc">{{ formatAlertDescription(a) }}</div>
+            <div class="al-row-date">Created {{ a.createdAt | date:'mediumDate' }}</div>
           </div>
-          <button type="button" class="btn btn-ghost btn-sm text-error" (click)="remove(a.id)">Delete</button>
-        </li>
+
+          <!-- Type badge -->
+          <div class="al-type-badge" [class.target]="a.alertType === 'TARGET_PRICE'" [class.pct]="a.alertType === 'PERCENTAGE_DROP'">
+            @if (a.alertType === 'TARGET_PRICE') {
+              <svg width="9" height="11" viewBox="0 0 9 11" style="flex-shrink:0">
+                <polygon points="4.5,0 9,2.75 9,8.25 4.5,11 0,8.25 0,2.75" fill="currentColor" opacity="0.8"/>
+              </svg>
+              Target price
+            } @else {
+              <svg width="9" height="11" viewBox="0 0 9 11" style="flex-shrink:0">
+                <polygon points="4.5,0 9,2.75 9,8.25 4.5,11 0,8.25 0,2.75" fill="currentColor" opacity="0.8"/>
+              </svg>
+              % drop
+            }
+          </div>
+
+          <!-- Status -->
+          <div class="al-status" [class.on]="a.enabled" [class.off]="!a.enabled">
+            {{ a.enabled ? 'â— Active' : 'â—‹ Off' }}
+          </div>
+
+          <!-- Remove -->
+          <button type="button" class="al-remove-btn" (click)="remove(a.id)" title="Remove alert">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       }
-    </ul>
+    </div>
   }
-</section>
+</div>
+

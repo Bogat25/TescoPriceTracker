@@ -1,0 +1,121 @@
+<div class="pl-page hex-slide-in">
+
+  <!-- Header row -->
+  <div class="pl-header">
+    <div>
+      <h1 class="pl-title">Product Catalogue</h1>
+      <p class="pl-subtitle">
+        @if (!loading()) { {{ filtered().length | number }} items }
+        @else { Loading… }
+      </p>
+    </div>
+
+    <!-- Search -->
+    <div class="pl-search-wrap">
+      <svg class="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="search" class="pl-search-input"
+             placeholder="Search by name, TPNC or category…"
+             [ngModel]="query()"
+             (ngModelChange)="query.set($event)"
+             autocomplete="off"/>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div class="pl-loading">
+      <span class="loading loading-spinner loading-lg"></span>
+    </div>
+  } @else if (error()) {
+    <div class="pl-error-banner">{{ error() }}</div>
+  } @else if (filtered().length === 0) {
+    <div class="pl-empty">
+      <svg width="44" height="50" viewBox="0 0 44 50" style="opacity:.2;margin-bottom:12px">
+        <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="none" stroke="currentColor" stroke-width="2"/>
+      </svg>
+      <div class="pl-empty-title">No products found</div>
+      <p class="pl-empty-sub">Try a different search term.</p>
+    </div>
+  } @else {
+    <app-sec-label text="All tracked items" accent="#00539F"/>
+    <div class="pl-table-wrap">
+      <table class="pl-table">
+        <thead>
+          <tr>
+            <th class="pl-th pl-th-icon"></th>
+            <th class="pl-th pl-th-sortable" (click)="setSort('name')">
+              Product <span class="pl-sort-icon">{{ sortIcon('name') }}</span>
+            </th>
+            <th class="pl-th pl-th-sortable" (click)="setSort('category')">
+              Category <span class="pl-sort-icon">{{ sortIcon('category') }}</span>
+            </th>
+            <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('price')">
+              Price <span class="pl-sort-icon">{{ sortIcon('price') }}</span>
+            </th>
+            <th class="pl-th pl-th-right">Rating</th>
+            <th class="pl-th pl-th-right">Reviews</th>
+            <th class="pl-th"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of filtered(); track p.tpnc; let i = $index) {
+            <tr class="pl-row" [class.pl-row-even]="i % 2 === 0">
+              <!-- Icon -->
+              <td class="pl-td pl-td-icon">
+                @if (p.imageUrl) {
+                  <img [src]="p.imageUrl" [alt]="p.name || p.tpnc" class="pl-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+                } @else {
+                  <app-hex-icon [letter]="(p.name || p.tpnc).charAt(0).toUpperCase()" [accent]="'#00539F'" [size]="28"/>
+                }
+              </td>
+
+              <!-- Name -->
+              <td class="pl-td">
+                <a [routerLink]="['/products', p.tpnc]" class="pl-name">{{ p.name || p.tpnc }}</a>
+                @if (p.packSize || p.unit) {
+                  <div class="pl-meta">
+                    {{ p.packSize || '' }}{{ p.packSize && p.unit ? ' · ' : '' }}{{ p.unit || '' }}
+                  </div>
+                }
+                <div class="pl-tpnc">{{ p.tpnc }}</div>
+              </td>
+
+              <!-- Category -->
+              <td class="pl-td">
+                <span class="pl-category-badge">{{ p.category || '—' }}</span>
+              </td>
+
+              <!-- Price -->
+              <td class="pl-td pl-td-right">
+                @if (p.currentPrice !== undefined) {
+                  <span class="pl-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                } @else {
+                  <span class="pl-no-price">—</span>
+                }
+              </td>
+
+              <!-- Rating -->
+              <td class="pl-td pl-td-right">
+                @if (p.rating !== undefined) {
+                  <span class="pl-rating">★ {{ p.rating | number:'1.1-1' }}</span>
+                } @else { — }
+              </td>
+
+              <!-- Reviews -->
+              <td class="pl-td pl-td-right pl-reviews">
+                {{ p.reviewCount !== undefined ? (p.reviewCount | number) : '—' }}
+              </td>
+
+              <!-- Detail link -->
+              <td class="pl-td pl-td-action">
+                <a [routerLink]="['/products', p.tpnc]" class="pl-detail-btn">View →</a>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

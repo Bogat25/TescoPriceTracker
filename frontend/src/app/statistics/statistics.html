@@ -1,156 +1,134 @@
-<section class="container mx-auto px-4 py-8 max-w-7xl">
+﻿<div class="st-page hex-slide-in">
 
   <!-- Page header -->
-  <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-6">
+  <div class="st-header">
     <div>
-      <div class="text-xs uppercase tracking-wider opacity-60 mb-1">
-        <a routerLink="/user-settings" class="link link-hover">Account</a>
-        <span class="mx-1">›</span>
-        <span>Statistics</span>
-      </div>
-      <h1 class="text-3xl md:text-4xl font-extrabold">Statistics dashboard</h1>
-      <p class="opacity-70 mt-1">Platform-wide analytics and per-product deep-dives.</p>
+      <h1 class="st-title">Analytics</h1>
+      <p class="st-subtitle">Platform-wide statistics and per-product deep-dives.</p>
+    </div>
+    <!-- Decorative hex cluster -->
+    <div style="display:flex;gap:3px;opacity:.18;align-items:center" aria-hidden="true">
+      @for (i of [0,1,2,3,4,5,6]; track i) {
+        <svg width="14" height="16" viewBox="0 0 14 16">
+          <polygon points="7,0 14,4 14,12 7,16 0,12 0,4"
+                   fill="#00539F"
+                   [attr.opacity]="0.4 + i * 0.08"/>
+        </svg>
+      }
     </div>
   </div>
 
   <!-- Tab navigation -->
-  <div class="tabs tabs-boxed mb-6 bg-base-200 p-1 rounded-xl">
-    <button type="button"
-            class="tab tab-lg"
-            [class.tab-active]="activeTab() === 'overview'"
-            (click)="switchTab('overview')">
-      📊 Platform Overview
+  <div class="st-tabs">
+    <button type="button" class="st-tab" [class.active]="activeTab() === 'overview'"  (click)="switchTab('overview')">
+      <svg width="13" height="15" viewBox="0 0 13 15" style="flex-shrink:0">
+        <polygon points="6.5,0 13,3.75 13,11.25 6.5,15 0,11.25 0,3.75" [attr.fill]="activeTab()==='overview'?'#00539F':'var(--text-muted)'" opacity="0.7"/>
+      </svg>
+      Platform Overview
     </button>
-    <button type="button"
-            class="tab tab-lg"
-            [class.tab-active]="activeTab() === 'product'"
-            (click)="switchTab('product')">
-      🔍 Product Analysis
+    <button type="button" class="st-tab" [class.active]="activeTab() === 'product'"  (click)="switchTab('product')">
+      <svg width="13" height="15" viewBox="0 0 13 15" style="flex-shrink:0">
+        <polygon points="6.5,0 13,3.75 13,11.25 6.5,15 0,11.25 0,3.75" [attr.fill]="activeTab()==='product'?'#00539F':'var(--text-muted)'" opacity="0.7"/>
+      </svg>
+      Product Analysis
     </button>
   </div>
 
-  <!-- ════════════════════════════════════════════════════════════════════ -->
-  <!-- TAB 1: PLATFORM OVERVIEW                                           -->
-  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       TAB 1: PLATFORM OVERVIEW
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
   @if (activeTab() === 'overview') {
 
     @if (platformLoading()) {
-      <div class="flex items-center justify-center gap-3 py-20">
+      <div class="st-loading">
         <span class="loading loading-spinner loading-lg"></span>
-        <span>Loading platform statistics...</span>
+        <span>Loading platform statisticsâ€¦</span>
       </div>
     }
 
     @if (platformError()) {
-      <div class="alert alert-error mb-6">{{ platformError() }}</div>
+      <div class="st-error-banner">{{ platformError() }}</div>
     }
 
     @if (!platformLoading() && !platformError()) {
 
-      <!-- KPI Hero tiles -->
-      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-6">
+      <!-- KPI hex row -->
+      <div class="st-kpi-row">
         @if (productVolume(); as vol) {
-          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-            <div class="text-xs uppercase opacity-60">Products tracked</div>
-            <div class="text-2xl font-bold text-primary">{{ vol.total | number }}</div>
-            <div class="text-xs opacity-60 mt-1">{{ vol.active_today | number }} active today</div>
-          </div>
+          <app-hex-kpi [value]="(vol.total | number) || '—'" label="Products tracked" accent="var(--hex1)"/>
         }
         @if (globalAvg(); as ga) {
-          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-            <div class="text-xs uppercase opacity-60">Global avg price</div>
-            <div class="text-2xl font-bold">{{ ga.avg_price | number:'1.0-0' }} Ft</div>
-            <div class="text-xs opacity-60 mt-1">across {{ ga.product_count | number }} products</div>
-          </div>
+          <app-hex-kpi [value]="(ga.avg_price | number:'1.0-0') + ' Ft'" label="Avg price" accent="var(--hex2)"/>
         }
         @if (inflation30d(); as inf) {
-          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-            <div class="text-xs uppercase opacity-60">30-day inflation</div>
-            <div class="text-2xl font-bold" [class.text-error]="inf.pct_change !== null && inf.pct_change > 0" [class.text-success]="inf.pct_change !== null && inf.pct_change < 0">
-              @if (inf.pct_change !== null) {
-                {{ inf.pct_change > 0 ? '+' : '' }}{{ inf.pct_change | number:'1.2-2' }}%
-              } @else { — }
-            </div>
-            @if (inf.avg_today !== null && inf.avg_30d_ago !== null) {
-              <div class="text-xs opacity-60 mt-1">{{ inf.avg_30d_ago | number:'1.0-0' }} → {{ inf.avg_today | number:'1.0-0' }} Ft</div>
-            }
-          </div>
+          <app-hex-kpi
+            [value]="inf.pct_change !== null ? ((inf.pct_change > 0 ? '+' : '') + (inf.pct_change | number:'1.1-1') + '%') : 'â€”'"
+            label="30d inflation"
+            [accent]="inf.pct_change !== null && inf.pct_change > 0 ? 'var(--hex3)' : 'var(--hex5)'"/>
         }
         @if (bestShoppingDay(); as bsd) {
-          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-            <div class="text-xs uppercase opacity-60">Best shopping day</div>
-            <div class="text-lg font-bold">{{ bsd.date ?? '—' }}</div>
-            @if (bsd.total_savings !== null) {
-              <div class="text-xs opacity-60 mt-1">{{ bsd.total_savings | number:'1.0-0' }} Ft saved</div>
-            }
-          </div>
+          <app-hex-kpi [value]="bsd.date ?? 'â€”'" label="Best shop day" accent="var(--hex4)"/>
         }
         @if (categoryDiff(); as cd) {
-          <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-            <div class="text-xs uppercase opacity-60">Clubcard savings</div>
-            <div class="text-2xl font-bold text-warning">
-              @if (cd.clubcard_vs_normal_pct !== null) {
-                {{ cd.clubcard_vs_normal_pct | number:'1.1-1' }}%
-              } @else { — }
-            </div>
-            <div class="text-xs opacity-60 mt-1">vs normal price avg</div>
-          </div>
+          <app-hex-kpi
+            [value]="cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : 'â€”'"
+            label="Clubcard saving" accent="var(--hex2)"/>
         }
       </div>
 
       <!-- Price Index chart (full-width, hero) -->
       @if (priceIndex().length) {
-        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-6 mb-6">
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <h3 class="font-bold text-lg">Price Index (inflation tracker)</h3>
-              <p class="text-xs opacity-60">Platform avg normal price over time, normalized to 100 at first tracked date</p>
-            </div>
+        <div class="st-card st-card-full">
+          <div class="st-card-header">
+            <app-sec-label text="Price Index â€” inflation tracker" accent="#00539F"/>
             @if (priceIndex().length > 1) {
-              <div class="badge badge-outline">
+              <span class="st-badge"
+                    [style.background]="priceIndex()[priceIndex().length - 1].index > 100 ? 'rgba(238,28,37,.12)' : 'rgba(0,138,0,.12)'"
+                    [style.color]="priceIndex()[priceIndex().length - 1].index > 100 ? 'var(--hex3)' : 'var(--hex5)'">
                 @if (priceIndex()[priceIndex().length - 1].index > 100) {
-                  <span class="text-error">↑ {{ (priceIndex()[priceIndex().length - 1].index - 100) | number:'1.1-1' }}% since start</span>
+                  â†‘ {{ (priceIndex()[priceIndex().length - 1].index - 100) | number:'1.1-1' }}% since start
                 } @else {
-                  <span class="text-success">↓ {{ (100 - priceIndex()[priceIndex().length - 1].index) | number:'1.1-1' }}% since start</span>
+                  â†“ {{ (100 - priceIndex()[priceIndex().length - 1].index) | number:'1.1-1' }}% since start
                 }
-              </div>
+              </span>
             }
           </div>
-          <div class="relative h-80">
+          <p class="st-card-sub">Platform avg normal price over time, normalized to 100 at first tracked date</p>
+          <div class="st-chart-area st-chart-lg">
             <canvas #platformIndexChart></canvas>
           </div>
         </div>
       }
 
       <!-- Row: Price tiers + Category avg -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="st-grid-2">
         @if (priceTiers().length) {
-          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-            <h3 class="font-bold mb-3">Product distribution by price tier</h3>
-            <div class="relative h-72">
+          <div class="st-card">
+            <app-sec-label text="Product distribution by price tier"/>
+            <div class="st-chart-area st-chart-md">
               <canvas #platformTiersChart></canvas>
             </div>
           </div>
         }
         @if (categoryDiff()) {
-          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-            <h3 class="font-bold mb-3">Average price by channel</h3>
-            <div class="relative h-72">
+          <div class="st-card">
+            <app-sec-label text="Average price by channel"/>
+            <div class="st-chart-area st-chart-md">
               <canvas #platformCategoryChart></canvas>
             </div>
             @if (categoryDiff(); as cd) {
-              <div class="grid grid-cols-2 gap-2 mt-3 text-sm">
-                <div class="bg-base-100 rounded-lg p-2 border border-base-300">
-                  <span class="opacity-60">Discount vs Normal:</span>
-                  <span class="font-bold" [class.text-success]="cd.discount_vs_normal_pct !== null && cd.discount_vs_normal_pct < 0">
-                    {{ cd.discount_vs_normal_pct !== null ? (cd.discount_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
-                  </span>
+              <div class="st-channel-stats">
+                <div class="st-channel-stat">
+                  <span>Discount vs Normal</span>
+                  <strong [style.color]="cd.discount_vs_normal_pct !== null && cd.discount_vs_normal_pct < 0 ? 'var(--hex5)' : 'var(--hex3)'">
+                    {{ cd.discount_vs_normal_pct !== null ? (cd.discount_vs_normal_pct | number:'1.1-1') + '%' : 'â€”' }}
+                  </strong>
                 </div>
-                <div class="bg-base-100 rounded-lg p-2 border border-base-300">
-                  <span class="opacity-60">Clubcard vs Normal:</span>
-                  <span class="font-bold" [class.text-success]="cd.clubcard_vs_normal_pct !== null && cd.clubcard_vs_normal_pct < 0">
-                    {{ cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : '—' }}
-                  </span>
+                <div class="st-channel-stat">
+                  <span>Clubcard vs Normal</span>
+                  <strong [style.color]="cd.clubcard_vs_normal_pct !== null && cd.clubcard_vs_normal_pct < 0 ? 'var(--hex5)' : 'var(--hex3)'">
+                    {{ cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : 'â€”' }}
+                  </strong>
                 </div>
               </div>
             }
@@ -159,21 +137,21 @@
       </div>
 
       <!-- Row: Discount by weekday + Volatility -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <div class="st-grid-2">
         @if (discountByWeekday().length) {
-          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-            <h3 class="font-bold mb-1">Average discount by weekday</h3>
-            <p class="text-xs opacity-60 mb-3">Which day typically has the biggest discounts?</p>
-            <div class="relative h-64">
+          <div class="st-card">
+            <app-sec-label text="Average discount by weekday"/>
+            <p class="st-card-sub">Which day typically has the biggest discounts?</p>
+            <div class="st-chart-area st-chart-sm">
               <canvas #platformWeekdayChart></canvas>
             </div>
           </div>
         }
         @if (volatilityTiers().length) {
-          <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-            <h3 class="font-bold mb-1">Price volatility by tier</h3>
-            <p class="text-xs opacity-60 mb-3">Avg std-dev of prices over the last 30 days per tier</p>
-            <div class="relative h-64">
+          <div class="st-card">
+            <app-sec-label text="Price volatility by tier"/>
+            <p class="st-card-sub">Avg std-dev of prices over the last 30 days per tier</p>
+            <div class="st-chart-area st-chart-sm">
               <canvas #platformVolatilityChart></canvas>
             </div>
           </div>
@@ -182,10 +160,10 @@
 
       <!-- Top discounts chart -->
       @if (topDiscounts().length) {
-        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
-          <h3 class="font-bold mb-1">Today's top discount tiers</h3>
-          <p class="text-xs opacity-60 mb-3">Number of products at each discount level</p>
-          <div class="relative h-80">
+        <div class="st-card">
+          <app-sec-label text="Today's top discount tiers"/>
+          <p class="st-card-sub">Number of products at each discount level</p>
+          <div class="st-chart-area st-chart-lg">
             <canvas #platformTopDiscountsChart></canvas>
           </div>
         </div>
@@ -193,58 +171,60 @@
 
       <!-- Today's price drops table -->
       @if (priceDropsToday().length) {
-        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
-          <div class="flex items-center justify-between mb-3">
-            <div>
-              <h3 class="font-bold text-lg">🔥 Today's price drops</h3>
-              <p class="text-xs opacity-60">Products whose normal price dropped versus yesterday</p>
-            </div>
-            <span class="badge badge-success">{{ priceDropsToday().length }} drops</span>
+        <div class="st-card">
+          <div class="st-card-header">
+            <app-sec-label text="Today's price drops" accent="var(--hex5)"/>
+            <span class="st-badge" style="background:rgba(0,138,0,.12);color:var(--hex5)">
+              {{ priceDropsToday().length }} drops
+            </span>
           </div>
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
+          <p class="st-card-sub">Products whose normal price dropped versus yesterday</p>
+          <div class="st-drops-table">
+            <table>
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th class="text-right">Yesterday</th>
-                  <th class="text-right">Today</th>
-                  <th class="text-right">Drop</th>
+                  <th style="text-align:right">Yesterday</th>
+                  <th style="text-align:right">Today</th>
+                  <th style="text-align:right">Drop</th>
                 </tr>
               </thead>
               <tbody>
                 @for (drop of priceDropsToday().slice(0, 20); track drop.tpnc) {
                   <tr>
                     <td>
-                      <a [routerLink]="['/products', drop.tpnc]" class="link link-hover font-medium">
+                      <a [routerLink]="['/products', drop.tpnc]" class="st-product-link">
                         {{ drop.name || drop.tpnc }}
                       </a>
                     </td>
-                    <td class="text-right opacity-60">{{ drop.yesterday_price | number:'1.0-0' }} Ft</td>
-                    <td class="text-right font-bold text-success">{{ drop.today_price | number:'1.0-0' }} Ft</td>
-                    <td class="text-right">
-                      <span class="badge badge-success badge-sm">-{{ drop.drop_pct | number:'1.1-1' }}%</span>
+                    <td class="font-mono-prices" style="text-align:right;color:var(--text-muted)">{{ drop.yesterday_price | number:'1.0-0' }} Ft</td>
+                    <td class="font-mono-prices" style="text-align:right;color:var(--hex5);font-weight:700">{{ drop.today_price | number:'1.0-0' }} Ft</td>
+                    <td style="text-align:right">
+                      <span class="st-drop-badge">-{{ drop.drop_pct | number:'1.1-1' }}%</span>
                     </td>
                   </tr>
                 }
               </tbody>
             </table>
             @if (priceDropsToday().length > 20) {
-              <p class="text-xs opacity-60 mt-2 text-center">Showing top 20 of {{ priceDropsToday().length }} drops</p>
+              <p style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:8px">
+                Showing top 20 of {{ priceDropsToday().length }} drops
+              </p>
             }
           </div>
         </div>
       }
 
-      <!-- Discount events summary -->
+      <!-- Discount events by weekday tile grid -->
       @if (discountByWeekday().length) {
-        <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
-          <h3 class="font-bold mb-3">Discount events summary by weekday</h3>
-          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-2">
+        <div class="st-card">
+          <app-sec-label text="Discount events by weekday"/>
+          <div class="st-weekday-grid">
             @for (day of discountByWeekday(); track day.weekday) {
-              <div class="bg-base-100 rounded-xl p-3 border border-base-300 text-center">
-                <div class="text-xs font-bold uppercase opacity-60">{{ day.weekday.substring(0, 3) }}</div>
-                <div class="text-xl font-bold mt-1">{{ day.avg_pct_off | number:'1.1-1' }}%</div>
-                <div class="text-xs opacity-50">{{ day.total_events | number }} events</div>
+              <div class="st-weekday-tile">
+                <div class="st-weekday-label">{{ day.weekday.substring(0, 3) }}</div>
+                <div class="st-weekday-pct font-mono-prices">{{ day.avg_pct_off | number:'1.1-1' }}%</div>
+                <div class="st-weekday-events">{{ day.total_events | number }} events</div>
               </div>
             }
           </div>
@@ -253,410 +233,310 @@
     }
   }
 
-  <!-- ════════════════════════════════════════════════════════════════════ -->
-  <!-- TAB 2: PRODUCT ANALYSIS                                            -->
-  <!-- ════════════════════════════════════════════════════════════════════ -->
+  <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+       TAB 2: PRODUCT ANALYSIS
+  â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
   @if (activeTab() === 'product') {
 
-  <!-- Product picker -->
-  <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
-    <label class="text-sm font-semibold mb-2 block">Pick a tracked product</label>
-    <div class="relative">
-      <input type="search"
-             class="input input-bordered w-full"
-             placeholder="Search by name or TPNC (min. 2 chars)..."
-             [value]="query()"
-             (input)="onSearchInput($any($event.target).value)"
-             autocomplete="off" />
+    <!-- Product picker -->
+    <div class="st-card">
+      <app-sec-label text="Pick a product to analyse" accent="#00539F"/>
+      <div style="position:relative">
+        <input type="search" class="st-search-input"
+               placeholder="Search by name or TPNC (min. 2 chars)â€¦"
+               [value]="query()"
+               (input)="onSearchInput($any($event.target).value)"
+               autocomplete="off"/>
+        @if (searching()) {
+          <span class="loading loading-spinner loading-sm" style="position:absolute;right:14px;top:50%;transform:translateY(-50%)"></span>
+        }
+        @if (suggestions().length) {
+          <ul class="st-suggestions">
+            @for (s of suggestions(); track s.tpnc) {
+              <li>
+                <button type="button" class="st-suggestion-btn" (click)="pick(s)">
+                  @if (s.imageUrl) {
+                    <img [src]="s.imageUrl" [alt]="s.name || s.tpnc" class="st-suggestion-img" loading="lazy" referrerpolicy="no-referrer"/>
+                  } @else {
+                    <app-hex-icon [letter]="(s.name || s.tpnc).charAt(0).toUpperCase()" accent="#00539F" [size]="32"/>
+                  }
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-primary)">{{ s.name || s.tpnc }}</div>
+                    <div style="font-size:10px;color:var(--text-muted)">TPNC {{ s.tpnc }}</div>
+                  </div>
+                  @if (s.currentPrice !== undefined) {
+                    <div class="font-mono-prices" style="font-size:13px;font-weight:700;flex-shrink:0">{{ s.currentPrice | number:'1.2-2' }} Ft</div>
+                  }
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+    </div>
 
-      @if (searching()) {
-        <span class="loading loading-spinner loading-sm absolute right-4 top-1/2 -translate-y-1/2"></span>
-      }
+    @if (error()) {
+      <div class="st-error-banner">{{ error() }}</div>
+    }
+    @if (loading()) {
+      <div class="st-loading">
+        <span class="loading loading-spinner loading-lg"></span>
+        <span>Crunching the numbersâ€¦</span>
+      </div>
+    }
 
-      @if (suggestions().length) {
-        <ul class="absolute z-20 w-full mt-1 bg-base-100 border border-base-300 rounded-xl shadow-lg max-h-80 overflow-auto">
-          @for (s of suggestions(); track s.tpnc) {
-            <li>
-              <button type="button"
-                      class="w-full text-left px-4 py-2 hover:bg-base-200 flex items-center gap-3"
-                      (click)="pick(s)">
-                @if (s.imageUrl) {
-                  <img [src]="s.imageUrl" [alt]="s.name || s.tpnc"
-                       class="w-10 h-10 object-contain rounded bg-base-200 p-1 shrink-0"
-                       loading="lazy" referrerpolicy="no-referrer" />
-                } @else {
-                  <div class="w-10 h-10 rounded bg-base-200 flex items-center justify-center text-lg shrink-0">🛒</div>
-                }
-                <div class="flex-1 min-w-0">
-                  <div class="font-medium truncate">{{ s.name || s.tpnc }}</div>
-                  <div class="text-xs opacity-60">TPNC {{ s.tpnc }}</div>
-                </div>
-                @if (s.currentPrice !== undefined) {
-                  <div class="font-semibold shrink-0">{{ s.currentPrice | number:'1.2-2' }} Ft</div>
-                }
-              </button>
-            </li>
+    @if (!loading() && !selected()) {
+      <div class="st-grid-3">
+        <div class="st-promo-card">
+          <svg width="28" height="32" viewBox="0 0 28 32" style="margin-bottom:8px;opacity:.6">
+            <polygon points="14,0 28,8 28,24 14,32 0,24 0,8" fill="none" stroke="#00539F" stroke-width="1.5"/>
+          </svg>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Price trends</div>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.5">Normal, discount and Clubcard lines over the full tracked period.</p>
+        </div>
+        <div class="st-promo-card">
+          <svg width="28" height="32" viewBox="0 0 28 32" style="margin-bottom:8px;opacity:.6">
+            <polygon points="14,0 28,8 28,24 14,32 0,24 0,8" fill="none" stroke="var(--hex2)" stroke-width="1.5"/>
+          </svg>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Smart insights</div>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.5">Volatility score, best buying month, trend direction.</p>
+        </div>
+        <div class="st-promo-card">
+          <svg width="28" height="32" viewBox="0 0 28 32" style="margin-bottom:8px;opacity:.6">
+            <polygon points="14,0 28,8 28,24 14,32 0,24 0,8" fill="none" stroke="var(--hex2)" stroke-width="1.5"/>
+          </svg>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary)">Clubcard savings</div>
+          <p style="font-size:12px;color:var(--text-muted);margin-top:4px;line-height:1.5">Cumulative savings versus paying the normal price.</p>
+        </div>
+      </div>
+    }
+
+    @if (selectedSummary(); as p) {
+
+      <!-- Product header -->
+      <div class="st-card st-product-header-card">
+        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+          @if (p.imageUrl) {
+            <img [src]="p.imageUrl" [alt]="p.name || p.tpnc"
+                 class="st-product-img" referrerpolicy="no-referrer"/>
+          } @else {
+            <app-hex-icon [letter]="(p.name || p.tpnc).charAt(0).toUpperCase()" accent="#00539F" [size]="52"/>
           }
-        </ul>
+          <div style="flex:1;min-width:0">
+            <h2 class="st-product-name">{{ p.name || p.tpnc }}</h2>
+            <div class="st-product-meta">
+              <span>TPNC {{ p.tpnc }}</span>
+              @if (p.packSize) { <span>Â· {{ p.packSize }}</span> }
+              @if (p.unit) { <span>Â· {{ p.unit }}</span> }
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+              <span class="st-insight-chip" [class.green]="trendClass(kpi().trendPct).includes('success')" [class.red]="trendClass(kpi().trendPct).includes('error')">
+                30d: {{ trendLabel(kpi().trendPct) }}
+              </span>
+              <span class="st-insight-chip" [class.green]="buySignalClass(kpi()).includes('success')" [class.amber]="buySignalClass(kpi()).includes('warning')">
+                {{ buySignalLabel(kpi()) }}
+              </span>
+              <span class="st-insight-chip">Volatility: {{ volatilityLabel(kpi().volatility) }}</span>
+            </div>
+          </div>
+          <a [routerLink]="['/products', p.tpnc]" class="st-open-btn">Open detail â†’</a>
+        </div>
+      </div>
+
+      <!-- KPI hex tiles row 1 -->
+      <div class="st-kpi-row">
+        <app-hex-kpi [value]="kpi().current !== undefined ? (kpi().current | number:'1.2-2') + ' Ft' : 'â€”'" label="Current"        accent="var(--hex1)"/>
+        <app-hex-kpi [value]="kpi().min !== undefined ? (kpi().min | number:'1.2-2') + ' Ft' : 'â€”'"     label="All-time low"   accent="var(--hex5)"/>
+        <app-hex-kpi [value]="kpi().max !== undefined ? (kpi().max | number:'1.2-2') + ' Ft' : 'â€”'"     label="All-time high"  accent="var(--hex3)"/>
+        <app-hex-kpi [value]="kpi().avg !== undefined ? (kpi().avg | number:'1.2-2') + ' Ft' : 'â€”'"     label="Historical avg" accent="var(--hex4)"/>
+        <app-hex-kpi [value]="kpi().clubcardMin !== undefined ? (kpi().clubcardMin | number:'1.2-2') + ' Ft' : 'â€”'" label="Clubcard low" accent="var(--hex2)"/>
+        <app-hex-kpi [value]="kpi().savingsPct !== undefined ? (kpi().savingsPct | number:'1.0-1') + '%' : 'â€”'" label="Max savings" accent="#00539F"/>
+      </div>
+
+      <!-- KPI hex tiles row 2 -->
+      <div class="st-kpi-row">
+        <app-hex-kpi [value]="volatilityLabel(kpi().volatility)"         label="Volatility"     [accent]="volatilityClass(kpi().volatility).includes('success') ? 'var(--hex5)' : volatilityClass(kpi().volatility).includes('error') ? 'var(--hex3)' : 'var(--hex2)'"/>
+        <app-hex-kpi [value]="trendLabel(kpi().trendPct)"                label="30d trend"      [accent]="trendClass(kpi().trendPct).includes('success') ? 'var(--hex5)' : 'var(--hex3)'"/>
+        <app-hex-kpi [value]="kpi().bestMonth || 'â€”'"                    label="Best month"     accent="var(--hex5)"/>
+        <app-hex-kpi [value]="kpi().promoFreqPct !== undefined ? (kpi().promoFreqPct | number:'1.0-1') + '%' : 'â€”'" label="Promo rate" accent="var(--hex2)"/>
+        <app-hex-kpi [value]="kpi().priceChanges ?? 'â€”'"                 label="Price changes"  accent="var(--hex4)"/>
+        <app-hex-kpi [value]="kpi().daysTracked ?? 'â€”'"                  label="Days tracked"   accent="var(--hex1)"/>
+      </div>
+
+      <!-- Secondary metrics row -->
+      <div class="st-meta-grid">
+        <div class="st-meta-tile"><div class="st-meta-label">Total data points</div><div class="st-meta-value font-mono-prices">{{ kpi().entryCount }}</div></div>
+        <div class="st-meta-tile"><div class="st-meta-label">Promo records</div><div class="st-meta-value font-mono-prices">{{ kpi().promoCount }}</div></div>
+        <div class="st-meta-tile"><div class="st-meta-label">Tracking since</div><div class="st-meta-value">{{ kpi().firstSeen ? (kpi().firstSeen | date:'mediumDate') : 'â€”' }}</div></div>
+        <div class="st-meta-tile"><div class="st-meta-label">Last observation</div><div class="st-meta-value">{{ kpi().lastSeen ? (kpi().lastSeen | date:'mediumDate') : 'â€”' }}</div></div>
+      </div>
+
+      <!-- Clubcard savings callout -->
+      @if (kpi().clubcardTotalSavings !== undefined) {
+        <div class="st-clubcard-banner">
+          <svg width="24" height="27" viewBox="0 0 24 27" style="flex-shrink:0">
+            <polygon points="12,0 24,6.75 24,20.25 12,27 0,20.25 0,6.75" fill="rgba(245,166,35,.3)" stroke="var(--hex2)" stroke-width="1.5"/>
+          </svg>
+          <div>
+            <div style="font-weight:700;color:var(--hex2);font-size:13px">Clubcard total savings</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px;line-height:1.5">
+              Across all tracked entries, Clubcard members would have saved
+              <strong style="color:var(--hex2)" class="font-mono-prices">{{ kpi().clubcardTotalSavings | number:'1.2-2' }} Ft</strong>
+              vs the normal price.
+            </div>
+          </div>
+        </div>
       }
-    </div>
-  </div>
 
-  @if (error()) {
-    <div class="alert alert-error mb-6">{{ error() }}</div>
-  }
-
-  @if (loading()) {
-    <div class="flex items-center justify-center gap-3 py-20">
-      <span class="loading loading-spinner loading-lg"></span>
-      <span>Crunching the numbers...</span>
-    </div>
-  }
-
-  @if (!loading() && !selected()) {
-    <div class="grid md:grid-cols-3 gap-4">
-      <div class="bg-base-200 p-6 rounded-2xl border border-base-300">
-        <div class="text-3xl mb-2">📈</div>
-        <h3 class="font-bold mb-1">Price trends</h3>
-        <p class="opacity-70 text-sm">See normal, discount and Clubcard lines over the full tracked period.</p>
-      </div>
-      <div class="bg-base-200 p-6 rounded-2xl border border-base-300">
-        <div class="text-3xl mb-2">🧠</div>
-        <h3 class="font-bold mb-1">Smart insights</h3>
-        <p class="opacity-70 text-sm">AI-style analysis: volatility score, best buying month, trend direction.</p>
-      </div>
-      <div class="bg-base-200 p-6 rounded-2xl border border-base-300">
-        <div class="text-3xl mb-2">💸</div>
-        <h3 class="font-bold mb-1">Clubcard savings</h3>
-        <p class="opacity-70 text-sm">See cumulative savings over time and the total you'd have saved as a member.</p>
-      </div>
-    </div>
-  }
-
-  @if (selectedSummary(); as p) {
-
-    <!-- Product header -->
-    <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-6 mb-6 flex flex-col md:flex-row gap-5 md:items-center">
-      @if (p.imageUrl) {
-        <img [src]="p.imageUrl" [alt]="p.name || p.tpnc"
-             class="w-28 h-28 object-contain rounded-xl bg-base-100 p-2 shrink-0"
-             referrerpolicy="no-referrer" />
-      } @else {
-        <div class="w-28 h-28 rounded-xl bg-base-100 flex items-center justify-center text-5xl shrink-0">🛒</div>
+      <!-- Smart insights panel -->
+      @if (insights().length) {
+        <div class="st-card">
+          <app-sec-label text="Smart insights" accent="var(--hex2)"/>
+          <ul class="st-insights-list">
+            @for (insight of insights(); track insight) {
+              <li class="st-insight-row">
+                <svg width="10" height="11" viewBox="0 0 10 11" style="flex-shrink:0;margin-top:2px">
+                  <polygon points="5,0 10,2.75 10,8.25 5,11 0,8.25 0,2.75" fill="var(--hex2)" opacity="0.7"/>
+                </svg>
+                <span>{{ insight }}</span>
+              </li>
+            }
+          </ul>
+        </div>
       }
-      <div class="flex-1 min-w-0">
-        <h2 class="text-2xl font-bold leading-tight">{{ p.name || p.tpnc }}</h2>
-        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-sm opacity-70">
-          <span>TPNC {{ p.tpnc }}</span>
-          @if (p.packSize) { <span>• {{ p.packSize }}</span> }
-          @if (p.unit) { <span>• {{ p.unit }}</span> }
-        </div>
-        <!-- Trend pill -->
-        <div class="mt-2 flex flex-wrap gap-2">
-          <span class="badge badge-outline text-sm px-3 py-1 font-semibold"
-                [class]="trendClass(kpi().trendPct)">
-            30d: {{ trendLabel(kpi().trendPct) }}
-          </span>
-          <span class="badge badge-outline text-sm px-3 py-1 font-semibold"
-                [class]="buySignalClass(kpi())">
-            {{ buySignalLabel(kpi()) }}
-          </span>
-          <span class="badge badge-outline text-sm px-3 py-1"
-                [class]="volatilityClass(kpi().volatility)">
-            Volatility: {{ volatilityLabel(kpi().volatility) }}
-          </span>
-        </div>
-      </div>
-      <a [routerLink]="['/products', p.tpnc]" class="btn btn-outline btn-sm">Open detail</a>
-    </div>
 
-    <!-- KPI tiles row 1 -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Current</div>
-        <div class="text-2xl font-bold">
-          @if (kpi().current !== undefined) { {{ kpi().current | number:'1.2-2' }} Ft } @else { — }
+      <!-- Server-computed stats -->
+      @if (serverStats(); as s) {
+        <div class="st-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+            <app-sec-label text="Server-computed stats" accent="var(--hex4)"/>
+            <span style="font-size:10px;color:var(--text-muted);margin-left:auto">from /stats API</span>
+          </div>
+          <div class="st-meta-grid">
+            @if (s['min'] !== undefined) {
+              <div class="st-meta-tile"><div class="st-meta-label">Min</div><div class="st-meta-value font-mono-prices" style="color:var(--hex5)">{{ s['min'] | number:'1.2-2' }} Ft</div></div>
+            }
+            @if (s['max'] !== undefined) {
+              <div class="st-meta-tile"><div class="st-meta-label">Max</div><div class="st-meta-value font-mono-prices" style="color:var(--hex3)">{{ s['max'] | number:'1.2-2' }} Ft</div></div>
+            }
+            @if (s['avg'] !== undefined) {
+              <div class="st-meta-tile"><div class="st-meta-label">Avg</div><div class="st-meta-value font-mono-prices">{{ s['avg'] | number:'1.2-2' }} Ft</div></div>
+            }
+            @if (s['current'] !== undefined) {
+              <div class="st-meta-tile"><div class="st-meta-label">Current</div><div class="st-meta-value font-mono-prices">{{ s['current'] | number:'1.2-2' }} Ft</div></div>
+            }
+            @if (s['pointCount'] !== undefined) {
+              <div class="st-meta-tile"><div class="st-meta-label">Points</div><div class="st-meta-value font-mono-prices">{{ s['pointCount'] }}</div></div>
+            }
+          </div>
         </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">All-time low</div>
-        <div class="text-2xl font-bold text-success">
-          @if (kpi().min !== undefined) { {{ kpi().min | number:'1.2-2' }} Ft } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">All-time high</div>
-        <div class="text-2xl font-bold text-error">
-          @if (kpi().max !== undefined) { {{ kpi().max | number:'1.2-2' }} Ft } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Historical avg</div>
-        <div class="text-2xl font-bold">
-          @if (kpi().avg !== undefined) { {{ kpi().avg | number:'1.2-2' }} Ft } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Clubcard low</div>
-        <div class="text-2xl font-bold text-warning">
-          @if (kpi().clubcardMin !== undefined) { {{ kpi().clubcardMin | number:'1.2-2' }} Ft } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Max savings</div>
-        <div class="text-2xl font-bold text-primary">
-          @if (kpi().savingsPct !== undefined) { {{ kpi().savingsPct | number:'1.0-1' }}% } @else { — }
-        </div>
-      </div>
-    </div>
+      }
 
-    <!-- KPI tiles row 2 — extended metrics -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Volatility</div>
-        <div class="text-xl font-bold" [class]="volatilityClass(kpi().volatility)">
-          {{ volatilityLabel(kpi().volatility) }}
-          @if (kpi().volatility !== undefined) {
-            <span class="text-xs opacity-70 font-normal ml-1">({{ kpi().volatility | number:'1.1-1' }}%)</span>
-          }
+      <!-- Charts row 1: price history + channel doughnut -->
+      <div class="st-grid-2 st-grid-3-1">
+        <div class="st-card">
+          <div class="st-card-header" style="margin-bottom:12px">
+            <app-sec-label text="Price history"/>
+            <span style="font-size:11px;color:var(--text-muted)">Normal Â· Discount Â· Clubcard</span>
+          </div>
+          <div class="st-chart-area st-chart-lg">
+            <canvas #lineChart></canvas>
+          </div>
         </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">30-day trend</div>
-        <div class="text-xl font-bold" [class]="trendClass(kpi().trendPct)">
-          {{ trendLabel(kpi().trendPct) }}
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Best month</div>
-        <div class="text-xl font-bold">
-          @if (kpi().bestMonth) { {{ kpi().bestMonth }} } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Promo rate</div>
-        <div class="text-xl font-bold">
-          @if (kpi().promoFreqPct !== undefined) { {{ kpi().promoFreqPct | number:'1.0-1' }}% } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Price changes</div>
-        <div class="text-xl font-bold">
-          @if (kpi().priceChanges !== undefined) { {{ kpi().priceChanges }} } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <div class="text-xs uppercase opacity-60">Days tracked</div>
-        <div class="text-xl font-bold">
-          @if (kpi().daysTracked !== undefined) { {{ kpi().daysTracked }} } @else { — }
-        </div>
-      </div>
-    </div>
-
-    <!-- Secondary metrics row -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6 text-sm">
-      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
-        <div class="opacity-60">Total data points</div>
-        <div class="text-lg font-semibold">{{ kpi().entryCount }}</div>
-      </div>
-      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
-        <div class="opacity-60">Promo records</div>
-        <div class="text-lg font-semibold">{{ kpi().promoCount }}</div>
-      </div>
-      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
-        <div class="opacity-60">Tracking since</div>
-        <div class="text-lg font-semibold">
-          @if (kpi().firstSeen; as d) { {{ d | date:'mediumDate' }} } @else { — }
-        </div>
-      </div>
-      <div class="bg-base-100 border border-base-300 rounded-xl p-3">
-        <div class="opacity-60">Last observation</div>
-        <div class="text-lg font-semibold">
-          @if (kpi().lastSeen; as d) { {{ d | date:'mediumDate' }} } @else { — }
-        </div>
-      </div>
-    </div>
-
-    <!-- Clubcard savings callout (only shown if data exists) -->
-    @if (kpi().clubcardTotalSavings !== undefined) {
-      <div class="bg-warning/10 border border-warning/30 rounded-2xl p-4 mb-6 flex items-center gap-4">
-        <div class="text-3xl shrink-0">💳</div>
-        <div>
-          <div class="font-bold text-warning">Clubcard total savings</div>
-          <div class="text-sm opacity-80">
-            Across all tracked entries where Clubcard was cheaper, members would have saved a cumulative
-            <span class="font-bold text-warning">{{ kpi().clubcardTotalSavings | number:'1.2-2' }} Ft</span>
-            versus paying the normal price.
+        <div class="st-card">
+          <app-sec-label text="Entries by channel"/>
+          <div class="st-chart-area st-chart-lg">
+            <canvas #channelDoughnut></canvas>
           </div>
         </div>
       </div>
+
+      <!-- Charts row 2: promo doughnut + monthly avg -->
+      <div class="st-grid-2 st-grid-1-2">
+        <div class="st-card">
+          <app-sec-label text="Promo vs regular"/>
+          <div class="st-chart-area st-chart-md">
+            <canvas #promoDoughnut></canvas>
+          </div>
+        </div>
+        <div class="st-card">
+          <app-sec-label text="Average price per month"/>
+          <div class="st-chart-area st-chart-md">
+            <canvas #monthlyBar></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row 3: clubcard savings + polar -->
+      <div class="st-grid-2 st-grid-2-1">
+        <div class="st-card">
+          <app-sec-label text="Clubcard savings vs normal price"/>
+          <div class="st-chart-area st-chart-md">
+            <canvas #savingsBar></canvas>
+          </div>
+        </div>
+        <div class="st-card">
+          <app-sec-label text="Avg price by channel"/>
+          <div class="st-chart-area st-chart-md">
+            <canvas #polarChart></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart: price distribution -->
+      <div class="st-card">
+        <app-sec-label text="Price distribution â€” frequency histogram"/>
+        <div class="st-chart-area st-chart-md">
+          <canvas #distributionBar></canvas>
+        </div>
+      </div>
+
+      <!-- Charts row 4: year-over-year + month-over-month -->
+      <div class="st-grid-2">
+        <div class="st-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <app-sec-label text="Year-over-year comparison"/>
+            <span style="font-size:10px;color:var(--text-muted)">min / avg / max per year</span>
+          </div>
+          <div class="st-chart-area st-chart-md">
+            <canvas #yoyBar></canvas>
+          </div>
+        </div>
+        <div class="st-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <app-sec-label text="Month-over-month price change"/>
+            <span style="font-size:10px;color:var(--text-muted);margin-left:auto">green = cheaper, red = more expensive</span>
+          </div>
+          <div class="st-chart-area st-chart-md">
+            <canvas #deltaBar></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row 5: cumulative savings + promo density -->
+      <div class="st-grid-2">
+        <div class="st-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <app-sec-label text="Cumulative Clubcard savings"/>
+            <span style="font-size:10px;color:var(--text-muted)">running total vs normal</span>
+          </div>
+          <div class="st-chart-area st-chart-sm">
+            <canvas #cumulativeSavings></canvas>
+          </div>
+        </div>
+        <div class="st-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <app-sec-label text="Promo density by month"/>
+            <span style="font-size:10px;color:var(--text-muted)">% of entries with active promo</span>
+          </div>
+          <div class="st-chart-area st-chart-sm">
+            <canvas #promoDensityBar></canvas>
+          </div>
+        </div>
+      </div>
+
     }
-
-    <!-- Smart insights panel -->
-    @if (insights().length) {
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-6">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="text-xl">🧠</span>
-          <h3 class="font-bold text-lg">Smart insights</h3>
-        </div>
-        <ul class="space-y-2">
-          @for (insight of insights(); track insight) {
-            <li class="flex items-start gap-2 text-sm">
-              <span class="mt-0.5 text-primary shrink-0">›</span>
-              <span class="opacity-85">{{ insight }}</span>
-            </li>
-          }
-        </ul>
-      </div>
-    }
-
-    <!-- Server-computed stats (from /stats API endpoint) -->
-    @if (serverStats(); as s) {
-      <div class="bg-base-100 border border-base-300 rounded-2xl p-4 md:p-5 mb-6">
-        <div class="flex items-center gap-2 mb-3">
-          <span class="text-xl">🖥️</span>
-          <h3 class="font-bold">Server-computed stats</h3>
-          <span class="text-xs opacity-50 ml-auto">from /stats API</span>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
-          @if (s['min'] !== undefined) {
-            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
-              <div class="opacity-60">Min</div>
-              <div class="text-lg font-semibold text-success">{{ s['min'] | number:'1.2-2' }} Ft</div>
-            </div>
-          }
-          @if (s['max'] !== undefined) {
-            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
-              <div class="opacity-60">Max</div>
-              <div class="text-lg font-semibold text-error">{{ s['max'] | number:'1.2-2' }} Ft</div>
-            </div>
-          }
-          @if (s['avg'] !== undefined) {
-            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
-              <div class="opacity-60">Avg</div>
-              <div class="text-lg font-semibold">{{ s['avg'] | number:'1.2-2' }} Ft</div>
-            </div>
-          }
-          @if (s['current'] !== undefined) {
-            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
-              <div class="opacity-60">Current</div>
-              <div class="text-lg font-semibold">{{ s['current'] | number:'1.2-2' }} Ft</div>
-            </div>
-          }
-          @if (s['pointCount'] !== undefined) {
-            <div class="bg-base-200 rounded-xl p-3 border border-base-300">
-              <div class="opacity-60">Points</div>
-              <div class="text-lg font-semibold">{{ s['pointCount'] }}</div>
-            </div>
-          }
-        </div>
-      </div>
-    }
-
-    <!-- Charts row 1: price history + channel doughnut -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-      <div class="lg:col-span-2 bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="font-bold">Price history</h3>
-          <span class="text-xs opacity-60">Normal · Discount · Clubcard</span>
-        </div>
-        <div class="relative h-80">
-          <canvas #lineChart></canvas>
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <h3 class="font-bold mb-3">Entries by channel</h3>
-        <div class="relative h-80">
-          <canvas #channelDoughnut></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Charts row 2: promo doughnut + monthly avg -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <h3 class="font-bold mb-3">Promo vs regular</h3>
-        <div class="relative h-64">
-          <canvas #promoDoughnut></canvas>
-        </div>
-      </div>
-      <div class="lg:col-span-2 bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <h3 class="font-bold mb-3">Average price per month</h3>
-        <div class="relative h-64">
-          <canvas #monthlyBar></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Charts row 3: clubcard savings % + polar avg -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-      <div class="lg:col-span-2 bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <h3 class="font-bold mb-3">Clubcard savings vs normal price</h3>
-        <div class="relative h-64">
-          <canvas #savingsBar></canvas>
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <h3 class="font-bold mb-3">Avg price by channel</h3>
-        <div class="relative h-64">
-          <canvas #polarChart></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Charts row 4: price distribution -->
-    <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5 mb-4">
-      <h3 class="font-bold mb-3">Price distribution (frequency histogram)</h3>
-      <div class="relative h-64">
-        <canvas #distributionBar></canvas>
-      </div>
-    </div>
-
-    <!-- Charts row 5: year-over-year + month-over-month delta -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <h3 class="font-bold">Year-over-year comparison</h3>
-          <span class="text-xs opacity-50">min / avg / max per year</span>
-        </div>
-        <div class="relative h-72">
-          <canvas #yoyBar></canvas>
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <h3 class="font-bold">Month-over-month price change</h3>
-          <span class="text-xs opacity-50 ml-auto">green = cheaper, red = more expensive</span>
-        </div>
-        <div class="relative h-72">
-          <canvas #deltaBar></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Charts row 6: cumulative savings + promo density -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <h3 class="font-bold">Cumulative Clubcard savings</h3>
-          <span class="text-xs opacity-50">running total vs normal price</span>
-        </div>
-        <div class="relative h-64">
-          <canvas #cumulativeSavings></canvas>
-        </div>
-      </div>
-      <div class="bg-base-200 rounded-2xl border border-base-300 p-4 md:p-5">
-        <div class="flex items-center gap-2 mb-3">
-          <h3 class="font-bold">Promotional density by month</h3>
-          <span class="text-xs opacity-50">% of entries with active promo</span>
-        </div>
-        <div class="relative h-64">
-          <canvas #promoDensityBar></canvas>
-        </div>
-      </div>
-    </div>
-
-  }
-
   } <!-- end activeTab === 'product' -->
-</section>
+
+</div>
+

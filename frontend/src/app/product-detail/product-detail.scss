@@ -1,1 +1,305 @@
-/* Product detail styles. */
+.pd-page {
+  padding: 22px 24px;
+  max-width: 1100px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Loading / error states ─────────────────── */
+.pd-loading, .pd-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+.pd-back-link { color: #00539F; font-size: 13px; text-decoration: underline; }
+
+/* ── Header ─────────────────────────────────── */
+.pd-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.pd-back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 150ms, color 150ms;
+  flex-shrink: 0;
+  &:hover { border-color: #00539F; color: #00539F; }
+}
+.pd-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.pd-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.pd-sep { color: var(--border-color); }
+.pd-tesco-link {
+  color: var(--text-muted);
+  text-decoration: none;
+  &:hover { color: #00539F; }
+}
+
+/* ── KPI row ─────────────────────────────────── */
+.pd-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.pd-kpi-tile {
+  background: rgba(0,0,0,0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 14px;
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--kpi-accent, var(--border-color)) 25%, transparent);
+  background: color-mix(in srgb, var(--kpi-accent, transparent) 6%, transparent);
+}
+.pd-kpi-watermark {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  pointer-events: none;
+}
+.pd-kpi-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.pd-kpi-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+/* ── Main grid ───────────────────────────────── */
+.pd-main-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.pd-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── Cards ───────────────────────────────────── */
+.pd-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.pd-card-amber { border-color: rgba(245, 166, 35, 0.3); }
+.pd-card-blue  { border-color: rgba(0, 83, 159, 0.3); }
+
+.pd-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+/* ── Chart ───────────────────────────────────── */
+.pd-chart-wrap {
+  position: relative;
+  height: 220px;
+  canvas { height: 100% !important; }
+}
+.pd-no-data {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Range buttons ───────────────────────────── */
+.pd-range-btns { display: flex; gap: 4px; }
+.pd-range-btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 120ms;
+  &.active {
+    border-color: #00539F;
+    background: rgba(0,83,159,.1);
+    color: #00539F;
+  }
+  &:hover:not(.active) { border-color: #00539F66; color: #00539F; }
+}
+
+/* ── Smart insights ──────────────────────────── */
+.pd-insights-list { display: flex; flex-direction: column; gap: 10px; }
+.pd-insight-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  svg { flex-shrink: 0; margin-top: 1px; }
+}
+.pd-insight-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Alert form ──────────────────────────────── */
+.pd-alert-type-btns {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.pd-type-btn {
+  flex: 1;
+  padding: 5px 11px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 120ms;
+  &.active {
+    border-color: #00539F;
+    background: rgba(0,83,159,.1);
+    color: #00539F;
+  }
+}
+.pd-alert-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pd-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 200ms;
+  font-family: var(--font-mono);
+  &:focus { border-color: #00539F; }
+}
+.pd-save-btn {
+  padding: 8px 16px;
+  background: #00539F;
+  color: #fff;
+  border: 1px solid #00539F;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 150ms;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  &:hover { opacity: 0.88; }
+  &:disabled { opacity: 0.5; cursor: default; }
+}
+.pd-hint {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.pd-alert-msg {
+  font-size: 11px;
+  color: var(--hex5);
+  margin-top: 8px;
+}
+.pd-login-link {
+  color: #00539F;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+}
+
+/* ── Bottom grid ─────────────────────────────── */
+.pd-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+/* ── Details table ───────────────────────────── */
+.pd-details-table { display: flex; flex-direction: column; gap: 0; }
+.pd-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color);
+  &:last-child { border-bottom: none; }
+  span:first-child { font-size: 12px; color: var(--text-muted); }
+  span:last-child  { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+}
+
+/* ── Product info ────────────────────────────── */
+.pd-description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+.pd-info-section { margin-top: 12px; }
+.pd-info-label {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.pd-info-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+

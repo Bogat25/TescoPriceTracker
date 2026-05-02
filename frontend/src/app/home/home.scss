@@ -1,1 +1,198 @@
-/* Home styles. */
+.hm-page {
+  padding: 28px 24px;
+  max-width: 1100px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Hero ────────────────────────────────────── */
+.hm-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+.hm-hero-text { flex: 1; min-width: 0; }
+.hm-greeting {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-bottom: 8px;
+}
+.hm-name { color: #00539F; }
+.hm-hero-sub {
+  font-size: 14px;
+  color: var(--text-muted);
+  max-width: 460px;
+  line-height: 1.6;
+  margin-bottom: 18px;
+}
+.hm-action-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.hm-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: opacity 150ms, background 150ms;
+  &-primary {
+    background: #00539F;
+    color: #fff;
+    border: 1px solid #00539F;
+    &:hover { opacity: 0.88; }
+  }
+  &-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    &:hover { border-color: #00539F; color: #00539F; }
+  }
+}
+
+/* ── Hex cluster decoration ──────────────────── */
+.hm-hex-cluster {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.hm-hex-row {
+  display: flex;
+  gap: 3px;
+  &.shifted { margin-left: 20px; }
+}
+
+/* ── KPI row ─────────────────────────────────── */
+.hm-kpi-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+/* ── Status + chips row ──────────────────────── */
+.hm-status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.hm-status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.hm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  &-idle { background: var(--text-muted); }
+  &-ok   { background: var(--hex5); animation: pulse 2s infinite; }
+  &-err  { background: var(--hex3); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.hm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  color: var(--text-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 150ms, color 150ms;
+  &:hover { border-color: #00539F; color: #00539F; }
+}
+
+/* ── Feature cards ───────────────────────────── */
+.hm-features {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+.hm-feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 18px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  transition: border-color 180ms, box-shadow 180ms, transform 180ms;
+  &:hover {
+    border-color: rgba(0,83,159,.4);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+}
+.hm-feature-hex { margin-bottom: 10px; }
+.hm-feature-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.hm-feature-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+/* ── How it works ────────────────────────────── */
+.hm-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.hm-step {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+}
+.hm-step-hex { margin-bottom: 8px; }
+.hm-step-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.hm-step-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+

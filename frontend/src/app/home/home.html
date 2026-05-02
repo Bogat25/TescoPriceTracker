@@ -1,178 +1,161 @@
-<section class="container mx-auto px-4 py-16 max-w-5xl">
+﻿<div class="hm-page hex-slide-in">
 
-  <!-- Hero -->
-  <div class="text-center mb-10">
-    <h1 class="text-5xl md:text-6xl font-extrabold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-400 py-2">
-      Track Tesco prices over time
-    </h1>
-    <p class="text-xl text-base-content/80 max-w-2xl mx-auto mb-8 leading-relaxed">
-      Search products, see full price history, get deep analytics, and set alerts when items drop to your target price.
-    </p>
-    <div class="flex flex-wrap justify-center gap-4">
-      <a routerLink="/search" class="btn btn-primary btn-lg rounded-full px-10">Start searching</a>
-      <a routerLink="/statistics" class="btn btn-secondary btn-lg rounded-full px-10">View statistics</a>
-      <a routerLink="/alerts" class="btn btn-outline btn-lg rounded-full px-10">My Alerts</a>
+  <!-- â”€â”€ Hero greeting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <div class="hm-hero">
+
+    <!-- Left: greeting + actions -->
+    <div class="hm-hero-text">
+      <div class="hm-greeting">
+        @if (auth.authenticated()) {
+          Good {{ timeOfDay() }}, <span class="hm-name">{{ auth.userName() }}</span>
+        } @else {
+          Tesco Price Tracker
+        }
+      </div>
+      <p class="hm-hero-sub">Live price history, analytics and alerts for every Tesco product.</p>
+      <div class="hm-action-row">
+        <a routerLink="/search"     class="hm-btn hm-btn-primary">Search products</a>
+        <a routerLink="/products"   class="hm-btn hm-btn-outline">Browse catalogue</a>
+        <a routerLink="/statistics" class="hm-btn hm-btn-outline">Analytics</a>
+      </div>
+    </div>
+
+    <!-- Right: hex cluster decoration -->
+    <div class="hm-hex-cluster" aria-hidden="true">
+      @for (row of hexGrid; track $index) {
+        <div class="hm-hex-row" [class.shifted]="$index % 2 === 1">
+          @for (cell of row; track $index) {
+            <svg [attr.width]="cell.s" [attr.height]="cell.s * 1.155" viewBox="0 0 40 46" [attr.opacity]="cell.op">
+              <polygon points="20,0 40,11.5 40,34.5 20,46 0,34.5 0,11.5"
+                       fill="none"
+                       [attr.stroke]="cell.color"
+                       stroke-width="1.5"/>
+            </svg>
+          }
+        </div>
+      }
     </div>
   </div>
 
-  <!-- Live platform status bar -->
-  <div class="bg-base-200 border border-base-300 rounded-2xl p-4 mb-12 grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-base-300 text-center">
-    <!-- Health -->
-    <div class="py-3 md:py-0 px-4">
-      <div class="text-xs uppercase tracking-wider opacity-50 mb-1">API status</div>
+  <!-- â”€â”€ Platform KPI hex row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <div class="hm-kpi-row">
+    @if (productCount() !== null) {
+      <app-hex-kpi [value]="(productCount() | number) || 'â€”'" label="Products tracked" accent="var(--hex1)"/>
+    } @else {
+      <app-hex-kpi value="â€”" label="Products tracked" accent="var(--hex1)"/>
+    }
+    <app-hex-kpi
+      [value]="statsLoading() ? 'â€¦' : (volatility() || 'â€”')"
+      label="Volatility"
+      accent="var(--hex5)"/>
+    <app-hex-kpi
+      [value]="statsLoading() ? 'â€¦' : (trend30d() || 'â€”')"
+      label="30d trend"
+      [accent]="trend30d().startsWith('â†“') ? 'var(--hex5)' : trend30d().startsWith('â†‘') ? 'var(--hex3)' : 'var(--hex2)'"/>
+    <app-hex-kpi
+      [value]="statsLoading() ? 'â€¦' : (bestWeekday() || 'â€”')"
+      label="Best shop day"
+      accent="var(--hex4)"/>
+    <app-hex-kpi
+      [value]="statsLoading() ? 'â€¦' : (maxDiscount() || 'â€”')"
+      label="Best discount"
+      accent="var(--hex2)"/>
+  </div>
+
+  <!-- â”€â”€ Status + quick links row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <div class="hm-status-row">
+    <!-- API status pill -->
+    <div class="hm-status-pill">
       @if (healthOk() === null) {
-        <div class="flex items-center justify-center gap-2">
-          <span class="loading loading-spinner loading-xs"></span>
-          <span class="text-sm opacity-60">Checking…</span>
-        </div>
+        <span class="hm-dot hm-dot-idle"></span>
+        <span>Connectingâ€¦</span>
       } @else if (healthOk()) {
-        <div class="flex items-center justify-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-success animate-pulse shrink-0"></span>
-          <span class="font-semibold text-success">All systems go</span>
-        </div>
+        <span class="hm-dot hm-dot-ok"></span>
+        <span>All systems operational</span>
       } @else {
-        <div class="flex items-center justify-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-error shrink-0"></span>
-          <span class="font-semibold text-error">Degraded</span>
-        </div>
+        <span class="hm-dot hm-dot-err"></span>
+        <span>API degraded</span>
       }
     </div>
-    <!-- Product count -->
-    <div class="py-3 md:py-0 px-4">
-      <div class="text-xs uppercase tracking-wider opacity-50 mb-1">Products tracked</div>
-      @if (statsLoading()) {
-        <span class="loading loading-spinner loading-xs"></span>
-      } @else if (productCount() !== null) {
-        <div class="text-2xl font-extrabold text-primary">{{ productCount() | number }}</div>
+    <div style="display:flex;gap:4px">
+      <a routerLink="/alerts" class="hm-chip">
+        <svg width="10" height="11" viewBox="0 0 10 11"><polygon points="5,0 10,2.75 10,8.25 5,11 0,8.25 0,2.75" fill="var(--hex3)" opacity="0.7"/></svg>
+        My Alerts
+      </a>
+      @if (auth.authenticated()) {
+        <a routerLink="/user-settings" class="hm-chip">Settings</a>
       } @else {
-        <div class="font-semibold opacity-60">Live data</div>
+        <button type="button" class="hm-chip" (click)="auth.login()">Sign in</button>
       }
     </div>
-    <!-- Data type -->
-    <div class="py-3 md:py-0 px-4">
-      <div class="text-xs uppercase tracking-wider opacity-50 mb-1">Data channels</div>
-      <div class="font-semibold">Normal · Discount · Clubcard</div>
-    </div>
   </div>
 
-  <!-- Features -->
-  <div class="grid md:grid-cols-3 gap-6 mb-16">
-    <div class="bg-base-200 p-6 rounded-2xl border border-base-300 hover:border-primary/40 transition-colors">
-      <div class="text-3xl mb-3">🔎</div>
-      <h3 class="text-xl font-bold mb-2">Search</h3>
-      <p class="opacity-80 text-sm leading-relaxed">Find any tracked Tesco product by name or TPNC code. Instant results with current price previews.</p>
-    </div>
-    <div class="bg-base-200 p-6 rounded-2xl border border-base-300 hover:border-primary/40 transition-colors">
-      <div class="text-3xl mb-3">📈</div>
-      <h3 class="text-xl font-bold mb-2">Full price history</h3>
-      <p class="opacity-80 text-sm leading-relaxed">Multi-channel charts — normal, discount and Clubcard — with min, max and average overlaid for instant context.</p>
-    </div>
-    <div class="bg-base-200 p-6 rounded-2xl border border-base-300 hover:border-primary/40 transition-colors">
-      <div class="text-3xl mb-3">🔔</div>
-      <h3 class="text-xl font-bold mb-2">Price alerts</h3>
-      <p class="opacity-80 text-sm leading-relaxed">Set a target and get notified when a product crosses your price threshold — above or below.</p>
-    </div>
+  <!-- â”€â”€ Feature cards row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <app-sec-label text="What you can do" accent="#00539F"/>
+  <div class="hm-features">
+
+    <a routerLink="/search" class="hm-feature-card">
+      <div class="hm-feature-hex">
+        <svg width="44" height="50" viewBox="0 0 44 50">
+          <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="rgba(59,158,255,.12)" stroke="var(--hex1)" stroke-width="1.5"/>
+          <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex1)" font-weight="800">S</text>
+        </svg>
+      </div>
+      <div class="hm-feature-title">Search</div>
+      <p class="hm-feature-desc">Find any tracked Tesco product by name or TPNC. Current price shown instantly.</p>
+    </a>
+
+    <a routerLink="/products" class="hm-feature-card">
+      <div class="hm-feature-hex">
+        <svg width="44" height="50" viewBox="0 0 44 50">
+          <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="rgba(245,166,35,.12)" stroke="var(--hex2)" stroke-width="1.5"/>
+          <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex2)" font-weight="800">C</text>
+        </svg>
+      </div>
+      <div class="hm-feature-title">Catalogue</div>
+      <p class="hm-feature-desc">Browse the full list of tracked items with prices, categories and ratings.</p>
+    </a>
+
+    <a routerLink="/statistics" class="hm-feature-card">
+      <div class="hm-feature-hex">
+        <svg width="44" height="50" viewBox="0 0 44 50">
+          <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="rgba(168,85,247,.12)" stroke="var(--hex4)" stroke-width="1.5"/>
+          <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex4)" font-weight="800">A</text>
+        </svg>
+      </div>
+      <div class="hm-feature-title">Analytics</div>
+      <p class="hm-feature-desc">11 charts, 12 KPI tiles, smart insights and platform-wide statistics.</p>
+    </a>
+
+    <a routerLink="/alerts" class="hm-feature-card">
+      <div class="hm-feature-hex">
+        <svg width="44" height="50" viewBox="0 0 44 50">
+          <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="rgba(0,138,0,.12)" stroke="var(--hex5)" stroke-width="1.5"/>
+          <text x="22" y="28" text-anchor="middle" dominant-baseline="central" font-size="16" fill="var(--hex5)" font-weight="800">!</text>
+        </svg>
+      </div>
+      <div class="hm-feature-title">Alerts</div>
+      <p class="hm-feature-desc">Set target price or % drop triggers and never miss a deal.</p>
+    </a>
+
   </div>
 
-  <!-- Statistics showcase -->
-  <div class="bg-gradient-to-br from-blue-600/10 to-sky-400/10 border border-blue-500/20 rounded-3xl p-8 mb-16">
-    <div class="flex flex-col md:flex-row gap-8 items-center">
-      <div class="flex-1 min-w-0">
-        <div class="text-xs uppercase tracking-wider text-blue-400 mb-2">Statistics dashboard</div>
-        <h2 class="text-3xl font-extrabold mb-4 leading-tight">Remarkably deep analytics for every product</h2>
-        <ul class="space-y-2 text-sm opacity-85">
-          <li class="flex items-start gap-2">
-            <span class="text-primary mt-0.5">✓</span>
-            <span><strong>Smart insights</strong> — auto-generated analysis: trend direction, best buying month, volatility score</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <span class="text-primary mt-0.5">✓</span>
-            <span><strong>11 charts</strong> — price history, distribution, year-over-year, month-over-month delta, promo density and more</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <span class="text-primary mt-0.5">✓</span>
-            <span><strong>Clubcard savings tracker</strong> — see the cumulative savings you'd have earned as a Clubcard member</span>
-          </li>
-          <li class="flex items-start gap-2">
-            <span class="text-primary mt-0.5">✓</span>
-            <span><strong>12 KPI tiles</strong> — current, min, max, avg, volatility, trend, best month, promo rate and more</span>
-          </li>
-        </ul>
-        <div class="mt-6">
-          <a routerLink="/statistics" class="btn btn-primary rounded-full px-8">Open statistics →</a>
-        </div>
+  <!-- â”€â”€ How it works â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+  <app-sec-label text="How it works" accent="var(--text-muted)"/>
+  <div class="hm-steps">
+    @for (step of steps; track step.n) {
+      <div class="hm-step">
+        <svg width="36" height="41" viewBox="0 0 36 41" class="hm-step-hex">
+          <polygon points="18,0 36,10.25 36,30.75 18,41 0,30.75 0,10.25"
+                   [attr.fill]="'rgba(0,83,159,' + (step.n * 0.07) + ')'"
+                   stroke="#00539F" stroke-width="1.5"/>
+          <text x="18" y="23" text-anchor="middle" dominant-baseline="central" font-size="14" fill="#00539F" font-weight="800">{{ step.n }}</text>
+        </svg>
+        <div class="hm-step-title">{{ step.title }}</div>
+        <p class="hm-step-desc">{{ step.desc }}</p>
       </div>
-      <!-- Mini KPI preview cards -->
-      <div class="grid grid-cols-2 gap-3 shrink-0 w-full md:w-64">
-        <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
-          <div class="text-xs opacity-50 uppercase">Volatility</div>
-          @if (statsLoading()) {
-            <span class="loading loading-spinner loading-xs"></span>
-          } @else {
-            <div class="text-sm font-bold text-success mt-1">{{ volatility() || '—' }}</div>
-          }
-        </div>
-        <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
-          <div class="text-xs opacity-50 uppercase">30d trend</div>
-          @if (statsLoading()) {
-            <span class="loading loading-spinner loading-xs"></span>
-          } @else {
-            <div class="text-sm font-bold text-error mt-1">{{ trend30d() || '—' }}</div>
-          }
-        </div>
-        <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
-          <div class="text-xs opacity-50 uppercase">Best day</div>
-          @if (statsLoading()) {
-            <span class="loading loading-spinner loading-xs"></span>
-          } @else {
-            <div class="text-sm font-bold mt-1">{{ bestWeekday() || '—' }}</div>
-          }
-        </div>
-        <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 text-center">
-          <div class="text-xs opacity-50 uppercase">Max savings</div>
-          @if (statsLoading()) {
-            <span class="loading loading-spinner loading-xs"></span>
-          } @else {
-            <div class="text-sm font-bold text-warning mt-1">{{ maxDiscount() || '—' }}</div>
-          }
-        </div>
-        <div class="bg-base-100/80 rounded-xl p-3 border border-base-300 col-span-2 text-center">
-          <div class="text-xs opacity-50 uppercase">Buy signal</div>
-          @if (statsLoading()) {
-            <span class="loading loading-spinner loading-xs"></span>
-          } @else {
-            <div class="text-sm font-bold text-success mt-1">{{ buySignal() || '—' }}</div>
-          }
-        </div>
-      </div>
-    </div>
+    }
   </div>
 
-  <!-- How it works -->
-  <div class="mb-12">
-    <h2 class="text-2xl font-extrabold text-center mb-8 opacity-80">How it works</h2>
-    <div class="grid md:grid-cols-4 gap-4">
-      <div class="text-center p-4">
-        <div class="w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xl font-bold mx-auto mb-3">1</div>
-        <h4 class="font-semibold mb-1">Search</h4>
-        <p class="text-sm opacity-70">Find a product by name or TPNC.</p>
-      </div>
-      <div class="text-center p-4">
-        <div class="w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xl font-bold mx-auto mb-3">2</div>
-        <h4 class="font-semibold mb-1">Explore</h4>
-        <p class="text-sm opacity-70">View full price history across all channels.</p>
-      </div>
-      <div class="text-center p-4">
-        <div class="w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xl font-bold mx-auto mb-3">3</div>
-        <h4 class="font-semibold mb-1">Analyse</h4>
-        <p class="text-sm opacity-70">Open statistics for deep analytics and insights.</p>
-      </div>
-      <div class="text-center p-4">
-        <div class="w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xl font-bold mx-auto mb-3">4</div>
-        <h4 class="font-semibold mb-1">Alert</h4>
-        <p class="text-sm opacity-70">Set a target price alert and buy at the right time.</p>
-      </div>
-    </div>
-  </div>
+</div>
 
-</section>

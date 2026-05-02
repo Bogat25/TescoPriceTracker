@@ -5,10 +5,14 @@ import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { AppConfigService } from '../services/app-config.service';
 import { PlatformStatsService, DiscountByWeekday } from '../services/platform-stats.service';
+import { AuthService } from '../services/auth.service';
+import { HexKpi }   from '../shared/hex-kpi/hex-kpi';
+import { HexIcon }  from '../shared/hex-icon/hex-icon';
+import { SecLabel } from '../shared/sec-label/sec-label';
 
 @Component({
   selector: 'app-home',
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, HexKpi, SecLabel],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
@@ -16,6 +20,7 @@ export class Home implements OnInit {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
   private statsService = inject(PlatformStatsService);
+  readonly auth = inject(AuthService);
 
   readonly healthOk = signal<boolean | null>(null);
   readonly productCount = signal<number | null>(null);
@@ -118,4 +123,31 @@ export class Home implements OnInit {
         }
       });
   }
+
+  timeOfDay(): string {
+    const h = new Date().getHours();
+    if (h < 12) return 'morning';
+    if (h < 18) return 'afternoon';
+    return 'evening';
+  }
+
+  readonly hexGrid = (() => {
+    const colors = ['#00539F', '#3b9eff', '#F5A623', '#a855f7', '#008A00'];
+    const rows: { s: number; op: number; color: string }[][] = [];
+    for (let r = 0; r < 5; r++) {
+      const row: { s: number; op: number; color: string }[] = [];
+      for (let c = 0; c < 6; c++) {
+        row.push({ s: 36, op: 0.08 + (r + c) * 0.025, color: colors[(r + c) % colors.length] });
+      }
+      rows.push(row);
+    }
+    return rows;
+  })();
+
+  readonly steps = [
+    { n: 1, title: 'Search',  desc: 'Find a product by name or TPNC code.' },
+    { n: 2, title: 'Explore', desc: 'View full price history across all channels.' },
+    { n: 3, title: 'Analyse', desc: 'Open statistics for deep analytics and insights.' },
+    { n: 4, title: 'Alert',   desc: 'Set a target price and buy at the right moment.' },
+  ];
 }

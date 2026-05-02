@@ -1,7 +1,14 @@
-<div class="flex flex-col min-h-screen">
-  <app-navbar-container></app-navbar-container>
-  <main class="flex-1 w-full">
-    <router-outlet></router-outlet>
-  </main>
-  <app-default-footer></app-default-footer>
+<div class="hex-layout">
+  <!-- Fixed left sidebar -->
+  <div class="hex-sidebar">
+    <app-sidebar></app-sidebar>
+  </div>
+
+  <!-- Main content: beehive bg + routed pages -->
+  <div class="hex-main">
+    <app-beehive-bg [opacity]="0.12"></app-beehive-bg>
+    <div class="hex-scroll">
+      <router-outlet></router-outlet>
+    </div>
+  </div>
 </div>

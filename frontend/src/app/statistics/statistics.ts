@@ -15,6 +15,9 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject, debounceTime, forkJoin, of, switchMap } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { HexIcon }   from '../shared/hex-icon/hex-icon';
+import { HexKpi }    from '../shared/hex-kpi/hex-kpi';
+import { SecLabel }  from '../shared/sec-label/sec-label';
 import {
   ArcElement,
   BarController,
@@ -107,7 +110,7 @@ interface KpiAgg {
 
 @Component({
   selector: 'app-statistics',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, HexIcon, HexKpi, SecLabel],
   templateUrl: './statistics.html',
   styleUrl: './statistics.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

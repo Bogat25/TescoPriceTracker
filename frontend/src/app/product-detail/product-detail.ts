@@ -4,12 +4,15 @@ import {
   ElementRef,
   OnDestroy,
   ViewChild,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { HexIcon }    from '../shared/hex-icon/hex-icon';
+import { SecLabel }   from '../shared/sec-label/sec-label';
 import {
   Chart,
   ChartConfiguration,
@@ -48,7 +51,7 @@ Chart.register(
 
 @Component({
   selector: 'app-product-detail',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink, HexIcon, SecLabel],
   templateUrl: './product-detail.html',
   styleUrl: './product-detail.scss',
 })
@@ -76,10 +79,44 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
 
   private chart?: Chart;
 
+  chartRange = signal<7 | 30 | 90>(90);
+
   /** Current effective price for use in alert form validation. */
   get currentPrice(): number | null {
     const s = this.stats();
     return s?.current ?? null;
+  }
+
+  /** Buy signal derived from current vs historical avg. */
+  readonly buySignal = computed(() => {
+    const s = this.stats();
+    if (!s?.current || !s?.avg) return null;
+    return s.current <= s.avg ? 'good' : 'above';
+  });
+
+  /** Trend pct from first history point to last. */
+  readonly trendPct = computed(() => {
+    const h = this.history();
+    if (!h?.points?.length || h.points.length < 2) return null;
+    const first = h.points[0].price;
+    const last  = h.points[h.points.length - 1].price;
+    return Math.round(((last - first) / first) * 1000) / 10;
+  });
+
+  /** First letter of category for the hex icon. */
+  readonly categoryLetter = computed(() => {
+    const p = this.product();
+    const cat = p?.category || p?.name || '?';
+    return cat.charAt(0).toUpperCase();
+  });
+
+  /** Formatted price points sliced by range for chart redraw. */
+  setRange(range: 7 | 30 | 90): void {
+    this.chartRange.set(range);
+    const h = this.history();
+    if (!h) return;
+    const sliced = range === 90 ? h : { ...h, points: h.points.slice(-range) };
+    queueMicrotask(() => this.renderChart(sliced));
   }
 
   ngAfterViewInit(): void {

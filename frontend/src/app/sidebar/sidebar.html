@@ -1,0 +1,95 @@
+<!-- ════════════════════════════
+     LOGO
+════════════════════════════ -->
+<div class="sidebar-logo">
+  <svg width="32" height="37" viewBox="0 0 32 37" aria-hidden="true">
+    <polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="#00539F"/>
+    <text x="16" y="24" text-anchor="middle" fill="white" font-size="14" font-weight="800"
+          font-family="Nunito Sans, sans-serif">T</text>
+  </svg>
+  <div>
+    <div class="sidebar-logo-name">MceTracker</div>
+    <div class="sidebar-logo-sub">Tesco · UK</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════
+     NAVIGATION
+════════════════════════════ -->
+<nav class="sidebar-nav">
+  @for (item of navItems; track item.id) {
+    @if (!item.authRequired || auth.authenticated()) {
+      <a
+        [routerLink]="item.path"
+        class="sidebar-nav-item"
+        [class.active]="isActive(item.path)"
+        [attr.aria-current]="isActive(item.path) ? 'page' : null"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round"
+             aria-hidden="true">
+          <path [attr.d]="item.iconPath"/>
+        </svg>
+        {{ item.label }}
+        @if (item.id === 'alerts' && alertCount() > 0) {
+          <span class="sidebar-alert-badge">{{ alertCount() }}</span>
+        }
+      </a>
+    }
+  }
+</nav>
+
+<!-- ════════════════════════════
+     HEX DECORATION CLUSTER
+════════════════════════════ -->
+<div class="sidebar-hex-cluster" aria-hidden="true">
+  @for (col of [0, 1, 2]; track col) {
+    <div class="sidebar-hex-col" [class.shifted]="col === 1">
+      @for (row of [0, 1, 2]; track row) {
+        <svg width="16" height="18" viewBox="0 0 16 18">
+          <polygon points="8,0 16,4.5 16,13.5 8,18 0,13.5 0,4.5"
+                   fill="#00539F"
+                   [attr.opacity]="0.12 + (col * 3 + row) * 0.06"/>
+        </svg>
+      }
+    </div>
+  }
+</div>
+
+<!-- ════════════════════════════
+     THEME TOGGLE
+════════════════════════════ -->
+<div class="sidebar-footer">
+  <button type="button" class="sidebar-theme-toggle" (click)="toggleTheme()"
+          [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'">
+    <div class="sidebar-theme-icon">
+      {{ theme.theme() === 'dark' ? '🌙' : '☀️' }}
+    </div>
+    <span class="sidebar-theme-label">
+      {{ theme.theme() === 'dark' ? 'Dark mode' : 'Light mode' }}
+    </span>
+    <!-- Toggle pill -->
+    <div class="sidebar-toggle-pill" [class.on]="theme.theme() === 'dark'">
+      <div class="sidebar-toggle-knob"></div>
+    </div>
+  </button>
+
+  <!-- User chip -->
+  @if (auth.authenticated()) {
+    <div class="sidebar-user">
+      <div class="sidebar-user-avatar">{{ userInitials }}</div>
+      <div class="sidebar-user-info">
+        <div class="sidebar-user-name">{{ auth.userName() || 'User' }}</div>
+        <div class="sidebar-user-sub">Member · Clubcard</div>
+      </div>
+      <button type="button" class="sidebar-user-menu-btn" title="Account options"
+              (click)="account()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+    </div>
+  } @else {
+    <button type="button" class="sidebar-login-btn" (click)="login()">Login</button>
+  }
+</div>
