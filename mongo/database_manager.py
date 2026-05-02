@@ -35,7 +35,6 @@ def init_db():
     coll.create_index("aisle_name")
     coll.create_index("shelf_name")
     coll.create_index("brand_name")
-    _db['alerts'].create_index("user_id")
     _db['runs'].create_index("_id")
     print("MongoDB indexes verified/created.")
 
@@ -336,48 +335,3 @@ def get_today_price_drops() -> list:
     return drops
 
 
-# ---------------------------------------------------------------------------
-# Alerts (MongoDB-backed)
-# ---------------------------------------------------------------------------
-
-def get_alerts_collection():
-    get_db()
-    assert _db is not None
-    return _db['alerts']
-
-
-def _next_alert_id() -> int:
-    get_db()
-    assert _db is not None
-    from pymongo import ReturnDocument
-    result = _db['alerts_seq'].find_one_and_update(
-        {"_id": "alert_id"},
-        {"$inc": {"seq": 1}},
-        upsert=True,
-        return_document=ReturnDocument.AFTER,
-    )
-    assert result is not None
-    return result["seq"]
-
-
-def get_alerts(user_id: str) -> list:
-    coll = get_alerts_collection()
-    return list(coll.find({"user_id": user_id}, {"_id": 0}))
-
-
-def create_alert(user_id: str, tpnc: str, threshold: float, direction: str) -> dict:
-    alert = {
-        "id": _next_alert_id(),
-        "user_id": user_id,
-        "tpnc": str(tpnc),
-        "threshold": threshold,
-        "direction": direction,
-        "createdAt": datetime.now().isoformat(),
-    }
-    get_alerts_collection().insert_one({**alert, "_id": alert["id"]})
-    return alert
-
-
-def delete_alert(user_id: str, alert_id: int) -> bool:
-    result = get_alerts_collection().delete_one({"_id": alert_id, "user_id": user_id})
-    return result.deleted_count > 0

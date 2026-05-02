@@ -1,9 +1,7 @@
 import os
 from datetime import datetime
-from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional
 from mongo import database_manager as db
 from mongo import stats_manager
 import uvicorn
@@ -256,44 +254,6 @@ def stats_inflation_30d():
 def stats_price_drops_today():
     """Products whose normal price dropped today vs yesterday, sorted by drop %."""
     return _get_stat("price_drops_today", stats_manager.compute_price_drops_today)
-
-
-# ---------------------------------------------------------------------------
-# Alerts (MongoDB-backed, user identified via X-User-Id header)
-# ---------------------------------------------------------------------------
-
-class CreateAlertRequest(BaseModel):
-    tpnc: str
-    threshold: float
-    direction: str  # "below" | "above"
-
-
-def _require_user(x_user_id: Optional[str] = Header(default=None)) -> str:
-    if not x_user_id or not x_user_id.strip():
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return x_user_id.strip()
-
-
-@app.get("/api/v1/alerts")
-def list_alerts(x_user_id: Optional[str] = Header(default=None)):
-    user_id = _require_user(x_user_id)
-    return {"alerts": db.get_alerts(user_id)}
-
-
-@app.post("/api/v1/alerts", status_code=201)
-def create_alert(body: CreateAlertRequest, x_user_id: Optional[str] = Header(default=None)):
-    user_id = _require_user(x_user_id)
-    if body.direction not in ("below", "above"):
-        raise HTTPException(status_code=400, detail="direction must be 'below' or 'above'")
-    alert = db.create_alert(user_id, body.tpnc, body.threshold, body.direction)
-    return alert
-
-
-@app.delete("/api/v1/alerts/{alert_id}", status_code=204)
-def delete_alert(alert_id: int, x_user_id: Optional[str] = Header(default=None)):
-    user_id = _require_user(x_user_id)
-    if not db.delete_alert(user_id, alert_id):
-        raise HTTPException(status_code=404, detail="Alert not found")
 
 
 # ---------------------------------------------------------------------------
