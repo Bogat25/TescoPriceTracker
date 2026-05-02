@@ -20,6 +20,9 @@ export AUTH_LOGOUT_URL
 : "${AUTH_USERINFO_URL:=/auth/userinfo}"
 export AUTH_USERINFO_URL
 
+: "${AUTH_ACCOUNT_URL:=/auth/account}"
+export AUTH_ACCOUNT_URL
+
 : "${AUTH_TOKEN_URL:=/auth/token}"
 export AUTH_TOKEN_URL
 
@@ -31,5 +34,5 @@ if [ ! -f "$template" ]; then
   exit 1
 fi
 
-envsubst '${TESCO_API_BASE_URL} ${AUTH_BASE_URL} ${AUTH_LOGIN_URL} ${AUTH_LOGOUT_URL} ${AUTH_USERINFO_URL} ${AUTH_TOKEN_URL}' < "$template" > "$output"
+envsubst '${TESCO_API_BASE_URL} ${AUTH_BASE_URL} ${AUTH_LOGIN_URL} ${AUTH_LOGOUT_URL} ${AUTH_USERINFO_URL} ${AUTH_ACCOUNT_URL} ${AUTH_TOKEN_URL}' < "$template" > "$output"
 echo "runtime-config.js generated: tescoApiBaseUrl=$TESCO_API_BASE_URL, authBaseUrl=$AUTH_BASE_URL"

@@ -7,5 +7,6 @@ window.__APP_CONFIG__ = {
   authLoginUrl: '${AUTH_LOGIN_URL}',
   authLogoutUrl: '${AUTH_LOGOUT_URL}',
   authUserinfoUrl: '${AUTH_USERINFO_URL}',
+  authAccountUrl: '${AUTH_ACCOUNT_URL}',
   authTokenUrl: '${AUTH_TOKEN_URL}',
 };
