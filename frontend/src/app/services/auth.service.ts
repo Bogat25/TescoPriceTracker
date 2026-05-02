@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, firstValueFrom, of } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError, shareReplay, tap } from 'rxjs/operators';
 
 import { AppConfigService } from './app-config.service';
 
@@ -49,9 +49,20 @@ export class AuthService {
   private userSubject = new BehaviorSubject<GatewayUser | null>(null);
   readonly user$ = this.userSubject.asObservable();
 
-  checkSession(): Observable<GatewayUser | null> {
+  // Dedup concurrent /userinfo calls and reuse the result for a short window so
+  // bootstrap + navbar + route guard + page components don't each fire their own.
+  private static readonly SESSION_TTL_MS = 30_000;
+  private sessionCache$: Observable<GatewayUser | null> | null = null;
+  private sessionCacheExpiresAt = 0;
+
+  checkSession(force = false): Observable<GatewayUser | null> {
+    const now = Date.now();
+    if (!force && this.sessionCache$ && now < this.sessionCacheExpiresAt) {
+      return this.sessionCache$;
+    }
+
     this.loadingAuthState.set(true);
-    return this.http
+    this.sessionCache$ = this.http
       .get<GatewayUser>(this.authUserinfoUrl, { withCredentials: true })
       .pipe(
         tap((user) => {
@@ -68,9 +79,19 @@ export class AuthService {
           this.userId.set(null);
           this.userSubject.next(null);
           this.loadingAuthState.set(false);
+          // Negative results are also cached for the same TTL — otherwise an
+          // anonymous page load would re-spam /userinfo on every component init.
           return of(null);
         }),
+        shareReplay({ bufferSize: 1, refCount: false }),
       );
+    this.sessionCacheExpiresAt = now + AuthService.SESSION_TTL_MS;
+    return this.sessionCache$;
+  }
+
+  invalidateSession(): void {
+    this.sessionCache$ = null;
+    this.sessionCacheExpiresAt = 0;
   }
 
   async isLoggedIn(): Promise<boolean> {
@@ -80,11 +101,13 @@ export class AuthService {
 
   // Top-level navigation — do not use fetch/XHR for these.
   login(returnUrl: string = window.location.href): void {
+    this.invalidateSession();
     const sep = this.authLoginUrl.includes('?') ? '&' : '?';
     window.location.href = `${this.authLoginUrl}${sep}returnUrl=${encodeURIComponent(returnUrl)}`;
   }
 
   logout(returnUrl: string = window.location.origin): void {
+    this.invalidateSession();
     const sep = this.authLogoutUrl.includes('?') ? '&' : '?';
     window.location.href = `${this.authLogoutUrl}${sep}returnUrl=${encodeURIComponent(returnUrl)}`;
   }

@@ -2,6 +2,7 @@ import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { from, switchMap, catchError, EMPTY } from 'rxjs';
 import { AuthTokenService } from '../services/auth-token.service';
+import { AuthService } from '../services/auth.service';
 
 /**
  * Attaches a Bearer token to requests targeting /api/alerts/.
@@ -13,6 +14,7 @@ export const alertsAuthInterceptor: HttpInterceptorFn = (request, next) => {
   }
 
   const tokenService = inject(AuthTokenService);
+  const authService = inject(AuthService);
 
   return from(tokenService.getToken()).pipe(
     switchMap((token) =>
@@ -24,11 +26,10 @@ export const alertsAuthInterceptor: HttpInterceptorFn = (request, next) => {
       ),
     ),
     catchError((err) => {
-      // If getting the token itself failed (401 from /auth/token), redirect to login
       if (err?.status === 401) {
         tokenService.clear();
-        const returnUrl = encodeURIComponent(window.location.href);
-        window.location.href = `/auth/login?returnUrl=${returnUrl}`;
+        authService.invalidateSession();
+        authService.login(window.location.href);
         return EMPTY;
       }
       throw err;
