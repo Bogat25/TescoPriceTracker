@@ -39,7 +39,11 @@ export class HexKpi {
   label  = input.required<string>();
   accent = input<string>('#3b9eff');
 
-  private readonly W = 110, H = 127, s = 46, cx = 55, cy = 63;
+  private readonly W = 110;
+  private readonly H = 127;
+  private readonly s = 46;
+  private readonly cx = 55;
+  private readonly cy = 63;
 
   get innerPoints(): string {
     return Array.from({ length: 6 }, (_, i) => {
