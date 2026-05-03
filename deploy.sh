@@ -36,15 +36,17 @@ fi
 SKIP_EXTENSION=false
 SKIP_PUSH=false
 SKIP_DEPLOY=false
+PUBLISH_EXTENSION=false
 
 for arg in "$@"; do
   case "$arg" in
     --skip-extension) SKIP_EXTENSION=true ;;
+    --publish-extension) PUBLISH_EXTENSION=true ;;
     --skip-push)      SKIP_PUSH=true ;;
     --skip-deploy)    SKIP_DEPLOY=true ;;
     *)
       echo "Unknown argument: $arg"
-      echo "Usage: $0 [--skip-extension] [--skip-push] [--skip-deploy]"
+      echo "Usage: $0 [--skip-extension] [--publish-extension] [--skip-push] [--skip-deploy]"
       exit 1
       ;;
   esac
@@ -76,6 +78,14 @@ if [[ "$SKIP_EXTENSION" == "false" ]]; then
   pushd "$SCRIPT_DIR/extension" > /dev/null
   node build.js
   echo "  ✓ Extension packages built (dist/)"
+
+  if [[ "$PUBLISH_EXTENSION" == "true" ]]; then
+    echo ""
+    echo "▶  Publishing extension to browser stores…"
+    node publish.js
+    echo "  ✓ Extension publish complete"
+  fi
+
   popd > /dev/null
 else
   echo "  ⏭  Skipping extension build (--skip-extension)"

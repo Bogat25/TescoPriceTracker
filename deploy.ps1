@@ -13,6 +13,7 @@
 [CmdletBinding()]
 param(
     [switch]$SkipExtension,
+    [switch]$PublishExtension,
     [switch]$SkipPush,
     [switch]$SkipDeploy
 )
@@ -79,6 +80,15 @@ if (-not $SkipExtension) {
     node build.js
     if ($LASTEXITCODE -ne 0) { throw "Extension build failed" }
     Write-Host "  ✓ Extension packages built (dist/)" -ForegroundColor Green
+
+    if ($PublishExtension) {
+        Write-Host ""
+        Write-Host "▶  Publishing extension to browser stores…" -ForegroundColor Yellow
+        node publish.js
+        if ($LASTEXITCODE -ne 0) { throw "Extension publish failed" }
+        Write-Host "  ✓ Extension publish complete" -ForegroundColor Green
+    }
+
     Pop-Location
 } else {
     Write-Host "  ⏭  Skipping extension build (-SkipExtension)"
