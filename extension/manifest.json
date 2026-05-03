@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tesco Price Tracker",
-  "version": "3.0.0",
+  "version": "1.0.3",
   "description": "Tracks price history, syncs alerts with your account, and displays charts on Tesco product pages.",
   "author": "Gavallér Bogát Bendegúz",
 
@@ -40,9 +40,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://bevasarlas.tesco.hu/groceries/en-HU/products/*",
-        "https://bevasarlas.tesco.hu/groceries/hu-HU/products/*",
-        "https://bevasarlas.tesco.hu/groceries/*/products/*"
+        "https://bevasarlas.tesco.hu/shop/*/products/*"
       ],
       "js": ["content/chart.umd.min.js", "content/alerts-panel.js", "content/content.js"],
       "css": ["content/content.css"],

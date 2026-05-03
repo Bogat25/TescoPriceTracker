@@ -12,8 +12,6 @@ if (typeof browser === "undefined") {
 // ── DOM Elements ─────────────────────────────
 
 const toggleSwitch = document.getElementById("toggle-switch");
-const statusDot    = document.getElementById("status-dot");
-const statusText   = document.getElementById("status-text");
 const openWebsite  = document.getElementById("open-website-btn");
 
 // Auth elements
@@ -34,9 +32,6 @@ const alertsList    = document.getElementById("popup-alerts-list");
 
 function updateToggleUI(isEnabled) {
   toggleSwitch.checked = isEnabled;
-  statusDot.classList.toggle("enabled", isEnabled);
-  statusDot.classList.toggle("disabled", !isEnabled);
-  statusText.textContent = isEnabled ? "Enabled" : "Disabled";
 }
 
 function showLoggedIn(user) {

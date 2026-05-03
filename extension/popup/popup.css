@@ -345,3 +345,42 @@ body {
   font-style: italic;
 }
 
+/* — Open Website Button — */
+.open-website-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  border: 1px solid var(--clr-border);
+  border-radius: var(--radius);
+  background: var(--clr-surface);
+  color: var(--clr-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+
+.open-website-btn:hover {
+  background: var(--clr-accent);
+  border-color: var(--clr-accent);
+  color: #fff;
+}
+
+.open-website-btn svg {
+  flex-shrink: 0;
+}
+
+/* — Footer — */
+.popup-footer {
+  text-align: center;
+}
+
+.popup-footer p {
+  font-size: 0.68rem;
+  color: var(--clr-text-muted);
+  line-height: 1.4;
+}
+

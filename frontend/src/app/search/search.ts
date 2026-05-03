@@ -21,12 +21,8 @@ export class Search implements OnInit {
 
   query = '';
   readonly allResults   = signal<ProductSummary[]>([]);
-  readonly results      = computed(() => {
-    const size  = this.pageSize();
-    const start = this.currentPage() * size;
-    return this.allResults().slice(start, start + size);
-  });
-  readonly totalResults = computed(() => this.allResults().length);
+  readonly results      = computed(() => this.allResults());
+  readonly totalResults = signal(0);
   readonly suggestions  = signal<ProductSummary[]>([]);
   readonly loading      = signal(false);
   readonly suggesting   = signal(false);
@@ -132,20 +128,20 @@ export class Search implements OnInit {
       replaceUrl: true,
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
+    this._doSearch(this._lastQuery, page);
   }
 
-  private _doSearch(q: string, restorePage = 0): void {
+  private _doSearch(q: string, page = 0): void {
     this.loading.set(true);
     this.error.set('');
     this.searched.set(true);
-    // Fetch all matching results at once; client-side pagination handles paging
-    this.products.searchPaged(q, 0, 10000).subscribe({
+    const skip = page * this.pageSize();
+    const limit = this.pageSize();
+    this.products.searchPaged(q, skip, limit).subscribe({
       next: (response) => {
         this.allResults.set(response?.results ?? []);
-        if (restorePage > 0) {
-          const clamped = Math.min(restorePage, Math.max(0, this.totalPages() - 1));
-          this.currentPage.set(clamped);
-        }
+        this.totalResults.set(response?.total ?? 0);
+        this.currentPage.set(page);
         this.loading.set(false);
       },
       error: (err) => {

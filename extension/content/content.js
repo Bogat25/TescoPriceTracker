@@ -56,10 +56,10 @@ const TRANSLATIONS = {
 
 /**
  * Detect language from the URL path.
- * URL pattern: /groceries/en-HU/... or /groceries/hu-HU/...
+ * URL pattern: /shop/hu-HU/... or /shop/en-HU/...
  */
 function detectLanguage() {
-  const match = window.location.pathname.match(/\/groceries\/(\w{2})-\w{2}\//);
+  const match = window.location.pathname.match(/\/shop\/(\w{2})-\w{2}\//);
   if (match) {
     const lang = match[1].toLowerCase();
     if (TRANSLATIONS[lang]) return lang;
@@ -67,7 +67,7 @@ function detectLanguage() {
   // Also check <html lang="...">
   const htmlLang = document.documentElement.lang?.toLowerCase().split("-")[0];
   if (htmlLang && TRANSLATIONS[htmlLang]) return htmlLang;
-  return "en"; // default
+  return "hu"; // default to Hungarian for Tesco HU
 }
 
 function getStrings() {
@@ -84,20 +84,40 @@ function getLocale() {
 
 /**
  * Try to scrape the current product price from the page DOM.
+ * Reads the NORMAL (non-discounted) price. Falls back to JSON-LD offers.price.
  * Returns the price as a number (Ft) or null if not found.
  */
 function readPagePrice() {
-  // Scope to the product buy-box to avoid picking up the basket total
+  // Strategy 1: JSON-LD structured data (most reliable)
+  const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of jsonLdScripts) {
+    try {
+      const data = JSON.parse(script.textContent);
+      if (data.offers && data.offers.price) {
+        const price = parseInt(data.offers.price, 10);
+        if (!isNaN(price) && price > 0) return price;
+      }
+      // Handle array of offers
+      if (data.offers && Array.isArray(data.offers)) {
+        for (const offer of data.offers) {
+          if (offer.price) {
+            const price = parseInt(offer.price, 10);
+            if (!isNaN(price) && price > 0) return price;
+          }
+        }
+      }
+    } catch (e) { /* ignore parse errors */ }
+  }
+
+  // Strategy 2: Look for the normal price element (not discount/clubcard)
   const buyBox = document.querySelector('[data-auto="pdp-buy-box"]');
   const scope = buyBox || document;
 
-  // Look for common price selectors on Tesco HU product pages
   const selectors = [
     '[data-auto="price-value"]',
-    '.ddsweb-price_container',
+    '.ddsweb-price__text',
     '.price-per-sellable-unit .value',
     '.price-control-wrapper .value',
-    '.offer-text .value',
   ];
 
   for (const sel of selectors) {
@@ -108,13 +128,51 @@ function readPagePrice() {
     }
   }
 
-  // Fallback: scan text within the buy box for a pattern like "3799 Ft"
+  // Strategy 3: scan text within the buy box for a pattern like "3799 Ft"
   if (buyBox) {
     const match = buyBox.innerText.match(/(\d[\d\s]*)\s*Ft/i);
     if (match) {
       const num = parseInt(match[1].replace(/\s/g, ""), 10);
       if (!isNaN(num) && num > 0) return num;
     }
+  }
+
+  return null;
+}
+
+/**
+ * Get product image URL from the page.
+ * Looks for the main product image (digitalcontent.api.tesco.com).
+ */
+function getProductImageUrl() {
+  // Strategy 1: og:image meta tag
+  const ogImage = document.querySelector('meta[property="og:image"]');
+  if (ogImage && ogImage.content) return ogImage.content;
+
+  // Strategy 2: JSON-LD image
+  const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of jsonLdScripts) {
+    try {
+      const data = JSON.parse(script.textContent);
+      if (data.image) {
+        const img = Array.isArray(data.image) ? data.image[0] : data.image;
+        if (typeof img === 'string') return img;
+        if (img && img.url) return img.url;
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // Strategy 3: Look for product image in DOM
+  const imgSelectors = [
+    'img[src*="digitalcontent.api.tesco.com"]',
+    'img[src*="digitalcontent"][alt]',
+    '[data-auto="product-image"] img',
+    '.product-image img',
+  ];
+
+  for (const sel of imgSelectors) {
+    const img = document.querySelector(sel);
+    if (img && img.src) return img.src;
   }
 
   return null;
@@ -684,7 +742,42 @@ async function injectPriceTracker() {
     title.appendChild(toggleBtn);
     container.appendChild(title);
 
-    // Chart Canvas Wrapper with Loading State
+    // ── Top Row: Product Image (left) + Stats (right) ──
+    const topRow = document.createElement("div");
+    topRow.className = "tpt-top-row";
+
+    // Product Image
+    const imageUrl = getProductImageUrl();
+    if (imageUrl) {
+      const imageWrapper = document.createElement("div");
+      imageWrapper.className = "tpt-product-image";
+      const img = document.createElement("img");
+      img.src = imageUrl;
+      img.alt = "Product";
+      img.loading = "lazy";
+      imageWrapper.appendChild(img);
+      topRow.appendChild(imageWrapper);
+    }
+
+    // Stats Grid (Initial State)
+    const statsGrid = document.createElement("div");
+    statsGrid.className = "tpt-stats-grid";
+    
+    const locale = getLocale();
+    const pagePrice = readPagePrice();
+    const displayCurrent = pagePrice ? `${pagePrice.toLocaleString(locale)} Ft` : "—";
+
+    statsGrid.appendChild(createStatCard(t.currentPrice, displayCurrent));
+    statsGrid.appendChild(createStatCard(t.lowestPrice, "..."));
+    statsGrid.appendChild(createStatCard(t.highestPrice, "..."));
+    statsGrid.appendChild(createStatCard(t.averagePrice, "..."));
+    statsGrid.appendChild(createStatCard(t.trend, "..."));
+    statsGrid.appendChild(createStatCard(t.priceRange, "..."));
+    
+    topRow.appendChild(statsGrid);
+    container.appendChild(topRow);
+
+    // ── Chart Canvas (full width below) ──
     const chartWrapper = document.createElement("div");
     chartWrapper.className = "tpt-chart-wrapper tpt-loading";
     
@@ -706,23 +799,6 @@ async function injectPriceTracker() {
     canvas.height = 280;
     chartWrapper.appendChild(canvas);
     container.appendChild(chartWrapper);
-
-    // Stats Grid (Initial State)
-    const statsGrid = document.createElement("div");
-    statsGrid.className = "tpt-stats-grid";
-    
-    const locale = getLocale();
-    const pagePrice = readPagePrice();
-    const displayCurrent = pagePrice ? `${pagePrice.toLocaleString(locale)} Ft` : "—";
-
-    statsGrid.appendChild(createStatCard(t.currentPrice, displayCurrent));
-    statsGrid.appendChild(createStatCard(t.lowestPrice, "..."));
-    statsGrid.appendChild(createStatCard(t.highestPrice, "..."));
-    statsGrid.appendChild(createStatCard(t.averagePrice, "..."));
-    statsGrid.appendChild(createStatCard(t.trend, "..."));
-    statsGrid.appendChild(createStatCard(t.priceRange, "..."));
-    
-    container.appendChild(statsGrid);
 
     // Footer
     const footer = document.createElement("div");

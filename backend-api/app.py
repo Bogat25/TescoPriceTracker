@@ -71,9 +71,9 @@ def browse_products(
 def search_products(
     q: str = Query(default="", min_length=1),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=10000),
+    limit: int = Query(default=50, ge=1, le=500),
 ):
-    """Full-text / regex search. Returns up to 100 results (paged) with current price."""
+    """Full-text / regex search. Returns paged results with current price."""
     return db.search_products(q, skip=skip, limit=limit)
 
 
@@ -85,7 +85,7 @@ _SLIM_FIELDS = {"tpnc", "name", "default_image_url", "last_scraped_price",
 def search_products_slim(
     q: str = Query(default="", min_length=1),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=50, ge=1, le=10000),
+    limit: int = Query(default=50, ge=1, le=500),
 ):
     """Like /search but returns only the fields needed to render search-result cards."""
     full = db.search_products(q, skip=skip, limit=limit)
