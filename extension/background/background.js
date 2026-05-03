@@ -53,7 +53,13 @@ const MESSAGE_HANDLERS = {
   },
 
   AUTH_LOGOUT: async () => {
-    return await logout();
+    const result = await logout();
+    // Broadcast to all content scripts so they can refresh the alerts panel
+    const tabs = await browser.tabs.query({});
+    for (const tab of tabs) {
+      browser.tabs.sendMessage(tab.id, { type: "AUTH_STATE_CHANGED", loggedIn: false }).catch(() => {});
+    }
+    return result;
   },
 
   AUTH_STATUS: async () => {

@@ -51,6 +51,10 @@ export class NavbarContainer implements OnInit, OnDestroy {
     this.authService.logout();
   }
 
+  switchAccount(): void {
+    this.authService.switchAccount();
+  }
+
   ngOnDestroy(): void {
     this.sub?.unsubscribe();
   }

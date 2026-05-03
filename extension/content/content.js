@@ -1173,6 +1173,19 @@ browser.runtime.onMessage.addListener((message) => {
       stopObserver();
     }
   }
+
+  if (message.type === "AUTH_STATE_CHANGED") {
+    // Refresh the alerts panel in-place when auth state changes (e.g. logout from popup)
+    const tpnc = getTpncFromUrl();
+    if (!tpnc) return;
+    const container = document.getElementById(CONTAINER_ID);
+    if (!container) return;
+    const existingPanel = container.querySelector("#tpt-alerts-panel");
+    if (!existingPanel) return;
+    buildAlertsPanel(tpnc, null).then((newPanel) => {
+      existingPanel.replaceWith(newPanel);
+    }).catch(console.error);
+  }
 });
 
 // ── DOM Observer for SPA / Dynamic Loading ───

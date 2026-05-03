@@ -119,4 +119,14 @@ export class AuthService {
   account(): void {
     window.location.href = this.authAccountUrl;
   }
+
+  switchAccount(): void {
+    this.invalidateSession();
+    // Logout then immediately redirect back to login with the current page as returnUrl
+    const returnUrl = encodeURIComponent(
+      `${this.authLoginUrl}?returnUrl=${encodeURIComponent(window.location.href)}`
+    );
+    const sep = this.authLogoutUrl.includes('?') ? '&' : '?';
+    window.location.href = `${this.authLogoutUrl}${sep}returnUrl=${returnUrl}`;
+  }
 }

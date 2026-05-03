@@ -58,18 +58,22 @@ async function authFetch(path, options = {}) {
 
 // ── Public API ───────────────────────────────
 
+// NOTE: ALERTS_BASE already includes "/api/alerts" (e.g. "https://…/api/alerts").
+// nginx rewrites /api/alerts/<path> → /api/v1/alerts/<path>.
+// So all authFetch paths here are RELATIVE to that base — never add "/alerts" again.
+
 /**
  * List all alerts for the current user.
  */
 export async function listAlerts() {
-  return authFetch("/alerts");
+  return authFetch("/");
 }
 
 /**
  * List alerts for a specific product.
  */
 export async function listAlertsForProduct(productId) {
-  const result = await authFetch("/alerts");
+  const result = await authFetch("/");
   if (result.error) return result;
   // Filter client-side by productId
   const alerts = (result.alerts || []).filter((a) => a.productId === productId);
@@ -81,7 +85,7 @@ export async function listAlertsForProduct(productId) {
  * @param {object} alert - { productId, alertType, targetPrice?, dropPercentage?, basePriceAtCreation? }
  */
 export async function createAlert(alert) {
-  return authFetch("/alerts", {
+  return authFetch("/", {
     method: "POST",
     body: JSON.stringify(alert),
   });
@@ -91,14 +95,14 @@ export async function createAlert(alert) {
  * Delete an alert by ID.
  */
 export async function deleteAlert(alertId) {
-  return authFetch(`/alerts/${alertId}`, { method: "DELETE" });
+  return authFetch(`/${alertId}`, { method: "DELETE" });
 }
 
 /**
  * Toggle an alert on/off.
  */
 export async function toggleAlert(alertId, enabled) {
-  return authFetch(`/alerts/${alertId}/toggle`, {
+  return authFetch(`/${alertId}/toggle`, {
     method: "PATCH",
     body: JSON.stringify({ enabled }),
   });
@@ -108,14 +112,14 @@ export async function toggleAlert(alertId, enabled) {
  * Get email preferences.
  */
 export async function getEmailPrefs() {
-  return authFetch("/alerts/prefs");
+  return authFetch("/prefs");
 }
 
 /**
  * Set email preferences.
  */
 export async function setEmailPrefs(emailEnabled) {
-  return authFetch("/alerts/prefs", {
+  return authFetch("/prefs", {
     method: "PATCH",
     body: JSON.stringify({ emailEnabled }),
   });
