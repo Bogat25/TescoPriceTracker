@@ -1,9 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Tesco Price Tracker",
+  "short_name": "Tesco Tracker",
   "version": "1.2.1",
-  "description": "Tracks price history, syncs alerts with your account, and displays charts on Tesco product pages.",
+  "description": "Track Tesco Hungary price history, get email alerts for price drops, and sync your watchlist across browsers — free and ad-free.",
   "author": "Gavallér Bogát Bendegúz",
+  "homepage_url": "https://price-tracker.gavaller.com",
 
   "permissions": [
     "storage",

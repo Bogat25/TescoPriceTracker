@@ -24,6 +24,14 @@ const fs     = require('fs');
 const path   = require('path');
 const crypto = require('crypto');
 
+// ── Load store-listing.json ───────────────────────────────────
+function loadListing() {
+  const p = path.resolve(__dirname, 'store-listing.json');
+  if (!fs.existsSync(p)) return null;
+  try { return JSON.parse(fs.readFileSync(p, 'utf-8')); }
+  catch (e) { console.warn('  ⚠  Could not parse store-listing.json:', e.message); return null; }
+}
+
 // ── Load .env ────────────────────────────────────────────────
 function loadEnv() {
   const envPath = path.resolve(__dirname, '.env');
@@ -237,6 +245,42 @@ async function publishChrome(env) {
 }
 
 // ── Firefox AMO ──────────────────────────────────────────────
+
+// Patch listing metadata: summary, description, homepage, support info.
+// AMO API v5 supports translatable fields as {"en-US": "...", "hu": "..."}.
+async function patchFirefoxListing(extId, listing, jwt) {
+  const patch = {};
+
+  if (listing.summary) {
+    patch.summary = {};
+    if (listing.summary.en) patch.summary['en-US'] = listing.summary.en;
+    if (listing.summary.hu) patch.summary['hu']    = listing.summary.hu;
+  }
+  if (listing.description_html) {
+    patch.description = {};
+    if (listing.description_html.en) patch.description['en-US'] = listing.description_html.en;
+    if (listing.description_html.hu) patch.description['hu']    = listing.description_html.hu;
+  }
+  if (listing.homepage)     patch.homepage     = listing.homepage;
+  if (listing.support_url)  patch.support_url  = listing.support_url;
+  if (listing.support_email) patch.support_email = listing.support_email;
+
+  const buf = Buffer.from(JSON.stringify(patch));
+  const patchUrl = `https://addons.mozilla.org/api/v5/addons/addon/${encodeURIComponent(extId)}/`;
+  const u = new URL(patchUrl);
+  await httpRequest({
+    hostname: u.hostname,
+    path: u.pathname,
+    method: 'PATCH',
+    headers: {
+      'Authorization': `JWT ${jwt}`,
+      'Content-Type': 'application/json',
+      'Content-Length': buf.length,
+    },
+  }, buf);
+  console.log('  ✓ Listing metadata updated (summary, description, homepage)');
+}
+
 // Get credentials at: https://addons.mozilla.org/developers → Tools → Manage API Keys
 // Required .env vars:
 //   FIREFOX_EXTENSION_ID — your add-on's slug or GUID (e.g. tesco-tracker@gavaller.com)
@@ -304,6 +348,14 @@ async function publishFirefox(env) {
     },
   }, body);
   console.log('  ✓ Version submitted to Firefox AMO (enters review queue)');
+
+  // Step 3: Update listing metadata (summary, description, homepage) via PATCH
+  const listing = loadListing();
+  if (listing) {
+    await patchFirefoxListing(extId, listing, makeFirefoxJwt(apiKey, apiSecret));
+  } else {
+    console.log('  ℹ  store-listing.json not found — skipping metadata update');
+  }
 }
 
 // ── Edge Add-ons ─────────────────────────────────────────────

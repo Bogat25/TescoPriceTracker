@@ -1,0 +1,56 @@
+{
+  "_comment": "Source of truth for all store listing content. Used by publish.js to update Firefox AMO metadata automatically. For Chrome and Edge, copy content from STORE_LISTING.md — their APIs do not support metadata updates.",
+
+  "title": {
+    "en": "Tesco Price Tracker",
+    "hu": "Tesco Árfigyelő"
+  },
+
+  "short_name": {
+    "en": "Tesco Tracker",
+    "hu": "Tesco Tracker"
+  },
+
+  "homepage": "https://price-tracker.gavaller.com",
+  "support_url": "https://price-tracker.gavaller.com",
+  "support_email": "support@gavaller.com",
+
+  "summary": {
+    "en": "Track Tesco Hungary price history, view charts on every product page, set email alerts for price drops, and sync your watchlist across browsers — free and ad-free.",
+    "hu": "Kövesd nyomon a Tesco Magyarország árait, tekintsd meg az árelőzményeket, állíts be e-mail értesítőket, és szinkronizáld figyelőlistádat böngészők között — ingyenes."
+  },
+
+  "description_html": {
+    "en": "<p><strong>Tesco Price Tracker</strong> is a free, privacy-first browser extension that brings full price transparency to Tesco Hungary (<a href=\"https://bevasarlas.tesco.hu\">bevasarlas.tesco.hu</a>). Stop guessing whether today's price is a real deal — see the entire history and never miss a Clubcard discount again.</p>\n\n<p><strong>📊 Price History Charts</strong><br/>A full Chart.js price history graph is injected directly on every Tesco product page — lowest, highest, and average over the last 30 days. No extra tab, no separate website.</p>\n\n<p><strong>🔔 Smart Price-Drop Alerts</strong><br/>Set a target price for any product and receive an email the moment Tesco drops below it. Alerts are stored on your account — they survive browser reinstalls and device changes.</p>\n\n<p><strong>🔄 Account Sync — Your Watchlist, Everywhere</strong><br/>Sign in once and your alerts follow you across Chrome, Firefox, and Edge. No manual export or import needed.</p>\n\n<p><strong>🏷️ Clubcard Price Visibility</strong><br/>Track both the standard shelf price and the Clubcard member price side by side. Know instantly which products reward card holders most.</p>\n\n<p><strong>🌙 Dark &amp; Light Theme</strong><br/>Both the popup and the in-page panel respect your chosen theme and remember it between sessions.</p>\n\n<p><strong>🌍 Bilingual Interface (EN / HU)</strong><br/>Full English and Hungarian support — switch with one click in the popup header. Preferences are saved automatically.</p>\n\n<p><strong>🛡️ Privacy-First</strong><br/>No trackers, no ads, no affiliate links, no data selling. All data lives on the Gavaller infrastructure or your own self-hosted backend.</p>\n\n<p><strong>How to use it</strong></p>\n<ul>\n<li>Install and visit any product on bevasarlas.tesco.hu — the price chart appears automatically.</li>\n<li>Click the extension icon to see your active alerts and current prices.</li>\n<li>Click <em>Add Alert</em> on any product panel to set a target price.</li>\n<li>Sign in to enable email notifications and cross-device sync.</li>\n<li>Manage alerts, view full history charts, and compare products at <a href=\"https://price-tracker.gavaller.com\">price-tracker.gavaller.com</a>.</li>\n</ul>\n\n<p>Tesco Price Tracker is open source. Contributions and bug reports are welcome on GitHub.</p>",
+
+    "hu": "<p>A <strong>Tesco Árfigyelő</strong> egy ingyenes, adatvédelem-elsőbbségű böngészőbővítmény, amely teljes ártranszparenciát biztosít a Tesco Magyarország (<a href=\"https://bevasarlas.tesco.hu\">bevasarlas.tesco.hu</a>) webáruházához. Többé ne találgasd, hogy az aktuális ár valóban akciós-e — lásd az összes előzményt, és soha ne maradj le Clubcard-kedvezményről!</p>\n\n<p><strong>📊 Árelőzmény-diagramok</strong><br/>Teljes Chart.js alapú árgrafikon jelenik meg közvetlenül minden terméklapon — legalacsonyabb, legmagasabb és átlagos ár az elmúlt 30 napból. Nincs szükség külön lapra vagy weboldalra.</p>\n\n<p><strong>🔔 Okos árcsökkenési értesítők</strong><br/>Állíts be célárát bármely termékhez, és kapj e-mailt, amint a Tesco az alá megy. Az értesítők a fiókodhoz vannak kötve — böngészőcsere vagy újratelepítés után is megmaradnak.</p>\n\n<p><strong>🔄 Fiókalapú szinkronizálás</strong><br/>Egyszer jelentkezz be, és a figyelőlistád követi Chrome, Firefox és Edge böngészők között egyaránt.</p>\n\n<p><strong>🏷️ Clubcard-ár láthatósága</strong><br/>Egymás mellett látod a normál polcárat és a Clubcard tagárat. Tudod, hol éri meg leginkább a kártya.</p>\n\n<p><strong>🌙 Sötét és világos téma</strong><br/>A felugró ablak és az oldalba ágyazott panel egyaránt igazodik a választott témához, és munkamenetenként megjegyzi.</p>\n\n<p><strong>🌍 Kétnyelvű felület (EN / HU)</strong><br/>Teljes angol és magyar támogatás — váltás egy kattintással a fejlécben. A beállítás automatikusan mentődik.</p>\n\n<p><strong>🛡️ Adatvédelem-elsőbbség</strong><br/>Nincs nyomkövetés, hirdetés, affiliate link vagy adatértékesítés. Minden adat a Gavaller infrastruktúrán vagy saját hosztolt backendeden él.</p>"
+  },
+
+  "description_plain": {
+    "en": "Tesco Price Tracker is a free, privacy-first browser extension that brings full price transparency to Tesco Hungary (bevasarlas.tesco.hu). Stop guessing whether today's price is a real deal — see the entire history and never miss a Clubcard discount again.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nKEY FEATURES\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n📊 PRICE HISTORY CHARTS\nA full price history graph is injected directly on every Tesco product page — lowest, highest, and average price over the last 30 days. No extra tab, no separate website required.\n\n🔔 SMART PRICE-DROP ALERTS\nSet a target price for any product and receive an email the moment Tesco drops below it. Alerts are stored on your account — not just in the browser. They survive reinstalls, browser changes, and device switches.\n\n🔄 ACCOUNT SYNC — YOUR WATCHLIST, EVERYWHERE\nSign in once and your entire alert list follows you across Chrome, Firefox, and Edge. No manual export or import ever needed.\n\n🏷️ CLUBCARD PRICE VISIBILITY\nTrack both the standard shelf price and the Clubcard member price side by side. Instantly see which products reward Clubcard holders most.\n\n🌙 DARK & LIGHT THEME\nBoth the popup and the in-page chart panel respect your chosen theme and remember it between sessions.\n\n🌍 BILINGUAL INTERFACE (EN / HU)\nFull English and Hungarian interface support. Switch with one click directly in the popup header. Your language preference is saved automatically.\n\n🛡️ PRIVACY-FIRST\nNo trackers, no ads, no affiliate links, no data selling. All data lives on the Gavaller infrastructure or your own self-hosted backend. You stay in control.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nHOW TO USE IT\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n1. Install the extension.\n2. Visit any product on bevasarlas.tesco.hu — the price history chart appears automatically.\n3. Click the extension icon (toolbar) to open your alert dashboard.\n4. Sign in to enable email notifications and cross-device sync.\n5. On any product panel, click 'Add Alert' and enter your target price.\n6. We'll email you the moment the price drops below your threshold.\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nUSER GUIDE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nSETTING A PRICE ALERT\n• Browse to any product page on bevasarlas.tesco.hu\n• The Tesco Price Tracker panel appears below the product details\n• Click 'Add Alert' and type your target price\n• Sign in if prompted — an account is required to save alerts\n• Alerts are checked automatically; notifications are sent by email\n\nMANAGING YOUR ALERTS\n• Click the extension icon to open the popup\n• Active alerts are listed with current price and status badges\n• Toggle any alert on/off without deleting it\n• Click 'Open Website' to access the full dashboard with history charts\n\nSWITCHING OR LOGGING OUT\n• In the popup, click 'Switch' next to your avatar to change accounts\n• 'Sign Out' ends your session and clears cached credentials\n• On the website sidebar, use the user menu for the same options\n\nLANGUAGE & THEME\n• Language: Click EN or HU in the popup header to switch\n• Theme: Click the moon/sun icon to toggle dark/light mode\n• Both preferences persist between sessions automatically\n\nPERMISSIONS EXPLAINED\n• bevasarlas.tesco.hu — injects the price chart on Tesco product pages\n• price-tracker.gavaller.com — communicates with the price data API and alert service\n• tabs — detects navigation to Tesco product pages\n• storage — saves language/theme preferences and product name cache locally\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nOPEN SOURCE\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nTesco Price Tracker is open source. The extension, backend API, and web dashboard are available on GitHub. Bug reports, feature requests, and contributions are always welcome.\n\nWebsite: https://price-tracker.gavaller.com"
+  },
+
+  "keywords": {
+    "en": ["tesco", "price tracker", "price history", "price alert", "price drop", "grocery prices", "tesco hungary", "supermarket deals", "clubcard", "shopping assistant", "price monitor", "email alerts", "savings", "grocery tracker", "bevásárlás"],
+    "hu": ["tesco", "árfigyelő", "árelőzmény", "árcsökkenés", "értesítő", "ár figyelés", "bevásárlás", "clubcard", "akció", "megtakarítás", "tesco magyarország", "price tracker"]
+  },
+
+  "tags_firefox": ["shopping", "price", "alerts", "tesco", "savings"],
+
+  "category": {
+    "chrome": "Shopping",
+    "firefox_primary": "Shopping",
+    "firefox_secondary": "Alerts & Updates",
+    "edge": "Shopping"
+  },
+
+  "version_notes": {
+    "en": "v1.2.1\n• Added 'Switch Account' — change your logged-in account without a full logout\n• Language toggle (EN/HU) added directly in the popup header\n• Dark/light theme toggle with session persistence\n• Alert badge on toolbar icon shows live active alert count\n• Product names are cached locally for instant popup display\n• Auth state now syncs across all open Tesco tabs after login or logout\n• Fixed 405 errors on alert creation/deletion\n• Improved popup layout: version badge, cleaner header, truncation for long names",
+    "hu": "v1.2.1\n• Hozzáadva: 'Fiókváltás' — bejelentkezett fiók cseréje teljes kijelentkezés nélkül\n• Nyelv-váltó (EN/HU) közvetlenül a felugró fejlécbe kerültt\n• Sötét/világos téma munkamenetenként megjegyezve\n• Az értesítő-számláló jelvény valós időben frissül az eszköztáron\n• Termékneveket a bővítmény helyben gyorsítótárazza\n• Auth állapot szinkronizálódik az összes nyitott Tesco lap között\n• Javítva: 405-ös hibák értesítő létrehozásakor/törlésekor\n• Fejlesztett felugró elrendezés: verziójelvény, tisztább fejléc"
+  },
+
+  "promo_tile_summary": {
+    "en": "Price history & alerts for Tesco Hungary — free, account-synced, no ads.",
+    "hu": "Árelőzmény és értesítők a Tesco Magyarországhoz — ingyenes, fiókhoz kötött."
+  }
+}
