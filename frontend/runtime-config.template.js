@@ -9,4 +9,5 @@ window.__APP_CONFIG__ = {
   authUserinfoUrl: '${AUTH_USERINFO_URL}',
   authAccountUrl: '${AUTH_ACCOUNT_URL}',
   authTokenUrl: '${AUTH_TOKEN_URL}',
+  authSwitchAccountUrl: '${AUTH_SWITCH_ACCOUNT_URL}',
 };

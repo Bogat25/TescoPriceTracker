@@ -158,17 +158,27 @@ async function loadAlerts() {
     return;
   }
 
+  // Load cached product names (written by content.js when user visits product pages)
+  const stored = await browser.storage.local.get("productNames");
+  const productNames = stored.productNames || {};
+
   alertsList.innerHTML = "";
   const shown = alerts.slice(0, 5);
   for (const alert of shown) {
     const row = document.createElement("div");
     row.className = "alert-row";
 
+    // Prefer cached product name; fall back to shortened ID
+    const rawName = productNames[alert.productId];
+    const label = rawName
+      ? (rawName.length > 22 ? rawName.slice(0, 22).trimEnd() + "…" : rawName)
+      : `#${alert.productId}`;
+
     let desc = "";
     if (alert.alertType === "TARGET_PRICE") {
-      desc = `#${alert.productId} — ≤ ${alert.targetPrice?.toLocaleString()} Ft`;
+      desc = `${label} — ≤ ${alert.targetPrice?.toLocaleString()} Ft`;
     } else {
-      desc = `#${alert.productId} — ≥ ${alert.dropPercentage}% drop`;
+      desc = `${label} — ≥ ${alert.dropPercentage}% drop`;
     }
 
     const dot = document.createElement("span");
@@ -251,16 +261,25 @@ btnLogout.addEventListener("click", async () => {
   showLoggedOut();
 });
 
-// Switch Account — log out then immediately log in again
+// Switch Account — uses /switch-account gateway endpoint which signs out
+// server-side (kills the Keycloak session) then opens a fresh login prompt,
+// so the user cannot silently re-use the existing Keycloak session.
 btnSwitch.addEventListener("click", async () => {
   btnSwitch.disabled = true;
-  await browser.runtime.sendMessage({ type: "AUTH_LOGOUT" });
-  loggedOutEl.style.display   = "block";
+  // Hide logged-in state immediately while the auth tab is open
   loggedInEl.style.display    = "none";
+  loggedOutEl.style.display   = "block";
   alertsSection.style.display = "none";
+
+  const result = await browser.runtime.sendMessage({ type: "AUTH_SWITCH_ACCOUNT" });
   btnSwitch.disabled = false;
-  // Trigger login immediately
-  await startLogin();
+  if (result?.success) {
+    showLoggedIn(result.user);
+    loadAlerts();
+  } else {
+    // Switch failed or user closed the tab — stay on logged-out view
+    showLoggedOut();
+  }
 });
 
 // Open website

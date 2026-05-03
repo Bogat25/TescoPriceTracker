@@ -178,6 +178,52 @@ function getProductImageUrl() {
   return null;
 }
 
+/**
+ * Read the product name from the page (JSON-LD, og:title, h1, document.title).
+ * Returns null if not found.
+ */
+function getProductName() {
+  // Strategy 1: JSON-LD name field
+  const jsonLdScripts = document.querySelectorAll('script[type="application/ld+json"]');
+  for (const script of jsonLdScripts) {
+    try {
+      const data = JSON.parse(script.textContent);
+      if (typeof data.name === "string" && data.name.trim()) return data.name.trim();
+    } catch (e) { /* ignore */ }
+  }
+  // Strategy 2: og:title
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  if (ogTitle?.content?.trim()) return ogTitle.content.trim();
+  // Strategy 3: First h1
+  const h1 = document.querySelector("h1");
+  if (h1?.textContent?.trim()) return h1.textContent.trim();
+  // Strategy 4: document.title (strip " | Tesco" suffix common on product pages)
+  if (document.title) {
+    return document.title.replace(/\s*[\|–\-]\s*(Tesco|tesco).*$/i, "").trim() || null;
+  }
+  return null;
+}
+
+/**
+ * Cache product name into browser.storage.local under key `productNames`.
+ * Stored as { [tpnc]: name }. Keeps the map small — max 200 entries.
+ */
+async function cacheProductName(tpnc, name) {
+  if (!tpnc || !name) return;
+  try {
+    const stored = await browser.storage.local.get("productNames");
+    const map = stored.productNames || {};
+    map[tpnc] = name;
+    // Evict oldest entries if over limit
+    const keys = Object.keys(map);
+    if (keys.length > 200) {
+      // Remove first 50 entries (oldest insertion order in V8)
+      for (const k of keys.slice(0, 50)) delete map[k];
+    }
+    await browser.storage.local.set({ productNames: map });
+  } catch (e) { /* storage failure is non-fatal */ }
+}
+
 // ── Data Fetching ────────────────────────────
 
 // Helper to calculate days difference
@@ -673,6 +719,10 @@ async function injectPriceTracker() {
 
   g_isInjecting = true;
   try {
+    // Cache the product name so the popup can show it in the alerts list
+    const productName = getProductName();
+    if (productName) cacheProductName(tpnc, productName); // fire-and-forget
+
     const existingContainer = document.getElementById(CONTAINER_ID);
     if (existingContainer) {
       // If the container is for the SAME product and already has a chart, do nothing.

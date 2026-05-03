@@ -27,10 +27,6 @@ const ALERTS_TRANSLATIONS = {
     disabledLabel: "Paused",
     ftSuffix: "Ft",
     pctSuffix: "%",
-    allAlertsTitle: "All My Alerts",
-    showAll: "Show all alerts",
-    hideAll: "Hide",
-    product: "Product",
     loading: "Loading...",
     error: "Error loading alerts",
   },
@@ -50,10 +46,6 @@ const ALERTS_TRANSLATIONS = {
     disabledLabel: "Szüneteltetve",
     ftSuffix: "Ft",
     pctSuffix: "%",
-    allAlertsTitle: "Összes Riasztás",
-    showAll: "Összes riasztás megtekintése",
-    hideAll: "Elrejtés",
-    product: "Termék",
     loading: "Betöltés...",
     error: "Hiba a riasztások betöltésekor",
   },
@@ -133,50 +125,6 @@ async function buildAlertsPanel(tpnc, currentPrice) {
 
   // Load alerts async
   loadProductAlerts(content, tpnc, currentPrice, t);
-
-  // All-alerts dropdown
-  const allAlertsSection = document.createElement("div");
-  allAlertsSection.className = "tpt-all-alerts-section";
-  allAlertsSection.innerHTML = `
-    <button class="tpt-all-alerts-toggle" id="tpt-all-alerts-toggle">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
-      ${t.showAll}
-    </button>
-    <div class="tpt-all-alerts-list" id="tpt-all-alerts-list" style="display:none;"></div>
-  `;
-  panel.appendChild(allAlertsSection);
-
-  // Toggle handler
-  setTimeout(() => {
-    const toggleBtn = document.getElementById("tpt-all-alerts-toggle");
-    const listEl = document.getElementById("tpt-all-alerts-list");
-    if (toggleBtn && listEl) {
-      let expanded = false;
-      toggleBtn.addEventListener("click", async () => {
-        expanded = !expanded;
-        if (expanded) {
-          listEl.style.display = "block";
-          toggleBtn.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="18 15 12 9 6 15"/>
-            </svg>
-            ${t.hideAll}
-          `;
-          await loadAllAlerts(listEl, t);
-        } else {
-          listEl.style.display = "none";
-          toggleBtn.innerHTML = `
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-            ${t.showAll}
-          `;
-        }
-      });
-    }
-  }, 0);
 
   return panel;
 }
@@ -386,51 +334,4 @@ function createAlertForm(tpnc, currentPrice, t, container) {
   return form;
 }
 
-// ── Load All Alerts (Dropdown) ───────────────
 
-async function loadAllAlerts(container, t) {
-  container.innerHTML = `<div class="tpt-alerts-loading">${t.loading}</div>`;
-
-  try {
-    const result = await browser.runtime.sendMessage({ type: "ALERTS_LIST" });
-    if (result.error) {
-      container.innerHTML = `<div class="tpt-alerts-error">${result.message || t.error}</div>`;
-      return;
-    }
-
-    const alerts = result.alerts || [];
-    if (alerts.length === 0) {
-      container.innerHTML = `<div class="tpt-alerts-empty">${t.noAlerts}</div>`;
-      return;
-    }
-
-    container.innerHTML = "";
-    const list = document.createElement("div");
-    list.className = "tpt-all-alerts-items";
-
-    for (const alert of alerts) {
-      const row = document.createElement("div");
-      row.className = "tpt-all-alert-row";
-
-      let desc = "";
-      if (alert.alertType === "TARGET_PRICE") {
-        desc = `${t.typeTarget}: ≤ ${alert.targetPrice?.toLocaleString()} ${t.ftSuffix}`;
-      } else {
-        desc = `${t.typeDrop}: ≥ ${alert.dropPercentage}${t.pctSuffix}`;
-      }
-
-      const statusClass = alert.enabled ? "tpt-dot--on" : "tpt-dot--off";
-
-      row.innerHTML = `
-        <span class="tpt-all-alert-dot ${statusClass}"></span>
-        <span class="tpt-all-alert-pid">${t.product} #${alert.productId}</span>
-        <span class="tpt-all-alert-desc">${desc}</span>
-      `;
-      list.appendChild(row);
-    }
-
-    container.appendChild(list);
-  } catch {
-    container.innerHTML = `<div class="tpt-alerts-error">${t.error}</div>`;
-  }
-}

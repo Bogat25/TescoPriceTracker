@@ -6,7 +6,7 @@
 // ============================================
 
 import ENV from "../env/config.js";
-import { login, logout, getToken, getUser, isLoggedIn } from "./auth.js";
+import { login, loginSwitchAccount, logout, getToken, getUser, isLoggedIn } from "./auth.js";
 import {
   listAlerts,
   listAlertsForProduct,
@@ -50,6 +50,10 @@ const MESSAGE_HANDLERS = {
   // ── Auth ────────────────────────────────────
   AUTH_LOGIN: async () => {
     return await login();
+  },
+
+  AUTH_SWITCH_ACCOUNT: async () => {
+    return await loginSwitchAccount();
   },
 
   AUTH_LOGOUT: async () => {

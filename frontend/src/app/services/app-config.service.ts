@@ -9,6 +9,7 @@ interface RuntimeConfig {
   authUserinfoUrl?: string;
   authAccountUrl?: string;
   authTokenUrl?: string;
+  authSwitchAccountUrl?: string;
 }
 
 declare global {
@@ -70,6 +71,11 @@ export class AppConfigService {
   readonly authTokenUrl: string = this.normalize(
     window.__APP_CONFIG__?.authTokenUrl,
     DEFAULT_AUTH_TOKEN,
+  );
+
+  readonly authSwitchAccountUrl: string = this.normalize(
+    window.__APP_CONFIG__?.authSwitchAccountUrl,
+    '/auth/switch-account',
   );
 
   private normalize(raw: string | undefined, defaultValue: string): string {

@@ -24,7 +24,7 @@ import secrets
 import time
 import uuid
 from typing import Optional, Tuple
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urlparse, quote
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
@@ -173,7 +173,7 @@ async def health():
 
 
 @app.get("/auth/login")
-async def login(returnUrl: Optional[str] = None):
+async def login(returnUrl: Optional[str] = None, prompt: Optional[str] = None):
     verifier, challenge = _make_pkce()
     return_to = _safe_return_url(returnUrl, POST_LOGIN_REDIRECT_DEFAULT)
     state = _seal({"v": verifier, "r": return_to, "t": int(time.time())})
@@ -187,6 +187,9 @@ async def login(returnUrl: Optional[str] = None):
         "code_challenge_method": "S256",
         "state": state,
     }
+    # Only "login" is accepted as a prompt value (whitelist); prevents open-redirect abuse.
+    if prompt == "login":
+        params["prompt"] = "login"
     return RedirectResponse(f"{AUTH_ENDPOINT_PUBLIC}?{urlencode(params)}", status_code=302)
 
 
@@ -397,6 +400,32 @@ async def logout(request: Request, returnUrl: Optional[str] = None):
     params = {
         "client_id": KC_CLIENT_ID,
         "post_logout_redirect_uri": return_to,
+    }
+    if session and session.get("it"):
+        params["id_token_hint"] = session["it"]
+
+    resp = RedirectResponse(f"{LOGOUT_ENDPOINT_PUBLIC}?{urlencode(params)}", status_code=302)
+    _clear_session_cookie(resp)
+    return resp
+
+
+@app.get("/auth/switch-account")
+async def switch_account(request: Request, returnUrl: Optional[str] = None):
+    """
+    Sign out the current user and redirect to /auth/login with prompt=login so
+    Keycloak is forced to show the credential form even if a session is still alive.
+    This lets users log in as a different account without silently re-using the
+    existing Keycloak session.
+    """
+    validated_return = _safe_return_url(returnUrl, POST_LOGOUT_REDIRECT_DEFAULT)
+    # After Keycloak logs the user out, land on login with prompt=login and the
+    # original returnUrl so the user ends up back where they started.
+    post_logout_login = f"/auth/login?returnUrl={quote(validated_return, safe='')}&prompt=login"
+    session = _read_session(request)
+
+    params = {
+        "client_id": KC_CLIENT_ID,
+        "post_logout_redirect_uri": _safe_return_url(post_logout_login, POST_LOGOUT_REDIRECT_DEFAULT),
     }
     if session and session.get("it"):
         params["id_token_hint"] = session["it"]

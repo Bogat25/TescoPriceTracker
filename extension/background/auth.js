@@ -132,9 +132,31 @@ export async function isLoggedIn() {
  */
 export async function login() {
   const authGatewayBase = ENV.AUTH_GATEWAY_URL.replace(/\/+$/, "");
-  // Use an absolute returnUrl so both the C# and Python validators accept it.
   const returnUrl = `${authGatewayBase}/extension-relay`;
   const loginUrl = `${authGatewayBase}/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  return _runAuthTabFlow(loginUrl, authGatewayBase);
+}
+
+/**
+ * Switch-account login: signs out the current gateway/Keycloak session first,
+ * then forces a fresh credential prompt so the user can log in as a different account.
+ * Uses the dedicated /switch-account endpoint on the gateway.
+ */
+export async function loginSwitchAccount() {
+  const authGatewayBase = ENV.AUTH_GATEWAY_URL.replace(/\/+$/, "");
+  const returnUrl = `${authGatewayBase}/extension-relay`;
+  // /switch-account signs out server-side then redirects to /login?prompt=login
+  const switchUrl = `${authGatewayBase}/switch-account?returnUrl=${encodeURIComponent(returnUrl)}`;
+  // Clear local tokens before opening the tab so they're definitely gone
+  await clearSession();
+  return _runAuthTabFlow(switchUrl, authGatewayBase);
+}
+
+/**
+ * Internal helper: open a tab to `startUrl`, wait for /extension-done?ext_code=,
+ * exchange the code for tokens, and return { success, user } or { success, error }.
+ */
+async function _runAuthTabFlow(startUrl, authGatewayBase) {
   const donePath = `${authGatewayBase}${EXTENSION_DONE_PATH}`;
 
   return new Promise((resolve) => {
@@ -200,7 +222,7 @@ export async function login() {
 
     browser.tabs.onUpdated.addListener(onTabUpdated);
 
-    browser.tabs.create({ url: loginUrl }).then((tab) => {
+    browser.tabs.create({ url: startUrl }).then((tab) => {
       authTabId = tab.id;
     }).catch((err) => {
       finish({ success: false, error: err.message || "Failed to open auth tab" });

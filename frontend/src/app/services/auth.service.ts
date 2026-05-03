@@ -41,6 +41,10 @@ export class AuthService {
     return this.config.authAccountUrl;
   }
 
+  private get authSwitchAccountUrl() {
+    return this.config.authSwitchAccountUrl;
+  }
+
   get loginUrl() {
     return this.config.authLoginUrl;
   }
@@ -120,13 +124,16 @@ export class AuthService {
     window.location.href = this.authAccountUrl;
   }
 
+  /**
+   * Sign out the current user then force a fresh credential prompt.
+   * Uses the dedicated /switch-account gateway endpoint which (1) invalidates
+   * the server-side session and Keycloak session, and (2) adds prompt=login
+   * to the subsequent OIDC challenge so Keycloak cannot silently re-use the
+   * existing session.
+   */
   switchAccount(): void {
     this.invalidateSession();
-    // Logout then immediately redirect back to login with the current page as returnUrl
-    const returnUrl = encodeURIComponent(
-      `${this.authLoginUrl}?returnUrl=${encodeURIComponent(window.location.href)}`
-    );
-    const sep = this.authLogoutUrl.includes('?') ? '&' : '?';
-    window.location.href = `${this.authLogoutUrl}${sep}returnUrl=${returnUrl}`;
+    const sep = this.authSwitchAccountUrl.includes('?') ? '&' : '?';
+    window.location.href = `${this.authSwitchAccountUrl}${sep}returnUrl=${encodeURIComponent(window.location.href)}`;
   }
 }
