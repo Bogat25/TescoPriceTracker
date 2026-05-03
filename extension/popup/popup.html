@@ -4,14 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="popup.css" />
-  <title>Extension Panel</title>
+  <title>Tesco Price Tracker</title>
 </head>
 <body>
   <div class="popup-container">
     <!-- Header -->
     <header class="popup-header">
-      <h1>Tesco Price Tracker</h1>
-      <span class="version">v1.1.0</span>
+      <div class="popup-header-logo">
+        <img src="../icons/icon-48.png" width="28" height="28" alt="" aria-hidden="true"/>
+        <h1>Tesco Price Tracker</h1>
+      </div>
+      <span class="version">v2.0.0</span>
     </header>
 
     <!-- Status indicator -->
@@ -30,6 +33,16 @@
         <span class="slider"></span>
       </label>
     </div>
+
+    <!-- Open website button -->
+    <button type="button" class="open-website-btn" id="open-website-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+        <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+      </svg>
+      Open Price Tracker Website
+    </button>
 
     <!-- Footer -->
     <footer class="popup-footer">

@@ -1,20 +1,16 @@
 // ============================================
-// POPUP LOGIC — Firefox Extension Template
-// ============================================
-// Handles the enable/disable toggle and syncs
-// state with browser.storage so the background
-// and content scripts can react accordingly.
+// POPUP LOGIC — Tesco Price Tracker
 // ============================================
 
 // Standardize browser namespace (Chrome vs Firefox)
-// Firefox uses 'browser', while Chrome uses 'chrome'.
 if (typeof browser === "undefined") {
   globalThis.browser = chrome;
 }
 
 const toggleSwitch = document.getElementById("toggle-switch");
-const statusDot = document.getElementById("status-dot");
-const statusText = document.getElementById("status-text");
+const statusDot    = document.getElementById("status-dot");
+const statusText   = document.getElementById("status-text");
+const openWebsite  = document.getElementById("open-website-btn");
 
 // ── Helpers ──────────────────────────────────
 
@@ -28,9 +24,7 @@ function updateUI(isEnabled) {
 
 // ── Init ─────────────────────────────────────
 
-// Load the saved state when popup opens.
 browser.storage.local.get("extensionEnabled").then((result) => {
-  // Default to enabled if no saved state exists.
   const isEnabled = result.extensionEnabled ?? true;
   updateUI(isEnabled);
 });
@@ -39,16 +33,13 @@ browser.storage.local.get("extensionEnabled").then((result) => {
 
 toggleSwitch.addEventListener("change", async () => {
   const isEnabled = toggleSwitch.checked;
-
-  // Persist the new state.
   await browser.storage.local.set({ extensionEnabled: isEnabled });
-
-  // Update popup UI immediately.
   updateUI(isEnabled);
+  browser.runtime.sendMessage({ type: "TOGGLE_EXTENSION", enabled: isEnabled });
+});
 
-  // Notify the background script so it can act on open tabs.
-  browser.runtime.sendMessage({
-    type: "TOGGLE_EXTENSION",
-    enabled: isEnabled,
-  });
+// Open Price Tracker website in a new tab
+openWebsite.addEventListener("click", () => {
+  browser.tabs.create({ url: "https://price-tracker.gavaller.com/" });
+  window.close();
 });

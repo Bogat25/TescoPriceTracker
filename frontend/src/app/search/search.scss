@@ -246,20 +246,21 @@
   gap: 1px;
 }
 .sr-card-price {
-  font-size: clamp(14px, 1.2vw, 16px);
+  font-size: clamp(16px, 1.4vw, 20px);
   font-weight: 800;
   color: #00539F;
   &--discount  { color: #dc2626; } /* red for discount */
   &--clubcard  { color: #ca8a04; } /* yellow/amber for clubcard */
-  &--original  { font-size: 10px; font-weight: 600; color: var(--text-muted); text-decoration: line-through; }
+  &--original  { font-size: 12px; font-weight: 600; color: var(--text-muted); text-decoration: line-through; }
 }
 .sr-card-discount-pct {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   color: #dc2626;
 }
 .sr-card-unit-price {
-  font-size: 9px;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-muted);
 }
 .sr-card-no-price {
