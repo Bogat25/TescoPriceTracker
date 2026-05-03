@@ -1,10 +1,16 @@
 // ============================================
 // AUTH MODULE — Tesco Price Tracker Extension
 // ============================================
-// Handles authentication via the Price Tracker auth-gateway.
-// Opens a browser tab pointing to /auth/login, the gateway
-// performs PKCE with Keycloak, then redirects to
-// /auth/extension-relay → /auth/extension-done?ext_code=...
+// Handles authentication via an auth gateway.
+// Works with either deployment:
+//   Production (Gavaller ecosystem):
+//     AUTH_GATEWAY_URL = https://gateway.gavaller.com
+//   Standalone (TescoPriceTracker):
+//     AUTH_GATEWAY_URL = https://price-tracker.gavaller.com/auth
+//
+// Opens a browser tab → AUTH_GATEWAY_URL/login,
+// the gateway performs OIDC with Keycloak, then
+// redirects to /extension-relay → /extension-done?ext_code=...
 // The extension intercepts the navigation to extension-done,
 // closes the tab, and exchanges the ext_code for real tokens.
 //
@@ -20,9 +26,11 @@ if (typeof browser === "undefined") {
 
 const STORAGE_KEY = "tpt_auth_session";
 
-// The URL pattern the extension watches for after login
-const EXTENSION_DONE_PATH = "/auth/extension-done";
-const EXTENSION_TOKEN_PATH = "/auth/extension-token";
+// Paths are relative to AUTH_GATEWAY_URL, so they work for both:
+//   gateway.gavaller.com/extension-done
+//   price-tracker.gavaller.com/auth/extension-done
+const EXTENSION_DONE_PATH = "/extension-done";
+const EXTENSION_TOKEN_PATH = "/extension-token";
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // ── Token Storage ────────────────────────────
@@ -113,19 +121,21 @@ export async function isLoggedIn() {
 }
 
 /**
- * Start login via the auth-gateway tab flow.
- * 1. Opens a browser tab → /auth/login?returnUrl=/auth/extension-relay
- * 2. User logs in via Keycloak (handled by auth-gateway)
- * 3. Gateway redirects to /auth/extension-done?ext_code=<code>
+ * Start login via the auth gateway tab flow.
+ * Works with both the Gavaller ecosystem gateway (gateway.gavaller.com)
+ * and the standalone TescoPriceTracker gateway (price-tracker.gavaller.com/auth).
+ * 1. Opens a browser tab → AUTH_GATEWAY_URL/login?returnUrl=AUTH_GATEWAY_URL/extension-relay
+ * 2. User logs in via Keycloak — handled entirely by the gateway
+ * 3. Gateway redirects to AUTH_GATEWAY_URL/extension-done?ext_code=<code>
  * 4. Extension catches the tab URL change, closes tab, fetches tokens
  * Returns { success: true, user } or { success: false, error }.
  */
 export async function login() {
   const authGatewayBase = ENV.AUTH_GATEWAY_URL.replace(/\/+$/, "");
-  const websiteBase = ENV.WEBSITE_URL.replace(/\/+$/, "");
-  const returnUrl = `${websiteBase}/auth/extension-relay`;
+  // Use an absolute returnUrl so both the C# and Python validators accept it.
+  const returnUrl = `${authGatewayBase}/extension-relay`;
   const loginUrl = `${authGatewayBase}/login?returnUrl=${encodeURIComponent(returnUrl)}`;
-  const donePath = `${websiteBase}${EXTENSION_DONE_PATH}`;
+  const donePath = `${authGatewayBase}${EXTENSION_DONE_PATH}`;
 
   return new Promise((resolve) => {
     let authTabId = null;
@@ -160,7 +170,7 @@ export async function login() {
 
       try {
         const tokenResp = await fetch(
-          `${websiteBase}${EXTENSION_TOKEN_PATH}?code=${encodeURIComponent(extCode)}`
+          `${authGatewayBase}${EXTENSION_TOKEN_PATH}?code=${encodeURIComponent(extCode)}`
         );
         if (!tokenResp.ok) {
           finish({ success: false, error: `Token exchange failed: ${tokenResp.status}` });
@@ -168,22 +178,10 @@ export async function login() {
         }
         const tokens = await tokenResp.json();
 
-        // Fetch user info via auth-gateway proxy (no direct Keycloak access needed)
-        let user = null;
-        try {
-          const uiResp = await fetch(
-            `${websiteBase}/auth/extension-userinfo`,
-            { headers: { Authorization: `Bearer ${tokens.access_token}` } }
-          );
-          if (uiResp.ok) {
-            const info = await uiResp.json();
-            user = {
-              sub: info.sub,
-              name: info.preferred_username || info.name || info.email || "User",
-              email: info.email || null,
-            };
-          }
-        } catch { /* best-effort */ }
+        // User info is included inline by the gateway relay endpoint
+        const user = tokens.name
+          ? { name: tokens.name, email: tokens.email || null }
+          : null;
 
         const session = {
           access_token: tokens.access_token,

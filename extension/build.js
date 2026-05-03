@@ -45,9 +45,9 @@ function generateConfig(env) {
 const ENV = Object.freeze({
   API_BASE_URL: "${env.API_BASE_URL || "https://price-tracker.gavaller.com/api/tesco"}",
   ALERTS_API_URL: "${env.ALERTS_API_URL || "https://price-tracker.gavaller.com/api/alerts"}",
-  AUTH_GATEWAY_URL: "${env.AUTH_GATEWAY_URL || "https://price-tracker.gavaller.com/auth"}",
-  KEYCLOAK_URL: "${env.KEYCLOAK_URL || "https://price-tracker.gavaller.com/kc/realms/tesco-tracker"}",
-  KEYCLOAK_CLIENT_ID: "${env.KEYCLOAK_CLIENT_ID || "tesco-frontend"}",
+  AUTH_GATEWAY_URL: "${env.AUTH_GATEWAY_URL || "https://gateway.gavaller.com"}",
+  KEYCLOAK_URL: "${env.KEYCLOAK_URL || "https://auth.gavaller.com/realms/backend-ecosystem"}",
+  KEYCLOAK_CLIENT_ID: "${env.KEYCLOAK_CLIENT_ID || "gateway-client"}",
   WEBSITE_URL: "${env.WEBSITE_URL || "https://price-tracker.gavaller.com"}",
 });
 

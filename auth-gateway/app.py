@@ -104,6 +104,10 @@ def _safe_return_url(url: Optional[str], default: str) -> str:
         p = urlparse(url)
     except ValueError:
         return default
+    # Allow root-relative paths (/auth/extension-relay etc.)
+    # Guard against protocol-relative URLs (//evil.com) by requiring no netloc.
+    if not p.scheme and not p.netloc:
+        return url if url.startswith("/") else default
     if p.scheme not in ("http", "https"):
         return default
     if RETURN_URL_ALLOWED_HOSTS and p.hostname not in RETURN_URL_ALLOWED_HOSTS:
@@ -144,6 +148,23 @@ def _is_session_expired(session: dict) -> bool:
 
 
 app = FastAPI(title="auth-gateway", version="1.0.0")
+
+# ── CORS for browser-extension endpoints ─────────────────────────────────────
+# Extension service workers have chrome-extension:// / moz-extension:// origins
+# which cannot match the same-origin policy of the site. The extension token and
+# refresh endpoints are one-time-code exchanges only (no session cookies), so it
+# is safe to allow any origin on those specific routes.
+_EXT_CORS_HEADERS = {
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+}
+
+def _ext_cors(response):
+    """Attach extension-endpoint CORS headers to a response object in-place."""
+    for k, v in _EXT_CORS_HEADERS.items():
+        response.headers[k] = v
+    return response
 
 
 @app.get("/auth/health")
@@ -210,11 +231,31 @@ async def callback(
     # Use refresh token expiry for cookie lifetime so the browser keeps the cookie
     # long enough for the gateway to attempt a token refresh.
     refresh_expires_in = int(tokens.get("refresh_expires_in", 1800))
+
+    # Extract name/email from the id_token payload (JWT middle segment, base64url).
+    # We trust this token because we just fetched it directly from Keycloak.
+    name: Optional[str] = None
+    email: Optional[str] = None
+    id_tok = tokens.get("id_token") or tokens.get("access_token")
+    if id_tok:
+        try:
+            import base64 as _b64
+            parts = id_tok.split(".")
+            if len(parts) >= 2:
+                pad = 4 - len(parts[1]) % 4
+                raw_claims = json.loads(_b64.urlsafe_b64decode(parts[1] + "=" * pad))
+                name  = raw_claims.get("preferred_username") or raw_claims.get("name") or raw_claims.get("email")
+                email = raw_claims.get("email")
+        except Exception:
+            pass  # Best effort — extension relay will fallback gracefully
+
     session = {
-        "at": tokens["access_token"],
-        "rt": tokens.get("refresh_token"),
-        "it": tokens.get("id_token"),
-        "exp": int(time.time()) + expires_in,
+        "at":    tokens["access_token"],
+        "rt":    tokens.get("refresh_token"),
+        "it":    tokens.get("id_token"),
+        "exp":   int(time.time()) + expires_in,
+        "name":  name,
+        "email": email,
     }
 
     resp = RedirectResponse(state_data["r"], status_code=302)
@@ -247,10 +288,13 @@ async def _refresh_tokens(session: dict) -> Optional[dict]:
         tokens = r.json()
         expires_in = int(tokens.get("expires_in", 300))
         return {
-            "at": tokens["access_token"],
-            "rt": tokens.get("refresh_token", rt),
-            "it": tokens.get("id_token", session.get("it")),
-            "exp": int(time.time()) + expires_in,
+            "at":    tokens["access_token"],
+            "rt":    tokens.get("refresh_token", rt),
+            "it":    tokens.get("id_token", session.get("it")),
+            "exp":   int(time.time()) + expires_in,
+            # Carry forward name/email — they don't change on refresh.
+            "name":  session.get("name"),
+            "email": session.get("email"),
         }
     except Exception:
         logger.exception("token refresh error")
@@ -374,9 +418,14 @@ async def extension_relay(request: Request):
     """
     session = _read_session(request)
     if not session:
-        # Not logged in — redirect to login first
+        # Not logged in — redirect to login, using an absolute returnUrl so
+        # _safe_return_url accepts it (scheme required for absolute URLs).
+        # We reconstruct the absolute URL from the request's host header.
+        host = request.headers.get("x-forwarded-host") or request.headers.get("host") or ""
+        scheme = request.headers.get("x-forwarded-proto", "https")
+        relay_url = f"{scheme}://{host}/auth/extension-relay"
         return RedirectResponse(
-            f"/auth/login?returnUrl=/auth/extension-relay",
+            f"/auth/login?returnUrl={relay_url}",
             status_code=302,
         )
 
@@ -392,6 +441,10 @@ async def extension_relay(request: Request):
         "rt": session.get("rt"),
         "it": session.get("it"),
         "exp": now + _EXT_CODE_TTL,
+        # Include user identity so extension-token can return it inline
+        # (avoids a separate userinfo round-trip from the extension)
+        "name": session.get("name"),
+        "email": session.get("email"),
     }
 
     return RedirectResponse(
@@ -425,6 +478,7 @@ async def extension_token(code: Optional[str] = None):
     """
     Exchange a one-time ext_code for the actual tokens.
     The code is invalidated immediately after use.
+    CORS: allows any origin so extension service workers can call this.
     """
     from fastapi.responses import JSONResponse
 
@@ -440,12 +494,20 @@ async def extension_token(code: Optional[str] = None):
         raise HTTPException(410, "code expired")
 
     expires_in = max(entry["exp"] - now, 0)
-    return JSONResponse({
-        "access_token": entry["at"],
+    return _ext_cors(JSONResponse({
+        "access_token":  entry["at"],
         "refresh_token": entry.get("rt"),
-        "id_token": entry.get("it"),
-        "expires_in": expires_in,
-    })
+        "id_token":      entry.get("it"),
+        "expires_in":    expires_in,
+        "name":          entry.get("name"),
+        "email":         entry.get("email"),
+    }))
+
+
+@app.options("/auth/extension-token")
+async def extension_token_preflight():
+    from fastapi.responses import Response
+    return _ext_cors(Response(status_code=204))
 
 
 @app.post("/auth/extension-refresh")
@@ -455,6 +517,7 @@ async def extension_refresh(request: Request):
     Expects JSON body: {"refresh_token": "..."}
     Returns: {"access_token", "refresh_token", "expires_in"}
     Proxies to Keycloak internally — the extension never needs the Keycloak URL.
+    CORS: allows any origin so extension service workers can call this.
     """
     from fastapi.responses import JSONResponse
 
@@ -464,9 +527,9 @@ async def extension_refresh(request: Request):
         raise HTTPException(400, "missing refresh_token")
 
     payload = {
-        "grant_type": "refresh_token",
+        "grant_type":    "refresh_token",
         "refresh_token": refresh_tok,
-        "client_id": KC_CLIENT_ID,
+        "client_id":     KC_CLIENT_ID,
     }
     if KC_CLIENT_SECRET:
         payload["client_secret"] = KC_CLIENT_SECRET
@@ -482,11 +545,17 @@ async def extension_refresh(request: Request):
         raise HTTPException(401, "refresh failed")
 
     tokens = r.json()
-    return JSONResponse({
-        "access_token": tokens["access_token"],
+    return _ext_cors(JSONResponse({
+        "access_token":  tokens["access_token"],
         "refresh_token": tokens.get("refresh_token"),
-        "expires_in": tokens.get("expires_in", 300),
-    })
+        "expires_in":    tokens.get("expires_in", 300),
+    }))
+
+
+@app.options("/auth/extension-refresh")
+async def extension_refresh_preflight():
+    from fastapi.responses import Response
+    return _ext_cors(Response(status_code=204))
 
 
 @app.get("/auth/extension-userinfo")
