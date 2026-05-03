@@ -263,6 +263,58 @@
   .sidebar-login-icon { display: none; }
 }
 
+/* ── User popup menu ────────────────────────── */
+.sidebar-user {
+  position: relative; /* popup positions relative to this */
+}
+.sidebar-user-menu-btn.active {
+  background: var(--hover-bg);
+  svg { color: #00539F; }
+}
+.sidebar-user-popup {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  overflow: hidden;
+  z-index: 200;
+  animation: popupIn 120ms ease;
+}
+@keyframes popupIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.sidebar-popup-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 120ms;
+  svg { color: var(--text-secondary); flex-shrink: 0; }
+  &:hover { background: var(--hover-bg); }
+  &--danger {
+    color: #dc2626;
+    svg { color: #dc2626; }
+    &:hover { background: rgba(220,38,38,.08); }
+  }
+}
+.sidebar-popup-sep {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0 8px;
+}
+
 /* ══════════════════════════════════════════
    TABLET ICON-ONLY MODE (640px – 1023px)
 ══════════════════════════════════════════ */

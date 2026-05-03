@@ -23,7 +23,6 @@ import {
   BarElement,
   CategoryScale,
   Chart,
-  ChartConfiguration,
   DoughnutController,
   Filler,
   Legend,
@@ -126,8 +125,19 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   readonly product = signal<ProductDetailModel | null>(null);
   readonly stats = signal<ProductStats | null>(null);
   readonly history = signal<ProductHistory | null>(null);
+  readonly rawProduct = signal<ProductResponse | null>(null);
   readonly loading = signal(true);
   readonly error = signal('');
+
+  /** True once raw data has at least one price channel entry. */
+  readonly hasChannelData = computed(() => {
+    const raw = this.rawProduct();
+    if (!raw) return (this.history()?.points?.length ?? 0) > 0;
+    const ph = raw.price_history ?? {};
+    return ['normal', 'discount', 'clubcard'].some(
+      ch => (ph[ch as Channel] ?? []).length > 0
+    );
+  });
 
   // Analytics signals
   readonly kpi = signal<KpiAgg>({ entryCount: 0, promoCount: 0 });
@@ -151,21 +161,57 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     return v === 7 ? 7 : v === 90 ? 90 : 30;
   }
 
-  /** Current effective price for use in alert form validation. */
+  /** Current effective price — lowest across all available price channels. */
   get currentPrice(): number | null {
+    const raw = this.rawProduct();
+    if (raw) {
+      const toNum = (v: unknown) => {
+        const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d.+-]/g, ''));
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+      };
+      const candidates = [
+        toNum(raw.last_scraped_price),
+        raw.discount_price  != null ? raw.discount_price  : undefined,
+        raw.clubcard_price  != null ? raw.clubcard_price  : undefined,
+      ].filter((v): v is number => v !== undefined);
+      return candidates.length ? Math.min(...candidates) : null;
+    }
     const s = this.stats();
     return s?.current ?? null;
   }
 
-  /** Buy signal derived from current vs historical avg. */
+  /** Buy signal derived from current (lowest) price vs historical avg. */
   readonly buySignal = computed(() => {
     const s = this.stats();
-    if (!s?.current || !s?.avg) return null;
-    return s.current <= s.avg ? 'good' : 'above';
+    const raw = this.rawProduct();
+    let current: number | undefined;
+    if (raw) {
+      const toNum = (v: unknown) => { const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d.+-]/g, '')); return Number.isFinite(n) && n > 0 ? n : undefined; };
+      const c = [toNum(raw.last_scraped_price), raw.discount_price ?? undefined, raw.clubcard_price ?? undefined].filter((v): v is number => v !== undefined);
+      current = c.length ? Math.min(...c) : undefined;
+    } else {
+      current = s?.current ?? undefined;
+    }
+    if (!current || !s?.avg) return null;
+    return current <= s.avg ? 'good' : 'above';
   });
 
-  /** Trend pct from first history point to last. */
+  /** Trend pct using lowest price across all channels (first vs last entry). */
   readonly trendPct = computed(() => {
+    const raw = this.rawProduct();
+    if (raw) {
+      const ph = raw.price_history ?? {};
+      const all: PriceEntry[] = [
+        ...(ph.normal ?? []), ...(ph.discount ?? []), ...(ph.clubcard ?? [])
+      ];
+      if (all.length < 2) return null;
+      const sorted = [...all].sort((a, b) =>
+        new Date(a.start_date).getTime() - new Date(b.start_date).getTime()
+      );
+      const first = sorted[0].price;
+      const last  = sorted[sorted.length - 1].price;
+      return Math.round(((last - first) / first) * 1000) / 10;
+    }
     const h = this.history();
     if (!h?.points?.length || h.points.length < 2) return null;
     const first = h.points[0].price;
@@ -189,10 +235,11 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   setRange(range: 7 | 30 | 90): void {
     this.chartRange.set(range);
     document.cookie = `tpt_chart_range=${range}; path=/; max-age=${365 * 86400}; SameSite=Lax`;
-    const h = this.history();
-    if (!h) return;
-    const sliced = range === 90 ? h : { ...h, points: h.points.slice(-range) };
-    queueMicrotask(() => this.renderChart(sliced));
+    const raw = this.rawProduct();
+    if (raw) {
+      this.cdr.detectChanges();
+      setTimeout(() => this.renderChart(raw, range), 0);
+    }
   }
 
   ngAfterViewInit(): void {
@@ -216,19 +263,20 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         this.stats.set(stats);
         this.history.set(history);
         this.loading.set(false);
-        const range = this.chartRange();
-        const sliced = history && range < 90 ? { ...history, points: history.points.slice(-range) } : history;
         // detectChanges forces Angular to render @if(product()) block so the canvas is in the DOM
         this.cdr.detectChanges();
-        setTimeout(() => this.renderChart(sliced), 0);
-        // Also load full product data for analytics charts
+        // Also load full product data for multi-channel chart and analytics
         this.products.getRaw(tpnc).pipe(catchError(() => of(null))).subscribe((raw) => {
           if (raw) {
+            this.rawProduct.set(raw);
             const kpi = this.computeKpis(raw);
             this.kpi.set(kpi);
             this.insights.set(this.computeInsights(raw, kpi));
             this.cdr.detectChanges();
-            setTimeout(() => this.renderAnalytics(raw), 0);
+            setTimeout(() => {
+              this.renderChart(raw, this.chartRange());
+              this.renderAnalytics(raw);
+            }, 0);
           }
         });
       },
@@ -239,44 +287,73 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     });
   }
 
-  private renderChart(history: ProductHistory | null): void {
+  private renderChart(raw: ProductResponse, range: 7 | 30 | 90): void {
     const canvas = this.chartCanvas?.nativeElement;
-    if (!canvas || !history?.points?.length) return;
+    if (!canvas) return;
 
     this.chart?.destroy();
 
-    const labels = history.points.map((p) => new Date(p.timestamp).toLocaleDateString());
-    const data = history.points.map((p) => p.price);
+    const cutoff = range < 90 ? Date.now() - range * 24 * 3600 * 1000 : 0;
 
-    const config: ChartConfiguration<'line'> = {
+    const timelineSet = new Set<number>();
+    for (const ch of ['normal', 'discount', 'clubcard'] as Channel[]) {
+      for (const e of raw.price_history?.[ch] ?? []) {
+        const t = new Date(e.start_date).getTime();
+        if (Number.isFinite(t) && t >= cutoff) timelineSet.add(t);
+      }
+    }
+    const timeline = Array.from(timelineSet).sort((a, b) => a - b);
+    if (!timeline.length) return;
+
+    const labels = timeline.map((t) => new Date(t).toLocaleDateString());
+    const datasets = (['normal', 'discount', 'clubcard'] as Channel[]).map((ch) => {
+      const entries = (raw.price_history?.[ch] ?? []).filter(e => {
+        const t = new Date(e.start_date).getTime();
+        return Number.isFinite(t) && t >= cutoff;
+      });
+      if (!entries.length) return null;
+      const series = this.channelSeries(entries);
+      const byTs = new Map(series.map(d => [d.x, d.y]));
+      const data = timeline.map(t => byTs.has(t) ? (byTs.get(t) as number) : null);
+      const col = CHANNEL_COLOURS[ch];
+      return {
+        label: ch.charAt(0).toUpperCase() + ch.slice(1),
+        data,
+        borderColor: col.border,
+        backgroundColor: ch === 'normal' ? col.bg : 'transparent',
+        fill: ch === 'normal',
+        tension: 0.25,
+        pointRadius: 2,
+        borderWidth: 2,
+        spanGaps: true,
+      };
+    }).filter((d): d is NonNullable<typeof d> => d !== null);
+
+    if (!datasets.length) return;
+
+    this.chart = new Chart(canvas, {
       type: 'line',
-      data: {
-        labels,
-        datasets: [
-          {
-            label: 'Price',
-            data,
-            borderColor: 'rgb(59, 130, 246)',
-            backgroundColor: 'rgba(59, 130, 246, 0.15)',
-            fill: true,
-            tension: 0.25,
-            pointRadius: 2,
-          },
-        ],
-      },
+      data: { labels, datasets },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
-          x: { grid: { display: false } },
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 10, autoSkip: true } },
           y: { beginAtZero: false, ticks: { callback: (v) => `${v} Ft` } },
         },
-        plugins: { legend: { display: false } },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ctx.parsed.y === null
+                ? `${ctx.dataset.label}: —`
+                : `${ctx.dataset.label}: ${Number(ctx.parsed.y).toFixed(2)} Ft`,
+            },
+          },
+        },
       },
-    };
-
-    this.chart = new Chart(canvas, config);
+    });
   }
 
   saveAlert(): void {

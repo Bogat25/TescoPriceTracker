@@ -2,10 +2,11 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { catchError, of } from 'rxjs';
+import { catchError, of, forkJoin } from 'rxjs';
 import { AppConfigService } from '../services/app-config.service';
 import { PlatformStatsService, DiscountByWeekday } from '../services/platform-stats.service';
 import { AlertsService, PriceAlert } from '../services/alerts.service';
+import { ProductsService } from '../services/products.service';
 import { AuthService } from '../services/auth.service';
 import { TranslationService } from '../services/translation.service';
 import { TranslatePipe } from '../shared/translate.pipe';
@@ -24,6 +25,7 @@ export class Home implements OnInit {
   private config = inject(AppConfigService);
   private statsService = inject(PlatformStatsService);
   private alertsService = inject(AlertsService);
+  private productsService = inject(ProductsService);
   readonly auth = inject(AuthService);
   readonly tl   = inject(TranslationService);
 
@@ -37,9 +39,14 @@ export class Home implements OnInit {
   readonly maxDiscount = signal<string>('');
   readonly buySignal   = signal<string>('');
 
-  readonly recentAlerts = signal<PriceAlert[]>([]);
-  readonly alertsLoaded = signal(false);
+  readonly recentAlerts   = signal<PriceAlert[]>([]);
+  readonly alertsLoaded   = signal(false);
+  readonly alertProductNames = signal<Map<string, string>>(new Map());
   readonly enabledAlertCount = computed(() => this.recentAlerts().filter(a => a.enabled).length);
+
+  alertProductName(productId: string): string {
+    return this.alertProductNames().get(productId) ?? productId;
+  }
 
   ngOnInit(): void {
     this.http
@@ -49,18 +56,10 @@ export class Home implements OnInit {
         this.healthOk.set(h?.status === 'ok');
       });
 
-    this.http
-      .get<unknown>('/api/v1/products')
-      .pipe(catchError(() => of(null)))
-      .subscribe((res) => {
-        if (Array.isArray(res)) {
-          this.productCount.set(res.length);
-        } else if (res && typeof res === 'object') {
-          const r = res as Record<string, unknown>;
-          const count = r['count'] ?? r['total'] ?? r['length'];
-          if (typeof count === 'number') this.productCount.set(count);
-        }
-      });
+    // Use browse with limit=1 — just need the `total` count
+    this.productsService.browse(0, 1).pipe(catchError(() => of(null))).subscribe((res) => {
+      if (res?.total !== undefined) this.productCount.set(res.total);
+    });
 
     // Load real statistics
     this.loadStatistics();
@@ -73,8 +72,23 @@ export class Home implements OnInit {
           const sorted = (res.alerts ?? []).sort(
             (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
-          this.recentAlerts.set(sorted.slice(0, 4));
+          const recent = sorted.slice(0, 4);
+          this.recentAlerts.set(recent);
           this.alertsLoaded.set(true);
+
+          // Resolve unique product names
+          const ids = [...new Set(recent.map(a => a.productId))];
+          if (ids.length === 0) return;
+          const requests = ids.map(id =>
+            this.productsService.get(id).pipe(catchError(() => of(null)))
+          );
+          forkJoin(requests).subscribe(products => {
+            const names = new Map<string, string>();
+            products.forEach((p, i) => {
+              if (p?.name) names.set(ids[i], p.name);
+            });
+            this.alertProductNames.set(names);
+          });
         });
     } else {
       this.alertsLoaded.set(true);

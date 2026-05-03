@@ -65,6 +65,7 @@ export class Sidebar implements OnInit, OnDestroy {
 
   readonly navItems = NAV_ITEMS;
   readonly alertCount = signal(0);
+  readonly userMenuOpen = signal(false);
   activeRoute = signal('/');
 
   private routerSub?: Subscription;
@@ -102,9 +103,17 @@ export class Sidebar implements OnInit, OnDestroy {
     this.theme.toggleTheme();
   }
 
+  toggleUserMenu(): void {
+    this.userMenuOpen.update(v => !v);
+  }
+
+  closeUserMenu(): void {
+    this.userMenuOpen.set(false);
+  }
+
   login(): void  { this.auth.login(); }
-  logout(): void { this.auth.logout(); }
-  account(): void { this.auth.account(); }
+  logout(): void { this.closeUserMenu(); this.auth.logout(); }
+  account(): void { this.closeUserMenu(); this.auth.account(); }
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();

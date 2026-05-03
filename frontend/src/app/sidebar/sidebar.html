@@ -86,18 +86,36 @@
 
   <!-- User chip -->
   @if (auth.authenticated()) {
-    <div class="sidebar-user">
-      <button type="button" class="sidebar-user-avatar" (click)="account()" title="Account settings">
+    <div class="sidebar-user" [class.menu-open]="userMenuOpen()">
+      <!-- Popup menu — shown above the user chip -->
+      @if (userMenuOpen()) {
+        <div class="sidebar-user-popup">
+          <button type="button" class="sidebar-popup-btn" (click)="account()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            User Settings
+          </button>
+          <div class="sidebar-popup-sep"></div>
+          <button type="button" class="sidebar-popup-btn sidebar-popup-btn--danger" (click)="logout()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log out
+          </button>
+        </div>
+      }
+      <button type="button" class="sidebar-user-avatar" (click)="toggleUserMenu()" title="Account options">
         {{ userInitials }}
       </button>
       <div class="sidebar-user-info">
         <div class="sidebar-user-name">{{ auth.userName() || 'User' }}</div>
         <div class="sidebar-user-sub">Member · Clubcard</div>
       </div>
-      <button type="button" class="sidebar-user-menu-btn" title="Account options"
-              (click)="account()">
+      <button type="button" class="sidebar-user-menu-btn" [class.active]="userMenuOpen()" title="Account options"
+              (click)="toggleUserMenu()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+             stroke-width="2" stroke-linecap="round">
+          <polyline [attr.points]="userMenuOpen() ? '18 15 12 9 6 15' : '6 9 12 15 18 9'"/>
+        </svg>
       </button>
     </div>
   } @else {

@@ -106,7 +106,7 @@
       <!-- Price chart -->
       <div class="pd-card">
         <div class="pd-card-header">
-          <app-sec-label text="Price history" accent="#00539F"/>
+          <app-sec-label text="Multi-channel price history" accent="#00539F"/>
           <div class="pd-range-btns">
             @for (r of [7, 30, 90]; track r) {
               <button type="button" class="pd-range-btn"
@@ -119,7 +119,7 @@
         </div>
         <div class="pd-chart-wrap">
           <canvas #chartCanvas></canvas>
-          @if (!history()?.points?.length) {
+          @if (!hasChannelData()) {
             <p class="pd-no-data">No price history available yet.</p>
           }
         </div>
@@ -315,14 +315,6 @@
           </ul>
         </div>
       }
-
-      <!-- Multi-channel price history chart -->
-      <div class="pd-card" style="margin-top:16px">
-        <app-sec-label text="Multi-channel price history" accent="#00539F"/>
-        <div class="pd-chart-wrap" style="height:280px">
-          <canvas #multiLineChart></canvas>
-        </div>
-      </div>
 
       <!-- Analytics charts grid -->
       <div class="pd-analytics-grid" style="margin-top:16px">
