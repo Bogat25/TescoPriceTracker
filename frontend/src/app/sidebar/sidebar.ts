@@ -114,6 +114,7 @@ export class Sidebar implements OnInit, OnDestroy {
   login(): void  { this.auth.login(); }
   logout(): void { this.closeUserMenu(); this.auth.logout(); }
   account(): void { this.closeUserMenu(); this.auth.account(); }
+  switchAccount(): void { this.closeUserMenu(); this.auth.switchAccount(); }
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();

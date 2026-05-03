@@ -33,4 +33,8 @@ export class UserSettings implements OnInit {
   logout(): void {
     this.auth.logout();
   }
+
+  switchAccount(): void {
+    this.auth.switchAccount();
+  }
 }

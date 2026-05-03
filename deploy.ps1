@@ -23,6 +23,7 @@ Set-Location $ScriptDir
 
 # ── Config defaults ──────────────────────────────────────────────────────────
 $GhcrUsername  = "bogat25"
+$GhcrPat       = ""
 $SshHost       = ""
 $SshStackPath  = ""
 
@@ -36,6 +37,7 @@ if (Test-Path $EnvFile) {
             $value = $Matches[2].Trim().Trim('"').Trim("'")
             switch ($key) {
                 "GHCR_USERNAME"  { $GhcrUsername = $value }
+                "GHCR_PAT"       { $GhcrPat = $value }
                 "SSH_HOST"       { $SshHost = $value }
                 "SSH_STACK_PATH" { $SshStackPath = $value }
             }
@@ -45,6 +47,7 @@ if (Test-Path $EnvFile) {
 
 # Allow env vars to override .env values
 if ($env:GHCR_USERNAME)  { $GhcrUsername = $env:GHCR_USERNAME }
+if ($env:GHCR_PAT)        { $GhcrPat = $env:GHCR_PAT }
 if ($env:SSH_HOST)        { $SshHost = $env:SSH_HOST }
 if ($env:SSH_STACK_PATH)  { $SshStackPath = $env:SSH_STACK_PATH }
 
@@ -56,6 +59,17 @@ Write-Host "  Tesco Price Tracker — Deploy (PowerShell)"
 Write-Host "  Backend image : $BackendImage"
 Write-Host "  Frontend image: $FrontendImage"
 Write-Host "============================================================" -ForegroundColor Cyan
+
+# ── 0. GHCR login ────────────────────────────────────────────────────────────
+if ($GhcrPat) {
+    Write-Host ""
+    Write-Host "▶  Logging in to GHCR…" -ForegroundColor Yellow
+    $GhcrPat | docker login ghcr.io -u $GhcrUsername --password-stdin
+    if ($LASTEXITCODE -ne 0) { throw "GHCR login failed" }
+    Write-Host "  ✓ Logged in to ghcr.io as $GhcrUsername" -ForegroundColor Green
+} else {
+    Write-Host "  ℹ  GHCR_PAT not set — assuming already logged in to ghcr.io" -ForegroundColor DarkYellow
+}
 
 # ── 1. Build browser extension ───────────────────────────────────────────────
 if (-not $SkipExtension) {

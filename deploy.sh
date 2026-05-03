@@ -19,8 +19,9 @@ cd "$SCRIPT_DIR"
 
 # ── Config defaults (override via .env or environment) ──────────────────────
 : "${GHCR_USERNAME:=bogat25}"
-: "${SSH_HOST:=}"          # e.g. user@server.example.com
-: "${SSH_STACK_PATH:=}"    # e.g. /opt/portainer/stacks/tesco-tracker
+: "${GHCR_PAT:=}"            # Personal Access Token with packages:write scope
+: "${SSH_HOST:=}"            # e.g. user@server.example.com
+: "${SSH_STACK_PATH:=}"      # e.g. /opt/portainer/stacks/tesco-tracker
 
 # Load .env if it exists (for local dev)
 if [[ -f .env ]]; then
@@ -57,6 +58,16 @@ echo "  Tesco Price Tracker — Deploy"
 echo "  Backend image : $BACKEND_IMAGE"
 echo "  Frontend image: $FRONTEND_IMAGE"
 echo "============================================================"
+
+# ── 0. GHCR login ────────────────────────────────────────────────────────────
+if [[ -n "$GHCR_PAT" ]]; then
+  echo ""
+  echo "▶  Logging in to GHCR…"
+  echo "$GHCR_PAT" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
+  echo "  ✓ Logged in to ghcr.io as ${GHCR_USERNAME}"
+else
+  echo "  ℹ  GHCR_PAT not set — assuming already logged in to ghcr.io"
+fi
 
 # ── 1. Build browser extension ───────────────────────────────────────────────
 if [[ "$SKIP_EXTENSION" == "false" ]]; then
