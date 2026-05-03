@@ -9,9 +9,9 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, Location } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { TranslationService } from '../services/translation.service';
 import { TranslatePipe } from '../shared/translate.pipe';
 import { HexIcon }    from '../shared/hex-icon/hex-icon';
@@ -98,7 +98,7 @@ interface KpiAgg {
 
 @Component({
   selector: 'app-product-detail',
-  imports: [CommonModule, FormsModule, RouterLink, HexIcon, HexKpi, SecLabel, TranslatePipe],
+  imports: [CommonModule, FormsModule, HexIcon, HexKpi, SecLabel, TranslatePipe],
   templateUrl: './product-detail.html',
   styleUrl: './product-detail.scss',
 })
@@ -116,6 +116,7 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   readonly tl = inject(TranslationService);
 
   private route = inject(ActivatedRoute);
+  private location = inject(Location);
   private products = inject(ProductsService);
   private alertsApi = inject(AlertsService);
   private cdr = inject(ChangeDetectorRef);
@@ -179,6 +180,11 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     return cat.charAt(0).toUpperCase();
   });
 
+  /** Navigate back to the previously visited page (browser back semantics). */
+  goBack(): void {
+    this.location.back();
+  }
+
   /** Formatted price points sliced by range for chart redraw. */
   setRange(range: 7 | 30 | 90): void {
     this.chartRange.set(range);
@@ -212,7 +218,9 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         this.loading.set(false);
         const range = this.chartRange();
         const sliced = history && range < 90 ? { ...history, points: history.points.slice(-range) } : history;
-        queueMicrotask(() => this.renderChart(sliced));
+        // detectChanges forces Angular to render @if(product()) block so the canvas is in the DOM
+        this.cdr.detectChanges();
+        setTimeout(() => this.renderChart(sliced), 0);
         // Also load full product data for analytics charts
         this.products.getRaw(tpnc).pipe(catchError(() => of(null))).subscribe((raw) => {
           if (raw) {

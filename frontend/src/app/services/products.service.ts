@@ -156,8 +156,11 @@ export class ProductsService {
   }
 
   /** Paginated catalogue browse — returns summaries without price_history. */
-  browse(skip = 0, limit = 100): Observable<{ results: ProductSummary[]; total: number; skip: number; limit: number }> {
-    return this.http.get<any[]>(`${this.base}/browse`, { params: { skip, limit } }).pipe(
+  browse(skip = 0, limit = 100, sortBy?: string, sortDir?: string): Observable<{ results: ProductSummary[]; total: number; skip: number; limit: number }> {
+    const params: Record<string, string | number> = { skip, limit };
+    if (sortBy)  params['sort_by']  = sortBy;
+    if (sortDir) params['sort_dir'] = sortDir;
+    return this.http.get<any[]>(`${this.base}/browse`, { params }).pipe(
       map((res: any) => {
         const raw: any[] = Array.isArray(res) ? res : (res?.results ?? []);
         const total: number = res?.total ?? raw.length;

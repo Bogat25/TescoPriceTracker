@@ -196,6 +196,107 @@
   line-height: 1.5;
 }
 
+/* ── Alerts panel ────────────────────────────── */
+.hm-alerts-panel {
+  margin-bottom: 24px;
+  padding: 16px 18px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+}
+.hm-alerts-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.hm-alerts-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-primary);
+  svg { color: var(--hex5); flex-shrink: 0; }
+}
+.hm-alerts-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--hex5);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.hm-alerts-loading, .hm-alerts-empty {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+.hm-alerts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.hm-alert-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  background: var(--surface-base);
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+}
+.hm-alert-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.hm-alert-pid {
+  font-size: 12px;
+  color: #00539F;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+.hm-alert-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  &--target { background: rgba(0,83,159,.12); color: #00539F; }
+  &--pct    { background: rgba(220,38,38,.12); color: #dc2626; }
+}
+.hm-alert-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  &--on  { background: var(--hex5); }
+  &--off { background: var(--text-muted); }
+}
+.hm-alerts-more-link {
+  display: block;
+  text-align: right;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #00539F;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
 /* ── Mobile ──────────────────────────────────── */
 @media (max-width: 639px) {
   .hm-hex-cluster { display: none; }

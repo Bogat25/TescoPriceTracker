@@ -1,10 +1,11 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { AppConfigService } from '../services/app-config.service';
 import { PlatformStatsService, DiscountByWeekday } from '../services/platform-stats.service';
+import { AlertsService, PriceAlert } from '../services/alerts.service';
 import { AuthService } from '../services/auth.service';
 import { TranslationService } from '../services/translation.service';
 import { TranslatePipe } from '../shared/translate.pipe';
@@ -22,6 +23,7 @@ export class Home implements OnInit {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
   private statsService = inject(PlatformStatsService);
+  private alertsService = inject(AlertsService);
   readonly auth = inject(AuthService);
   readonly tl   = inject(TranslationService);
 
@@ -29,11 +31,15 @@ export class Home implements OnInit {
   readonly productCount = signal<number | null>(null);
   readonly statsLoading = signal(true);
 
-  readonly volatility = signal<string>('');
-  readonly trend30d = signal<string>('');
+  readonly volatility  = signal<string>('');
+  readonly trend30d    = signal<string>('');
   readonly bestWeekday = signal<string>('');
   readonly maxDiscount = signal<string>('');
-  readonly buySignal = signal<string>('');
+  readonly buySignal   = signal<string>('');
+
+  readonly recentAlerts = signal<PriceAlert[]>([]);
+  readonly alertsLoaded = signal(false);
+  readonly enabledAlertCount = computed(() => this.recentAlerts().filter(a => a.enabled).length);
 
   ngOnInit(): void {
     this.http
@@ -58,6 +64,21 @@ export class Home implements OnInit {
 
     // Load real statistics
     this.loadStatistics();
+
+    // Load recent alerts for the dashboard panel (authenticated users only)
+    if (this.auth.authenticated()) {
+      this.alertsService.list()
+        .pipe(catchError(() => of({ alerts: [] })))
+        .subscribe(res => {
+          const sorted = (res.alerts ?? []).sort(
+            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          );
+          this.recentAlerts.set(sorted.slice(0, 4));
+          this.alertsLoaded.set(true);
+        });
+    } else {
+      this.alertsLoaded.set(true);
+    }
   }
 
   private loadStatistics(): void {

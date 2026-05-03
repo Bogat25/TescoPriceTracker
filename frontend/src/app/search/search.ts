@@ -1,4 +1,5 @@
 import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
+
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -19,8 +20,13 @@ export class Search implements OnInit {
   private route = inject(ActivatedRoute);
 
   query = '';
-  readonly results     = signal<ProductSummary[]>([]);
-  readonly totalResults = signal(0);
+  readonly allResults   = signal<ProductSummary[]>([]);
+  readonly results      = computed(() => {
+    const size  = this.pageSize();
+    const start = this.currentPage() * size;
+    return this.allResults().slice(start, start + size);
+  });
+  readonly totalResults = computed(() => this.allResults().length);
   readonly suggestions  = signal<ProductSummary[]>([]);
   readonly loading      = signal(false);
   readonly suggesting   = signal(false);
@@ -77,12 +83,13 @@ export class Search implements OnInit {
   }
 
   ngOnInit(): void {
-    // Restore search query from URL param on load (supports sharing & back-navigation)
-    const q = this.route.snapshot.queryParamMap.get('q') ?? '';
+    const q         = this.route.snapshot.queryParamMap.get('q') ?? '';
+    const pageParam = parseInt(this.route.snapshot.queryParamMap.get('page') ?? '1', 10);
+    const page      = Number.isFinite(pageParam) && pageParam > 1 ? pageParam - 1 : 0;
     if (q.trim()) {
       this.query = q;
       this._lastQuery = q;
-      this._doSearch(q, 0);
+      this._doSearch(q, page);
     }
   }
 
@@ -109,29 +116,36 @@ export class Search implements OnInit {
     this.suggestions.set([]);
     const q = this.query.trim();
     if (!q) return;
-    // Push query into URL so it can be shared / restored on back navigation
+    this.currentPage.set(0);
+    // Push query into URL (no page param = page 1)
     this.router.navigate([], { queryParams: { q }, replaceUrl: false });
     this._lastQuery = q;
-    this.currentPage.set(0);
-    this._doSearch(q, 0);
+    this._doSearch(q);
   }
 
   goToPage(page: number): void {
     if (page < 0 || page >= this.totalPages()) return;
     this.currentPage.set(page);
-    this._doSearch(this._lastQuery, page);
+    // Update URL: page is 1-indexed; omit the param on the first page
+    this.router.navigate([], {
+      queryParams: { q: this._lastQuery, ...(page > 0 ? { page: page + 1 } : {}) },
+      replaceUrl: true,
+    });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  private _doSearch(q: string, page: number): void {
+  private _doSearch(q: string, restorePage = 0): void {
     this.loading.set(true);
     this.error.set('');
     this.searched.set(true);
-    const skip = page * this.pageSize();
-    this.products.searchPaged(q, skip, this.pageSize()).subscribe({
+    // Fetch all matching results at once; client-side pagination handles paging
+    this.products.searchPaged(q, 0, 10000).subscribe({
       next: (response) => {
-        this.results.set(response?.results ?? []);
-        this.totalResults.set(response?.total ?? 0);
+        this.allResults.set(response?.results ?? []);
+        if (restorePage > 0) {
+          const clamped = Math.min(restorePage, Math.max(0, this.totalPages() - 1));
+          this.currentPage.set(clamped);
+        }
         this.loading.set(false);
       },
       error: (err) => {

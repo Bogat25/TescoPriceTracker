@@ -154,7 +154,8 @@ export class ProductsList implements OnInit {
     this.sortField.set(sort);
     this.sortDir.set(dir);
 
-    this.loadPage().then(() => {
+    const loader = sort === 'discount' ? this._reloadDiscountSorted() : this.loadPage();
+    loader.then(() => {
       if (q) {
         this.query.set(q);
         this.searchQuery$.next(q);
@@ -183,6 +184,29 @@ export class ProductsList implements OnInit {
     });
   }
 
+  /** Reload ALL products sorted by discount % from the backend (one-shot, replaces pagination). */
+  private _reloadDiscountSorted(): Promise<void> {
+    this.loading.set(true);
+    this.allProducts.set([]);
+    this.skip = 0;
+    return new Promise((resolve) => {
+      this.productsApi.browse(0, 10000, 'discount', 'desc').subscribe({
+        next: (res) => {
+          this.allProducts.set(res.results);
+          this.total.set(res.total);
+          this.skip = res.results.length;
+          this.loading.set(false);
+          resolve();
+        },
+        error: () => {
+          this.error.set('Could not load products.');
+          this.loading.set(false);
+          resolve();
+        },
+      });
+    });
+  }
+
   loadMore(): void {
     if (this.loadingMore() || !this.hasMore()) return;
     this.loadingMore.set(true);
@@ -190,13 +214,22 @@ export class ProductsList implements OnInit {
   }
 
   setSort(field: SortField): void {
-    if (this.sortField() === field) {
+    const prev = this.sortField();
+    if (prev === field) {
       this.sortDir.update(d => d === 'asc' ? 'desc' : 'asc');
     } else {
       this.sortField.set(field);
       this.sortDir.set(field === 'discount' ? 'desc' : 'asc');
     }
     this._pushUrlParams();
+    if (field === 'discount') {
+      this._reloadDiscountSorted();
+    } else if (prev === 'discount') {
+      // Switching away from discount sort — reset pagination and reload normally
+      this.allProducts.set([]);
+      this.skip = 0;
+      this.loadPage();
+    }
   }
 
   selectSuper(s: string | null): void {
