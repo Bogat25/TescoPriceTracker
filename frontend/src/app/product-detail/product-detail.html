@@ -48,35 +48,44 @@
     }
 
     <!-- â”€â”€ KPI Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
-    @if (stats(); as s) {
+    @if (effectiveKpi(); as ek) {
       <div class="pd-kpi-row">
         <div class="pd-kpi-tile" style="--kpi-accent: #00539F">
           <div class="pd-kpi-watermark">
             <svg width="32" height="37" viewBox="0 0 32 37"><polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="#00539F" opacity="0.18"/></svg>
           </div>
           <div class="pd-kpi-label">Current</div>
-          <div class="pd-kpi-value font-mono-prices" style="color:#00539F">{{ s.current ?? '—' }} Ft</div>
+          <div class="pd-kpi-value font-mono-prices" style="color:#00539F">{{ ek.current ?? '—' }} Ft</div>
         </div>
+        @if (ek.discountCurrent !== null) {
+          <div class="pd-kpi-tile" style="--kpi-accent: #dc2626">
+            <div class="pd-kpi-watermark">
+              <svg width="32" height="37" viewBox="0 0 32 37"><polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="#dc2626" opacity="0.18"/></svg>
+            </div>
+            <div class="pd-kpi-label">Current discount</div>
+            <div class="pd-kpi-value font-mono-prices" style="color:#dc2626">{{ ek.discountCurrent }} Ft</div>
+          </div>
+        }
         <div class="pd-kpi-tile" style="--kpi-accent: var(--hex5)">
           <div class="pd-kpi-watermark">
             <svg width="32" height="37" viewBox="0 0 32 37"><polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="var(--hex5)" opacity="0.18"/></svg>
           </div>
           <div class="pd-kpi-label">All-time low</div>
-          <div class="pd-kpi-value font-mono-prices" style="color:var(--hex5)">{{ s.min ?? '—' }} Ft</div>
+          <div class="pd-kpi-value font-mono-prices" style="color:var(--hex5)">{{ ek.min ?? '—' }} Ft</div>
         </div>
         <div class="pd-kpi-tile" style="--kpi-accent: var(--hex3)">
           <div class="pd-kpi-watermark">
             <svg width="32" height="37" viewBox="0 0 32 37"><polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="var(--hex3)" opacity="0.18"/></svg>
           </div>
           <div class="pd-kpi-label">All-time high</div>
-          <div class="pd-kpi-value font-mono-prices" style="color:var(--hex3)">{{ s.max ?? '—' }} Ft</div>
+          <div class="pd-kpi-value font-mono-prices" style="color:var(--hex3)">{{ ek.max ?? '—' }} Ft</div>
         </div>
         <div class="pd-kpi-tile" style="--kpi-accent: var(--text-secondary)">
           <div class="pd-kpi-watermark">
             <svg width="32" height="37" viewBox="0 0 32 37"><polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="var(--text-secondary)" opacity="0.12"/></svg>
           </div>
           <div class="pd-kpi-label">Historical avg</div>
-          <div class="pd-kpi-value font-mono-prices">{{ s.avg ?? '—' }} Ft</div>
+          <div class="pd-kpi-value font-mono-prices">{{ ek.avg ?? '—' }} Ft</div>
         </div>
         <div class="pd-kpi-tile">
           <div class="pd-kpi-watermark">
@@ -96,7 +105,7 @@
             <svg width="32" height="37" viewBox="0 0 32 37"><polygon points="16,0 32,9.25 32,27.75 16,37 0,27.75 0,9.25" fill="var(--hex2)" opacity="0.18"/></svg>
           </div>
           <div class="pd-kpi-label">Data points</div>
-          <div class="pd-kpi-value font-mono-prices" style="color:var(--hex2)">{{ s.pointCount ?? '—' }}</div>
+          <div class="pd-kpi-value font-mono-prices" style="color:var(--hex2)">{{ ek.pointCount ?? '—' }}</div>
         </div>
       </div>
     }
@@ -157,9 +166,9 @@
                 <span class="pd-insight-text">
                   Trend:
                   <strong [style.color]="trendPct() !== null && trendPct()! < 0 ? 'var(--hex5)' : 'var(--hex3)'">
-                    @if (trendPct() !== null) {
-                      {{ trendPct()! > 0 ? 'â†‘ +' + trendPct() + '%' : 'â†“ ' + trendPct() + '%' }}
-                    } @else { Unknown }
+                    @if (trendPct() !== null && trendPct()! > 0) { &uarr; +{{ trendPct() }}% }
+                    @else if (trendPct() !== null) { &darr; {{ trendPct() }}% }
+                    @else { Unknown }
                   </strong>
                 </span>
               </div>
@@ -169,7 +178,7 @@
                            fill="rgba(0,83,159,.22)" stroke="#00539F" stroke-width="1"/>
                 </svg>
                 <span class="pd-insight-text">
-                  Range: <strong>{{ s.min ?? '?' }} Ft</strong> - <strong>{{ s.max ?? '?' }} Ft</strong>
+                  Range: <strong>{{ effectiveKpi()?.min ?? '?' }} Ft</strong> - <strong>{{ effectiveKpi()?.max ?? '?' }} Ft</strong>
                 </span>
               </div>
             </div>

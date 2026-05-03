@@ -180,20 +180,11 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     return s?.current ?? null;
   }
 
-  /** Buy signal derived from current (lowest) price vs historical avg. */
+  /** Buy signal derived from current (lowest) price vs effective historical avg. */
   readonly buySignal = computed(() => {
-    const s = this.stats();
-    const raw = this.rawProduct();
-    let current: number | undefined;
-    if (raw) {
-      const toNum = (v: unknown) => { const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/[^\d.+-]/g, '')); return Number.isFinite(n) && n > 0 ? n : undefined; };
-      const c = [toNum(raw.last_scraped_price), raw.discount_price ?? undefined, raw.clubcard_price ?? undefined].filter((v): v is number => v !== undefined);
-      current = c.length ? Math.min(...c) : undefined;
-    } else {
-      current = s?.current ?? undefined;
-    }
-    if (!current || !s?.avg) return null;
-    return current <= s.avg ? 'good' : 'above';
+    const ek = this.effectiveKpi();
+    if (!ek?.current || !ek?.avg) return null;
+    return ek.current <= ek.avg ? 'good' : 'above';
   });
 
   /** Trend pct using lowest price across all channels (first vs last entry). */
@@ -558,6 +549,63 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     const n = typeof raw === 'number' ? raw : Number(String(raw).replace(/[^\d.+-]/g, ''));
     return Number.isFinite(n) ? n : undefined;
   }
+
+  /**
+   * For each calendar day, returns the cheapest price available across all channels.
+   * This is the "effective price" a shopper could have paid on that day.
+   */
+  private effectivePriceTimeline(p: ProductResponse): { t: number; price: number }[] {
+    const byDay = new Map<number, number>();
+    for (const ch of ['normal', 'discount', 'clubcard'] as Channel[]) {
+      for (const e of p.price_history?.[ch] ?? []) {
+        const t = new Date(e.start_date).setHours(0, 0, 0, 0);
+        if (!Number.isFinite(t) || !(e.price > 0)) continue;
+        const cur = byDay.get(t);
+        byDay.set(t, cur === undefined ? e.price : Math.min(cur, e.price));
+      }
+    }
+    return Array.from(byDay.entries())
+      .map(([t, price]) => ({ t, price }))
+      .sort((a, b) => a.t - b.t);
+  }
+
+  /**
+   * KPI values based on effective (lowest per day, all channels) prices.
+   * - current   = lowest price available right now
+   * - discountCurrent = lowest promo/clubcard price right now (null if none)
+   * - min       = lowest effective price ever recorded
+   * - max       = highest effective price ever recorded (best deal vs worst day)
+   * - avg       = mean effective price across all tracked days
+   * - pointCount = number of distinct tracked days
+   */
+  readonly effectiveKpi = computed(() => {
+    const raw = this.rawProduct();
+    const s = this.stats();
+    if (!raw) {
+      return s ? {
+        current: s.current as number | undefined,
+        discountCurrent: null as number | null,
+        min: s.min as number | undefined,
+        max: s.max as number | undefined,
+        avg: s.avg as number | undefined,
+        pointCount: (s as any).pointCount as number | undefined,
+      } : null;
+    }
+    const timeline = this.effectivePriceTimeline(raw);
+    const prices = timeline.map(d => d.price);
+    const min = prices.length ? Math.min(...prices) : s?.min;
+    const max = prices.length ? Math.max(...prices) : s?.max;
+    const avg = prices.length
+      ? Math.round((prices.reduce((a, b) => a + b, 0) / prices.length) * 100) / 100
+      : s?.avg;
+    const current = this.currentPrice ?? s?.current;
+    const discCandidates = [
+      raw.discount_price  != null ? raw.discount_price  : undefined,
+      raw.clubcard_price  != null ? raw.clubcard_price  : undefined,
+    ].filter((v): v is number => v !== undefined);
+    const discountCurrent = discCandidates.length ? Math.min(...discCandidates) : null;
+    return { current, discountCurrent, min, max, avg, pointCount: (s as any)?.pointCount ?? prices.length };
+  });
 
   private channelSeries(entries: PriceEntry[]): { x: number; y: number }[] {
     return entries.map((e) => ({ x: new Date(e.start_date).getTime(), y: Number(e.price) }))
