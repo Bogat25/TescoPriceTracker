@@ -203,7 +203,7 @@ def get_product(tpnc: str):
     # Inject the numeric current price (extracted from price_history) so the
     # frontend's parsePrice() can parse it. The stored last_scraped_price field
     # is a scrape-timestamp string, not a price number.
-    current_price = db._extract_current_price(prod)
+    price_info = db._extract_price_details(prod)
     return {
         "tpnc": prod.get("tpnc"),
         "name": prod.get("name"),
@@ -211,7 +211,11 @@ def get_product(tpnc: str):
         "default_image_url": prod.get("default_image_url"),
         "pack_size_value": prod.get("pack_size_value"),
         "pack_size_unit": prod.get("pack_size_unit"),
-        "last_scraped_price": current_price,
+        "last_scraped_price": price_info.get("last_scraped_price"),
+        "discount_price": price_info.get("discount_price"),
+        "clubcard_price": price_info.get("clubcard_price"),
+        "unit_price": price_info.get("unit_price"),
+        "unit_measure": price_info.get("unit_measure"),
         "price_history": history
     }
 
@@ -223,7 +227,8 @@ def get_product_detailed(tpnc: str):
         raise HTTPException(status_code=404, detail="Product not found")
     prod.pop("_id", None)
     # Inject numeric current price before popping price_history
-    prod["last_scraped_price"] = db._extract_current_price(prod)
+    price_info = db._extract_price_details(prod)
+    prod.update(price_info)
     raw_history = prod.pop("price_history", []) or []
     if isinstance(raw_history, list):
         prod["price_history"] = _daily_to_channel_history(raw_history)

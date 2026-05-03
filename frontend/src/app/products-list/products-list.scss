@@ -183,6 +183,8 @@
 .pl-thumb {
   width: 150px;
   height: 150px;
+  min-width: 150px;
+  flex-shrink: 0;
   object-fit: contain;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -316,11 +318,9 @@
   .pl-name { font-size: 13px; max-width: 400px; }
 }
 
-/* ── Collapsed sidebar (768–1023px): hide category col, fill image cell ── */
+/* ── Collapsed sidebar (768–1023px): hide category col ── */
 @media (max-width: 1023px) and (min-width: 640px) {
   .pl-th-cat,
   .pl-td-cat  { display: none; }
-  .pl-td-icon { padding: 4px; }
-  .pl-th.pl-th-icon { width: 170px; }
-  .pl-thumb   { width: 162px; height: 162px; }
+  .pl-thumb   { width: 100px; height: 100px; min-width: 100px; }
 }
