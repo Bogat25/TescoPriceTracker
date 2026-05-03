@@ -363,3 +363,39 @@
   .hm-ext-browsers { width: 100%; }
   .hm-ext-browser-btn { flex: 1; justify-content: center; }
 }
+
+/* ── Page footer row ──────────────────────────── */
+.hm-page-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+.hm-page-footer-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  transition: border-color 150ms, color 150ms;
+  svg { color: var(--text-muted); transition: color 150ms; }
+  &:hover {
+    border-color: #00539F;
+    color: #00539F;
+    svg { color: #00539F; }
+  }
+}
+.hm-page-footer-copy {
+  font-size: 11px;
+  color: var(--text-muted);
+}

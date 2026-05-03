@@ -187,4 +187,8 @@ export class Home implements OnInit {
     { n: 3, titleKey: 'home.step3.title', descKey: 'home.step3.desc' },
     { n: 4, titleKey: 'home.step4.title', descKey: 'home.step4.desc' },
   ];
+
+  currentYear(): number {
+    return new Date().getFullYear();
+  }
 }
