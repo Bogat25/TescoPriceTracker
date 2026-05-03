@@ -167,7 +167,7 @@ function generateManifest(platform, env) {
     // Firefox uses browser_specific_settings
     base.browser_specific_settings = {
       gecko: {
-        id: env.FIREFOX_EXTENSION_ID || "ttesco-price-tracker@gavaller.com",
+        id: env.FIREFOX_EXTENSION_ID || "tesco-price-tracker@example.com",
         strict_min_version: "112.0",
       },
     };
