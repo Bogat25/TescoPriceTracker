@@ -572,7 +572,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
   buySignalLabel(kpi: KpiAgg): string {
     if (kpi.current === undefined || kpi.avg === undefined) return '—';
     const vsAvg = ((kpi.current - kpi.avg) / kpi.avg) * 100;
-    if (kpi.current === kpi.min) return '🔥 All-time low!';
+    if (kpi.current === kpi.min) return 'All-time low!';
     if (vsAvg < -8) return '✅ Below average';
     if (vsAvg > 8) return '⚠️ Above average';
     return '➡️ Near average';

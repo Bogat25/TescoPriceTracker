@@ -823,6 +823,14 @@ async function injectPriceTracker() {
 
     renderChart(canvas, labels, prices, discountPrices, clubcardPrices, stats, t);
 
+    // ── Alerts Panel (after chart + stats) ──
+    try {
+      const alertsPanel = await buildAlertsPanel(tpnc, stats.current || pagePrice);
+      container.insertBefore(alertsPanel, footer);
+    } catch (alertErr) {
+      console.warn("[TescoPriceTracker] Alerts panel error:", alertErr);
+    }
+
   } finally {
     g_isInjecting = false;
   }

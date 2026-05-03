@@ -14,8 +14,33 @@
         <img src="../icons/icon-48.png" width="28" height="28" alt="" aria-hidden="true"/>
         <h1>Tesco Price Tracker</h1>
       </div>
-      <span class="version">v2.0.0</span>
+      <span class="version">v3.0.0</span>
     </header>
+
+    <!-- Account section -->
+    <div class="account-section" id="account-section">
+      <!-- Logged out state -->
+      <div class="account-logged-out" id="account-logged-out">
+        <p class="account-prompt">Sign in to sync alerts between extension &amp; website</p>
+        <button type="button" class="btn-login" id="btn-login">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          Sign In
+        </button>
+      </div>
+      <!-- Logged in state -->
+      <div class="account-logged-in" id="account-logged-in" style="display:none;">
+        <div class="account-user">
+          <div class="account-avatar" id="account-avatar">U</div>
+          <div class="account-info">
+            <span class="account-name" id="account-name">User</span>
+            <span class="account-email" id="account-email"></span>
+          </div>
+        </div>
+        <button type="button" class="btn-logout" id="btn-logout">Sign Out</button>
+      </div>
+    </div>
 
     <!-- Status indicator -->
     <div class="status-section">
@@ -34,6 +59,21 @@
       </label>
     </div>
 
+    <!-- Alerts summary (logged in only) -->
+    <div class="alerts-section" id="alerts-section" style="display:none;">
+      <div class="alerts-header">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span>My Alerts</span>
+        <span class="alerts-badge" id="alerts-badge">0</span>
+      </div>
+      <div class="alerts-list" id="popup-alerts-list">
+        <div class="alerts-loading">Loading...</div>
+      </div>
+    </div>
+
     <!-- Open website button -->
     <button type="button" class="open-website-btn" id="open-website-btn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -46,7 +86,7 @@
 
     <!-- Footer -->
     <footer class="popup-footer">
-      <p>Toggle to show/hide price history charts on Tesco product pages.</p>
+      <p>Price history charts &amp; alerts sync with your account.</p>
     </footer>
   </div>
 
