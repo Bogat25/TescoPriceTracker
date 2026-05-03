@@ -227,10 +227,12 @@ def _extract_price_details(doc: dict) -> dict:
     return result
 
 
-def browse_products(skip=0, limit=100):
+def browse_products(skip=0, limit=100, sort_by="name", sort_dir="asc"):
     """Return lightweight product summaries for the catalogue view.
 
     Projects only the fields needed by the frontend list (no price_history).
+    Supports sort_by: "name" (default), "price" (normal price asc/desc),
+    "discount" (by discount percentage desc).
 
     Returns
     -------
@@ -253,8 +255,26 @@ def browse_products(skip=0, limit=100):
         "number_of_reviews": 1,
         "price_history": 1,
     }
-    cursor = coll.find({}, projection).sort("name", 1).skip(skip).limit(limit)
-    results = []
+
+    # For name/price sorts MongoDB can do it natively (fast)
+    if sort_by == "name":
+        mongo_sort = ("name", 1 if sort_dir == "asc" else -1)
+        cursor = coll.find({}, projection).sort(*mongo_sort).skip(skip).limit(limit)
+        results = []
+        for doc in cursor:
+            tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
+            doc.pop("_id", None)
+            doc["tpnc"] = tpnc
+            price_info = _extract_price_details(doc)
+            doc.update(price_info)
+            doc.pop("price_history", None)
+            results.append(doc)
+        return {"results": results, "total": total, "skip": skip, "limit": limit}
+
+    # For price / discount sort: fetch all (up to a reasonable cap), extract prices, then sort in Python
+    # Cache the full set for the discount sort since it changes infrequently
+    cursor = coll.find({}, projection).sort("name", 1)
+    all_docs = []
     for doc in cursor:
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc.pop("_id", None)
@@ -262,8 +282,24 @@ def browse_products(skip=0, limit=100):
         price_info = _extract_price_details(doc)
         doc.update(price_info)
         doc.pop("price_history", None)
-        results.append(doc)
-    return {"results": results, "total": total, "skip": skip, "limit": limit}
+        all_docs.append(doc)
+
+    def _sort_key(d):
+        if sort_by == "price":
+            candidates = [d.get("last_scraped_price"), d.get("discount_price"), d.get("clubcard_price")]
+            nums = [v for v in candidates if isinstance(v, (int, float))]
+            return min(nums) if nums else float("inf")
+        if sort_by == "discount":
+            normal = d.get("last_scraped_price")
+            disc   = d.get("discount_price")
+            if isinstance(normal, (int, float)) and isinstance(disc, (int, float)) and normal > 0:
+                return (normal - disc) / normal
+            return 0.0
+        return (d.get("name") or "").lower()
+
+    reverse = (sort_dir == "desc") if sort_by != "discount" else (sort_dir != "asc")
+    all_docs.sort(key=_sort_key, reverse=reverse)
+    return {"results": all_docs[skip: skip + limit], "total": total, "skip": skip, "limit": limit}
 
 
 def search_products(query, skip: int = 0, limit: int = 50):

@@ -60,9 +60,11 @@ def list_product_ids(
 def browse_products(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=500),
+    sort_by: str = Query(default="name", regex="^(name|price|discount)$"),
+    sort_dir: str = Query(default="asc", regex="^(asc|desc)$"),
 ):
     """Return paginated product summaries for the catalogue view (no price history)."""
-    return db.browse_products(skip=skip, limit=limit)
+    return db.browse_products(skip=skip, limit=limit, sort_by=sort_by, sort_dir=sort_dir)
 
 
 @app.get("/api/v1/products/search")

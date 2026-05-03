@@ -188,6 +188,10 @@
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
   }
+  &.is-discounted {
+    border-color: rgba(220,38,38,.35);
+    &:hover { border-color: rgba(220,38,38,.6); }
+  }
 }
 .sr-card-img {
   width: 100%;
@@ -245,14 +249,14 @@
   font-size: clamp(14px, 1.2vw, 16px);
   font-weight: 800;
   color: #00539F;
-  &--discount  { color: #d97706; }
-  &--clubcard  { color: #7c3aed; }
+  &--discount  { color: #dc2626; } /* red for discount */
+  &--clubcard  { color: #ca8a04; } /* yellow/amber for clubcard */
   &--original  { font-size: 10px; font-weight: 600; color: var(--text-muted); text-decoration: line-through; }
 }
 .sr-card-discount-pct {
   font-size: 10px;
   font-weight: 800;
-  color: #d97706;
+  color: #dc2626;
 }
 .sr-card-unit-price {
   font-size: 9px;

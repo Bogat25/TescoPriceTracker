@@ -1,7 +1,7 @@
-import { Component, inject, signal, computed, HostListener } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
@@ -13,9 +13,10 @@ import { ProductSummary, ProductsService } from '../services/products.service';
   templateUrl: './search.html',
   styleUrl: './search.scss',
 })
-export class Search {
+export class Search implements OnInit {
   private products = inject(ProductsService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
 
   query = '';
   readonly results     = signal<ProductSummary[]>([]);
@@ -75,6 +76,16 @@ export class Search {
       });
   }
 
+  ngOnInit(): void {
+    // Restore search query from URL param on load (supports sharing & back-navigation)
+    const q = this.route.snapshot.queryParamMap.get('q') ?? '';
+    if (q.trim()) {
+      this.query = q;
+      this._lastQuery = q;
+      this._doSearch(q, 0);
+    }
+  }
+
   onInput(value: string): void {
     this.query = value;
     this._submitting = false; // user is typing again — re-enable suggestions
@@ -98,6 +109,8 @@ export class Search {
     this.suggestions.set([]);
     const q = this.query.trim();
     if (!q) return;
+    // Push query into URL so it can be shared / restored on back navigation
+    this.router.navigate([], { queryParams: { q }, replaceUrl: false });
     this._lastQuery = q;
     this.currentPage.set(0);
     this._doSearch(q, 0);

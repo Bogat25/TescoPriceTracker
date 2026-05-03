@@ -313,9 +313,13 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         this.alertDropPercentage = null;
       },
       error: (err) => {
-        const detail = err?.error?.detail;
-        this.alertMessage.set(detail || err?.error?.error || 'Failed to save alert.');
         this.alertSaving.set(false);
+        if (err?.status === 401 || err?.status === 403) {
+          this.alertMessage.set('You must be logged in to set alerts. Please log in and try again.');
+        } else {
+          const detail = err?.error?.detail;
+          this.alertMessage.set(detail || err?.error?.error || 'Failed to save alert.');
+        }
       },
     });
   }

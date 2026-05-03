@@ -51,7 +51,7 @@
     <app-hex-kpi
       [value]="statsLoading() ? '…' : (trend30d() || '—')"
       [label]="'home.kpi.trend30d' | translate"
-      [accent]="trend30d().startsWith('â†“') ? 'var(--hex5)' : trend30d().startsWith('â†‘') ? 'var(--hex3)' : 'var(--hex2)'"/>
+      [accent]="trend30d().startsWith('↓') ? 'var(--hex5)' : trend30d().startsWith('↑') ? 'var(--hex3)' : 'var(--hex2)'"/>
     <app-hex-kpi
       [value]="statsLoading() ? '…' : (bestWeekday() || '—')"
       [label]="'home.kpi.shopday' | translate"

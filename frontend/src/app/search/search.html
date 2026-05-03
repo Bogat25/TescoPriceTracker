@@ -82,8 +82,8 @@
     </div>
     <ul class="sr-grid">
       @for (p of results(); track p.tpnc) {
-        <li>
-          <a [routerLink]="['/products', p.tpnc]" class="sr-card">
+      <li>
+          <a [routerLink]="['/products', p.tpnc]" class="sr-card" [class.is-discounted]="p.discountPrice !== undefined || p.clubcardPrice !== undefined">
             <!-- Product image (square, full-width top) -->
             <div class="sr-card-img">
               @if (p.imageUrl) {
@@ -112,10 +112,12 @@
               @if (p.currentPrice !== undefined) {
                 <div class="sr-card-pricing">
                   @if (p.discountPrice !== undefined) {
+                    <!-- Discount is lowest — show in red -->
                     <span class="sr-card-price sr-card-price--discount font-mono-prices">{{ p.discountPrice | number:'1.2-2' }} Ft</span>
                     <span class="sr-card-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
                     <span class="sr-card-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
                   } @else if (p.clubcardPrice !== undefined) {
+                    <!-- Clubcard — show in yellow/amber -->
                     <span class="sr-card-price sr-card-price--clubcard font-mono-prices">{{ p.clubcardPrice | number:'1.2-2' }} Ft</span>
                     <span class="sr-card-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
                   } @else {

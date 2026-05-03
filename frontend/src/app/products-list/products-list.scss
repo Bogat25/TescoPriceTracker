@@ -217,14 +217,14 @@
   font-weight: 800;
   color: var(--text-primary);
   white-space: nowrap;
-  &--discount  { color: #d97706; }
-  &--clubcard  { color: #7c3aed; }
+  &--discount  { color: #dc2626; } /* red for discount */
+  &--clubcard  { color: #ca8a04; } /* amber for clubcard */
   &--original  { font-size: 10px; font-weight: 600; color: var(--text-muted); text-decoration: line-through; display: block; }
 }
 .pl-discount-pct {
   font-size: 10px;
   font-weight: 800;
-  color: #d97706;
+  color: #dc2626;
   display: block;
 }
 .pl-unit-price {
@@ -233,6 +233,11 @@
   margin-top: 1px;
 }
 .pl-no-price { color: var(--text-muted); }
+.pl-category-btn {
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms;
+  &:hover { background: rgba(0,83,159,.18); border-color: rgba(0,83,159,.4); }
+}
 .pl-rating {
   font-size: 11px;
   font-weight: 700;
@@ -252,11 +257,21 @@
   &:hover { background: rgba(0,83,159,.1); }
 }
 
-/* ── Load more ───────────────────────────────── */
+/* ── Load more / all loaded ───────────────────── */
 .pl-load-more {
   display: flex;
   justify-content: center;
   padding: 20px 0 8px;
+}
+.pl-all-loaded {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 .pl-load-more-btn {
   display: inline-flex;
@@ -297,16 +312,17 @@
   }
   .pl-table tr.pl-row-even { background: var(--surface-card); }
   .pl-td { padding: 0; border: none; }
-  .pl-td-icon { width: 36px; flex-shrink: 0; }
-  .pl-td:nth-child(2) { flex: 1; min-width: 0; }
-  .pl-td-right, .pl-td-action, .pl-td-cat { display: none; }
+  .pl-td-icon { width: 50px; min-width: 50px; flex-shrink: 0; align-self: center; }
+  .pl-td:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; }
+  .pl-td-right, .pl-td-action, .pl-td-cat, .pl-td-discount { display: none; }
   /* Show price inline */
   .pl-td:nth-child(4) {
     display: block;
     text-align: right;
     flex-shrink: 0;
+    min-width: 80px;
   }
-  .pl-thumb { width: 50px; height: 50px; }
+  .pl-thumb { width: 50px; height: 50px; min-width: 50px; }
   .pl-name { max-width: none; font-size: 13px; }
 }
 
@@ -322,5 +338,6 @@
 @media (max-width: 1023px) and (min-width: 640px) {
   .pl-th-cat,
   .pl-td-cat  { display: none; }
+  .pl-td-discount, .pl-th-discount { display: none; }
   .pl-thumb   { width: 100px; height: 100px; min-width: 100px; }
 }

@@ -105,6 +105,9 @@
             <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('price')">
               {{ 'catalogue.col.price' | translate }} <span class="pl-sort-icon">{{ sortIcon('price') }}</span>
             </th>
+            <th class="pl-th pl-th-sortable pl-th-right pl-th-discount" (click)="setSort('discount')">
+              Discount <span class="pl-sort-icon">{{ sortIcon('discount') }}</span>
+            </th>
             <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('rating')">
               {{ 'catalogue.col.rating' | translate }} <span class="pl-sort-icon">{{ sortIcon('rating') }}</span>
             </th>
@@ -118,9 +121,13 @@
               <!-- Icon -->
               <td class="pl-td pl-td-icon">
                 @if (p.imageUrl) {
-                  <img [src]="p.imageUrl" [alt]="p.name || p.tpnc" class="pl-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+                  <a [routerLink]="['/products', p.tpnc]">
+                    <img [src]="p.imageUrl" [alt]="p.name || p.tpnc" class="pl-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+                  </a>
                 } @else {
-                  <app-hex-icon [letter]="(p.name || p.tpnc).charAt(0).toUpperCase()" [accent]="'#00539F'" [size]="28"/>
+                  <a [routerLink]="['/products', p.tpnc]">
+                    <app-hex-icon [letter]="(p.name || p.tpnc).charAt(0).toUpperCase()" [accent]="'#00539F'" [size]="28"/>
+                  </a>
                 }
               </td>
 
@@ -137,7 +144,7 @@
 
               <!-- Category -->
               <td class="pl-td pl-td-cat">
-                <span class="pl-category-badge">{{ p.category || '—' }}</span>
+                <button type="button" class="pl-category-badge pl-category-btn" (click)="filterByCategory(p)">{{ p.category || '—' }}</button>
               </td>
 
               <!-- Price -->
@@ -146,7 +153,6 @@
                   @if (p.discountPrice !== undefined) {
                     <span class="pl-price pl-price--discount font-mono-prices">{{ p.discountPrice | number:'1.2-2' }} Ft</span>
                     <span class="pl-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                    <span class="pl-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
                   } @else if (p.clubcardPrice !== undefined) {
                     <span class="pl-price pl-price--clubcard font-mono-prices">{{ p.clubcardPrice | number:'1.2-2' }} Ft</span>
                     <span class="pl-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
@@ -161,7 +167,12 @@
                 }
               </td>
 
-              <!-- Rating -->
+              <!-- Discount % -->
+              <td class="pl-td pl-td-right pl-td-discount">
+                @if (p.discountPrice !== undefined && p.currentPrice !== undefined && p.currentPrice > 0) {
+                  <span class="pl-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
+                } @else { <span class="pl-no-price">—</span> }
+              </td>
               <td class="pl-td pl-td-right">
                 @if (p.rating !== undefined) {
                   <span class="pl-rating">★ {{ p.rating | number:'1.1-1' }}</span>
@@ -183,7 +194,7 @@
       </table>
     </div>
 
-    <!-- Load more -->
+    <!-- Load more / all loaded -->
     @if (hasMore() && !query()) {
       <div class="pl-load-more">
         <button class="pl-load-more-btn" (click)="loadMore()" [disabled]="loadingMore()">
@@ -193,6 +204,13 @@
             Load more ({{ total() - allProducts().length | number }} remaining)
           }
         </button>
+      </div>
+    } @else if (allLoaded()) {
+      <div class="pl-all-loaded">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        All {{ total() | number }} products loaded
       </div>
     }
   }
