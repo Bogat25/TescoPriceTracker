@@ -1101,14 +1101,14 @@ function renderChart(canvas, labels, prices, discountPrices, clubcardPrices, sta
           ctx.lineTo(right, minY);
           ctx.stroke();
 
-          // Min label
+          // Min label (below the min line)
           ctx.fillStyle = "#16a34a";
           ctx.font = "bold 10px sans-serif";
           ctx.textAlign = "right";
           ctx.fillText(
             `${t.min}: ${stats.min.toLocaleString(getLocale())} Ft`,
             right - 4,
-            minY - 5
+            minY + 14
           );
 
           // Max line
@@ -1119,7 +1119,7 @@ function renderChart(canvas, labels, prices, discountPrices, clubcardPrices, sta
           ctx.lineTo(right, maxY);
           ctx.stroke();
 
-          // Max label
+          // Max label (above the max line)
           ctx.fillStyle = "#dc2626";
           ctx.fillText(
             `${t.max}: ${stats.max.toLocaleString(getLocale())} Ft`,

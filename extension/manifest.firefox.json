@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Tesco Price Tracker",
-  "version": "1.0.3",
+  "version": "1.2.1",
   "description": "Tracks price history, syncs alerts with your account, and displays charts on Tesco product pages.",
   "author": "Gavallér Bogát Bendegúz",
 
   "permissions": [
     "storage",
-    "identity"
+    "tabs"
   ],
 
   "host_permissions": [

@@ -3,11 +3,14 @@ Auth gateway: handles the OIDC dance with Keycloak so the SPA only deals with
 cookies. Owned by /auth/* routes on the same origin as the frontend.
 
 Contract (do not break — other services depend on it):
-  GET /auth/login?returnUrl=...   -> 302 to Keycloak authorize
-  GET /auth/callback?code&state   -> exchanges code, sets session cookie, 302 to returnUrl
-  GET /auth/userinfo              -> {Name, Claims[]} or 401
-  GET /auth/token                 -> {access_token, expires_in} for Bearer-only backends, or 401
-  GET /auth/logout?returnUrl=...  -> clears cookie, 302 to Keycloak end-session
+  GET /auth/login?returnUrl=...           -> 302 to Keycloak authorize
+  GET /auth/callback?code&state           -> exchanges code, sets session cookie, 302 to returnUrl
+  GET /auth/userinfo                      -> {Name, Claims[]} or 401
+  GET /auth/token                         -> {access_token, expires_in} for Bearer-only backends, or 401
+  GET /auth/logout?returnUrl=...          -> clears cookie, 302 to Keycloak end-session
+  GET /auth/extension-relay               -> after login: creates one-time ext_code, 302 to /auth/extension-done?ext_code=...
+  GET /auth/extension-done?ext_code=...   -> landing page the browser extension monitors for
+  GET /auth/extension-token?code=...      -> returns {access_token,refresh_token,...} for ext_code, then invalidates it
   GET /auth/account               -> 302 to Keycloak account management (requires session)
   GET /auth/health                -> {ok: true}
 """
@@ -19,6 +22,7 @@ import logging
 import os
 import secrets
 import time
+import uuid
 from typing import Optional, Tuple
 from urllib.parse import urlencode, urlparse
 
@@ -64,6 +68,11 @@ LOGOUT_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/protocol/openid-connect/logout"
 ACCOUNT_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/account"
 TOKEN_ENDPOINT_INTERNAL = f"{KC_INTERNAL_BASE_URL}/protocol/openid-connect/token"
 USERINFO_ENDPOINT_INTERNAL = f"{KC_INTERNAL_BASE_URL}/protocol/openid-connect/userinfo"
+
+# ── One-time extension auth codes ────────────────────────────────────────────
+# Maps ext_code -> {tokens, exp}. Short-lived (90 s TTL). Single-process only.
+_EXT_CODES: dict = {}
+_EXT_CODE_TTL = 90  # seconds
 
 
 def _b64url_no_pad(b: bytes) -> str:
@@ -351,3 +360,153 @@ async def logout(request: Request, returnUrl: Optional[str] = None):
     resp = RedirectResponse(f"{LOGOUT_ENDPOINT_PUBLIC}?{urlencode(params)}", status_code=302)
     _clear_session_cookie(resp)
     return resp
+
+
+# ── Browser extension auth endpoints ─────────────────────────────────────────
+
+@app.get("/auth/extension-relay")
+async def extension_relay(request: Request):
+    """
+    After the normal auth flow completes and the auth-gateway redirects here,
+    create a short-lived one-time ext_code and redirect to /auth/extension-done.
+    The extension monitors the tab for that URL, extracts the code, then
+    calls /auth/extension-token to exchange it for real tokens.
+    """
+    session = _read_session(request)
+    if not session:
+        # Not logged in — redirect to login first
+        return RedirectResponse(
+            f"/auth/login?returnUrl=/auth/extension-relay",
+            status_code=302,
+        )
+
+    # Purge stale codes
+    now = int(time.time())
+    stale = [k for k, v in _EXT_CODES.items() if v["exp"] < now]
+    for k in stale:
+        _EXT_CODES.pop(k, None)
+
+    ext_code = str(uuid.uuid4())
+    _EXT_CODES[ext_code] = {
+        "at": session["at"],
+        "rt": session.get("rt"),
+        "it": session.get("it"),
+        "exp": now + _EXT_CODE_TTL,
+    }
+
+    return RedirectResponse(
+        f"/auth/extension-done?ext_code={ext_code}",
+        status_code=302,
+    )
+
+
+@app.get("/auth/extension-done")
+async def extension_done(ext_code: Optional[str] = None):
+    """
+    Landing page that the extension's tabs.onUpdated listener watches for.
+    The extension closes this tab immediately after catching the URL.
+    Returns a minimal HTML page so the user sees a friendly message
+    if the tab is briefly visible.
+    """
+    from fastapi.responses import HTMLResponse
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Signed in</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f5f7fa;}
+.card{text-align:center;padding:40px;border-radius:12px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.08);}
+h2{color:#00539f;margin-bottom:8px;}p{color:#6b7280;}</style></head>
+<body><div class="card"><h2>&#10003; Signed in successfully</h2>
+<p>You can close this tab. The extension has been authenticated.</p></div></body></html>"""
+    return HTMLResponse(html)
+
+
+@app.get("/auth/extension-token")
+async def extension_token(code: Optional[str] = None):
+    """
+    Exchange a one-time ext_code for the actual tokens.
+    The code is invalidated immediately after use.
+    """
+    from fastapi.responses import JSONResponse
+
+    if not code:
+        raise HTTPException(400, "missing code")
+
+    entry = _EXT_CODES.pop(code, None)
+    if not entry:
+        raise HTTPException(404, "code not found or already used")
+
+    now = int(time.time())
+    if entry["exp"] < now:
+        raise HTTPException(410, "code expired")
+
+    expires_in = max(entry["exp"] - now, 0)
+    return JSONResponse({
+        "access_token": entry["at"],
+        "refresh_token": entry.get("rt"),
+        "id_token": entry.get("it"),
+        "expires_in": expires_in,
+    })
+
+
+@app.post("/auth/extension-refresh")
+async def extension_refresh(request: Request):
+    """
+    Refresh an extension's access token using a stored refresh token.
+    Expects JSON body: {"refresh_token": "..."}
+    Returns: {"access_token", "refresh_token", "expires_in"}
+    Proxies to Keycloak internally — the extension never needs the Keycloak URL.
+    """
+    from fastapi.responses import JSONResponse
+
+    body = await request.json()
+    refresh_tok = body.get("refresh_token") if body else None
+    if not refresh_tok:
+        raise HTTPException(400, "missing refresh_token")
+
+    payload = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_tok,
+        "client_id": KC_CLIENT_ID,
+    }
+    if KC_CLIENT_SECRET:
+        payload["client_secret"] = KC_CLIENT_SECRET
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.post(
+            TOKEN_ENDPOINT_INTERNAL,
+            data=payload,
+            headers={"Accept": "application/json"},
+        )
+    if r.status_code != 200:
+        logger.warning("extension token refresh failed: %s %s", r.status_code, r.text)
+        raise HTTPException(401, "refresh failed")
+
+    tokens = r.json()
+    return JSONResponse({
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token"),
+        "expires_in": tokens.get("expires_in", 300),
+    })
+
+
+@app.get("/auth/extension-userinfo")
+async def extension_userinfo(request: Request):
+    """
+    Proxy a userinfo request to Keycloak using the extension's Bearer token.
+    The extension sends Authorization: Bearer <access_token>.
+    Returns Keycloak's userinfo payload.
+    """
+    from fastapi.responses import JSONResponse
+
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(401, "missing or invalid Authorization header")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        r = await client.get(
+            USERINFO_ENDPOINT_INTERNAL,
+            headers={"Authorization": auth_header, "Accept": "application/json"},
+        )
+    if r.status_code != 200:
+        raise HTTPException(r.status_code, "userinfo request failed")
+    return JSONResponse(r.json())

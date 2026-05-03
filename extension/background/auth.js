@@ -1,9 +1,12 @@
 // ============================================
 // AUTH MODULE — Tesco Price Tracker Extension
 // ============================================
-// Handles Keycloak OIDC authentication using
-// browser.identity.launchWebAuthFlow (Chrome/Edge)
-// or a redirect-based approach (Firefox).
+// Handles authentication via the Price Tracker auth-gateway.
+// Opens a browser tab pointing to /auth/login, the gateway
+// performs PKCE with Keycloak, then redirects to
+// /auth/extension-relay → /auth/extension-done?ext_code=...
+// The extension intercepts the navigation to extension-done,
+// closes the tab, and exchanges the ext_code for real tokens.
 //
 // Stores tokens in browser.storage.local.
 // Exposes: login(), logout(), getToken(), getUser(), isLoggedIn()
@@ -17,32 +20,10 @@ if (typeof browser === "undefined") {
 
 const STORAGE_KEY = "tpt_auth_session";
 
-// ── PKCE Helpers ─────────────────────────────
-
-function generateRandomString(length) {
-  const array = new Uint8Array(length);
-  crypto.getRandomValues(array);
-  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("").slice(0, length);
-}
-
-async function sha256(plain) {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(plain);
-  return await crypto.subtle.digest("SHA-256", data);
-}
-
-function base64UrlEncode(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let str = "";
-  for (const b of bytes) str += String.fromCharCode(b);
-  return btoa(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-async function generatePKCE() {
-  const verifier = generateRandomString(64);
-  const challenge = base64UrlEncode(await sha256(verifier));
-  return { verifier, challenge };
-}
+// The URL pattern the extension watches for after login
+const EXTENSION_DONE_PATH = "/auth/extension-done";
+const EXTENSION_TOKEN_PATH = "/auth/extension-token";
+const LOGIN_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
 // ── Token Storage ────────────────────────────
 
@@ -59,23 +40,18 @@ async function clearSession() {
   await browser.storage.local.remove(STORAGE_KEY);
 }
 
-// ── Token Refresh ────────────────────────────
+// ── Token Refresh via auth-gateway ───────────
 
 async function refreshToken(session) {
   if (!session || !session.refresh_token) return null;
 
-  const tokenUrl = `${ENV.KEYCLOAK_URL}/protocol/openid-connect/token`;
-  const body = new URLSearchParams({
-    grant_type: "refresh_token",
-    refresh_token: session.refresh_token,
-    client_id: ENV.KEYCLOAK_CLIENT_ID,
-  });
+  const authGatewayBase = ENV.AUTH_GATEWAY_URL.replace(/\/+$/, "");
 
   try {
-    const resp = await fetch(tokenUrl, {
+    const resp = await fetch(`${authGatewayBase}/extension-refresh`, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: session.refresh_token }),
     });
 
     if (!resp.ok) {
@@ -87,9 +63,9 @@ async function refreshToken(session) {
     const newSession = {
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token || session.refresh_token,
-      id_token: tokens.id_token || session.id_token,
+      id_token: session.id_token,
       expires_at: Date.now() + (tokens.expires_in || 300) * 1000,
-      user: session.user, // Keep cached user info
+      user: session.user,
     };
     await saveSession(newSession);
     return newSession;
@@ -137,117 +113,112 @@ export async function isLoggedIn() {
 }
 
 /**
- * Start OIDC login via launchWebAuthFlow.
+ * Start login via the auth-gateway tab flow.
+ * 1. Opens a browser tab → /auth/login?returnUrl=/auth/extension-relay
+ * 2. User logs in via Keycloak (handled by auth-gateway)
+ * 3. Gateway redirects to /auth/extension-done?ext_code=<code>
+ * 4. Extension catches the tab URL change, closes tab, fetches tokens
  * Returns { success: true, user } or { success: false, error }.
  */
 export async function login() {
-  const { verifier, challenge } = await generatePKCE();
+  const authGatewayBase = ENV.AUTH_GATEWAY_URL.replace(/\/+$/, "");
+  const websiteBase = ENV.WEBSITE_URL.replace(/\/+$/, "");
+  const returnUrl = `${websiteBase}/auth/extension-relay`;
+  const loginUrl = `${authGatewayBase}/login?returnUrl=${encodeURIComponent(returnUrl)}`;
+  const donePath = `${websiteBase}${EXTENSION_DONE_PATH}`;
 
-  // The redirect URI for extensions
-  const redirectUri = browser.identity.getRedirectURL("callback");
+  return new Promise((resolve) => {
+    let authTabId = null;
+    let settled = false;
+    let timeoutId = null;
 
-  const authUrl = new URL(`${ENV.KEYCLOAK_URL}/protocol/openid-connect/auth`);
-  authUrl.searchParams.set("client_id", ENV.KEYCLOAK_CLIENT_ID);
-  authUrl.searchParams.set("response_type", "code");
-  authUrl.searchParams.set("redirect_uri", redirectUri);
-  authUrl.searchParams.set("scope", "openid profile email");
-  authUrl.searchParams.set("code_challenge", challenge);
-  authUrl.searchParams.set("code_challenge_method", "S256");
-  authUrl.searchParams.set("state", generateRandomString(16));
-
-  try {
-    const responseUrl = await browser.identity.launchWebAuthFlow({
-      url: authUrl.toString(),
-      interactive: true,
-    });
-
-    // Extract code from redirect URL
-    const url = new URL(responseUrl);
-    const code = url.searchParams.get("code");
-    if (!code) {
-      return { success: false, error: "No authorization code received" };
+    function finish(result) {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      browser.tabs.onUpdated.removeListener(onTabUpdated);
+      if (authTabId !== null) {
+        browser.tabs.remove(authTabId).catch(() => {});
+      }
+      resolve(result);
     }
 
-    // Exchange code for tokens
-    const tokenUrl = `${ENV.KEYCLOAK_URL}/protocol/openid-connect/token`;
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      code: code,
-      redirect_uri: redirectUri,
-      client_id: ENV.KEYCLOAK_CLIENT_ID,
-      code_verifier: verifier,
-    });
+    async function onTabUpdated(tabId, changeInfo) {
+      if (tabId !== authTabId) return;
+      const url = changeInfo.url || "";
+      if (!url.startsWith(donePath)) return;
 
-    const tokenResp = await fetch(tokenUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: body.toString(),
-    });
+      let extCode = null;
+      try {
+        extCode = new URL(url).searchParams.get("ext_code");
+      } catch { /* ignore */ }
 
-    if (!tokenResp.ok) {
-      const errText = await tokenResp.text();
-      console.error("[Auth] Token exchange failed:", errText);
-      return { success: false, error: "Token exchange failed" };
+      if (!extCode) {
+        finish({ success: false, error: "No ext_code in callback URL" });
+        return;
+      }
+
+      try {
+        const tokenResp = await fetch(
+          `${websiteBase}${EXTENSION_TOKEN_PATH}?code=${encodeURIComponent(extCode)}`
+        );
+        if (!tokenResp.ok) {
+          finish({ success: false, error: `Token exchange failed: ${tokenResp.status}` });
+          return;
+        }
+        const tokens = await tokenResp.json();
+
+        // Fetch user info via auth-gateway proxy (no direct Keycloak access needed)
+        let user = null;
+        try {
+          const uiResp = await fetch(
+            `${websiteBase}/auth/extension-userinfo`,
+            { headers: { Authorization: `Bearer ${tokens.access_token}` } }
+          );
+          if (uiResp.ok) {
+            const info = await uiResp.json();
+            user = {
+              sub: info.sub,
+              name: info.preferred_username || info.name || info.email || "User",
+              email: info.email || null,
+            };
+          }
+        } catch { /* best-effort */ }
+
+        const session = {
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          id_token: tokens.id_token,
+          expires_at: Date.now() + (tokens.expires_in || 300) * 1000,
+          user,
+        };
+        await saveSession(session);
+        finish({ success: true, user });
+      } catch (err) {
+        console.error("[Auth] Login fetch error:", err);
+        finish({ success: false, error: err.message || "Token fetch failed" });
+      }
     }
 
-    const tokens = await tokenResp.json();
+    browser.tabs.onUpdated.addListener(onTabUpdated);
 
-    // Fetch user info
-    const userinfoUrl = `${ENV.KEYCLOAK_URL}/protocol/openid-connect/userinfo`;
-    const userinfoResp = await fetch(userinfoUrl, {
-      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    browser.tabs.create({ url: loginUrl }).then((tab) => {
+      authTabId = tab.id;
+    }).catch((err) => {
+      finish({ success: false, error: err.message || "Failed to open auth tab" });
     });
 
-    let user = null;
-    if (userinfoResp.ok) {
-      const info = await userinfoResp.json();
-      user = {
-        sub: info.sub,
-        name: info.preferred_username || info.name || info.email || "User",
-        email: info.email || null,
-      };
-    }
-
-    const session = {
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      id_token: tokens.id_token,
-      expires_at: Date.now() + (tokens.expires_in || 300) * 1000,
-      user: user,
-    };
-    await saveSession(session);
-
-    return { success: true, user };
-  } catch (err) {
-    console.error("[Auth] Login error:", err);
-    return { success: false, error: err.message || "Login cancelled" };
-  }
+    timeoutId = setTimeout(() => {
+      finish({ success: false, error: "Login timed out" });
+    }, LOGIN_TIMEOUT_MS);
+  });
 }
 
 /**
- * Logout: revoke tokens and clear session.
+ * Logout: clear local session.
+ * The server-side session cookie is managed separately by the auth-gateway.
  */
 export async function logout() {
-  const session = await loadSession();
-
-  if (session && session.refresh_token) {
-    // Best-effort revoke at Keycloak
-    const revokeUrl = `${ENV.KEYCLOAK_URL}/protocol/openid-connect/revoke`;
-    try {
-      await fetch(revokeUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          client_id: ENV.KEYCLOAK_CLIENT_ID,
-          token: session.refresh_token,
-          token_type_hint: "refresh_token",
-        }).toString(),
-      });
-    } catch {
-      // Best effort
-    }
-  }
-
   await clearSession();
   return { success: true };
 }
