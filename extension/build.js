@@ -14,7 +14,107 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const zlib = require("zlib");
+
+// ── CRC-32 (needed for ZIP) ──────────────────
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c;
+  }
+  return t;
+})();
+
+function crc32(buf) {
+  let c = 0xffffffff;
+  for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// ── Pure-Node ZIP writer (always forward-slash paths) ──
+
+function createZip(sourceDir, zipPath) {
+  const localBlocks = [];
+  const centralDir  = [];
+  let offset = 0;
+
+  function walk(dir, base) {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const full      = path.join(dir, name);
+      const entryPath = base ? `${base}/${name}` : name;   // ← always forward slash
+      if (fs.statSync(full).isDirectory()) {
+        walk(full, entryPath);
+      } else {
+        const raw        = fs.readFileSync(full);
+        const deflated   = zlib.deflateRawSync(raw, { level: 9 });
+        const useDeflate = deflated.length < raw.length;
+        const fileData   = useDeflate ? deflated : raw;
+        const method     = useDeflate ? 8 : 0;
+        const crc        = crc32(raw);
+        const nameBytes  = Buffer.from(entryPath, "utf8");
+
+        // Local file header (30 bytes + name)
+        const lh = Buffer.alloc(30 + nameBytes.length);
+        lh.writeUInt32LE(0x04034b50, 0);
+        lh.writeUInt16LE(20,         4);
+        lh.writeUInt16LE(0x0800,     6);   // UTF-8 flag
+        lh.writeUInt16LE(method,     8);
+        lh.writeUInt16LE(0,         10);
+        lh.writeUInt16LE(0,         12);
+        lh.writeUInt32LE(crc,       14);
+        lh.writeUInt32LE(fileData.length, 18);
+        lh.writeUInt32LE(raw.length,      22);
+        lh.writeUInt16LE(nameBytes.length, 26);
+        lh.writeUInt16LE(0,         28);
+        nameBytes.copy(lh, 30);
+
+        localBlocks.push(lh, fileData);
+
+        // Central directory entry (46 bytes + name)
+        const cd = Buffer.alloc(46 + nameBytes.length);
+        cd.writeUInt32LE(0x02014b50,  0);
+        cd.writeUInt16LE(20,          4);
+        cd.writeUInt16LE(20,          6);
+        cd.writeUInt16LE(0x0800,      8);
+        cd.writeUInt16LE(method,     10);
+        cd.writeUInt16LE(0,          12);
+        cd.writeUInt16LE(0,          14);
+        cd.writeUInt32LE(crc,        16);
+        cd.writeUInt32LE(fileData.length, 20);
+        cd.writeUInt32LE(raw.length,      24);
+        cd.writeUInt16LE(nameBytes.length, 28);
+        cd.writeUInt16LE(0,          30);
+        cd.writeUInt16LE(0,          32);
+        cd.writeUInt16LE(0,          34);
+        cd.writeUInt16LE(0,          36);
+        cd.writeUInt32LE(0,          38);
+        cd.writeUInt32LE(offset,     42);
+        nameBytes.copy(cd, 46);
+
+        offset += lh.length + fileData.length;
+        centralDir.push(cd);
+      }
+    }
+  }
+
+  walk(sourceDir, "");
+
+  const cdBuf = Buffer.concat(centralDir);
+  const eocd  = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50,        0);
+  eocd.writeUInt16LE(0,                 4);
+  eocd.writeUInt16LE(0,                 6);
+  eocd.writeUInt16LE(centralDir.length, 8);
+  eocd.writeUInt16LE(centralDir.length, 10);
+  eocd.writeUInt32LE(cdBuf.length,      12);
+  eocd.writeUInt32LE(offset,            16);
+  eocd.writeUInt16LE(0,                 20);
+
+  fs.writeFileSync(zipPath, Buffer.concat([...localBlocks, cdBuf, eocd]));
+}
 
 // ── Load .env ────────────────────────────────
 
@@ -67,7 +167,7 @@ function generateManifest(platform, env) {
     // Firefox uses browser_specific_settings
     base.browser_specific_settings = {
       gecko: {
-        id: env.FIREFOX_EXTENSION_ID || "tesco-price-tracker@example.com",
+        id: env.FIREFOX_EXTENSION_ID || "ttesco-price-tracker@gavaller.com",
         strict_min_version: "112.0",
       },
     };
@@ -115,21 +215,12 @@ function buildPlatform(platform, env) {
   fs.writeFileSync(path.resolve(distDir, "manifest.json"), JSON.stringify(manifest, null, 2));
   console.log(`  ✓ manifest.json (${platform})`);
 
-  // Create .zip
+  // Create .zip with forward-slash entry paths (required by Firefox / ZIP spec)
   const zipName = `tesco-price-tracker-${platform}.zip`;
   const zipPath = path.resolve(__dirname, "dist", zipName);
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
-  // Use PowerShell's Compress-Archive on Windows, zip on Unix
-  const isWindows = process.platform === "win32";
-  if (isWindows) {
-    execSync(
-      `powershell -Command "Compress-Archive -Path '${distDir}\\*' -DestinationPath '${zipPath}' -Force"`,
-      { stdio: "inherit" }
-    );
-  } else {
-    execSync(`cd "${distDir}" && zip -r "${zipPath}" .`, { stdio: "inherit" });
-  }
+  createZip(distDir, zipPath);
   console.log(`  ✓ ${zipName}`);
 }
 
