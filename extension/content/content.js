@@ -244,9 +244,11 @@ function parseDate(str) {
   return d;
 }
 
-// Check if history object has any data
+// Check if history has any data — supports both array format and legacy object format
 function hasHistoryData(history) {
-  if (!history || typeof history !== "object") return false;
+  if (!history) return false;
+  if (Array.isArray(history)) return history.length > 0;
+  if (typeof history !== "object") return false;
   return (
     (history.normal && history.normal.length > 0) ||
     (history.discount && history.discount.length > 0) ||
@@ -282,17 +284,42 @@ async function getRealData() {
 }
 
 /**
- * Process period-based history into Chart.js friendly format.
- * Each category has entries with start_date/end_date ranges.
- * Expands ranges into daily data points; missing days become null.
+ * Process price history into Chart.js friendly format.
+ * Supports the API's array format: [{date, normal:{price}, discount:{price}|null, clubcard:{price}|null}]
+ * Also supports legacy period-based format: {normal:[{start_date,end_date,price}], ...}
  */
 function processRealData(history) {
   const locale = getLocale();
+
+  // ── Array format (current API) ──
+  if (Array.isArray(history)) {
+    if (history.length === 0) return { labels: [], prices: [], discountPrices: [], clubcardPrices: [], startDate: null, endDate: null };
+
+    const sorted = [...history].sort((a, b) => a.date < b.date ? -1 : 1);
+
+    const labels = [];
+    const prices = [];
+    const discountPrices = [];
+    const clubcardPrices = [];
+
+    for (const entry of sorted) {
+      const d = parseDate(entry.date);
+      labels.push(formatDate(d, locale));
+      prices.push(entry.normal ? entry.normal.price : null);
+      discountPrices.push(entry.discount ? entry.discount.price : null);
+      clubcardPrices.push(entry.clubcard ? entry.clubcard.price : null);
+    }
+
+    const startDate = parseDate(sorted[0].date);
+    const endDate = parseDate(sorted[sorted.length - 1].date);
+    return { labels, prices, discountPrices, clubcardPrices, startDate, endDate };
+  }
+
+  // ── Legacy period-based format: {normal:[{start_date,end_date,price}], ...} ──
   const normal = history.normal || [];
   const discount = history.discount || [];
   const clubcard = history.clubcard || [];
 
-  // Find the global earliest start_date across all categories
   let earliest = null;
   for (const entries of [normal, discount, clubcard]) {
     for (const e of entries) {
@@ -307,7 +334,6 @@ function processRealData(history) {
   endDate.setHours(0, 0, 0, 0);
   const totalDays = diffDays(endDate, earliest);
 
-  // Build lookup: for each category, create a flat map of dayTimestamp → price
   function buildDayMap(entries) {
     const map = new Map();
     for (const entry of entries) {
@@ -1027,7 +1053,7 @@ function renderChart(canvas, labels, prices, discountPrices, clubcardPrices, sta
           pointHoverRadius: 6,
           fill: true,
           tension: 0.3,
-          spanGaps: false // IMPORTANT: Do not connect points over missing days
+          spanGaps: true // Normal price is always present; connect across any gaps
         },
         {
           label: t.discountPrice,
