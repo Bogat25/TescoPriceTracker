@@ -196,18 +196,35 @@ def get_product_stats(tpnc):
     }
 
 
-def _extract_current_price(doc: dict):
-    """Return the most recent normal price from a product document, or None."""
+def _extract_price_details(doc: dict) -> dict:
+    """Extract normal, discount, clubcard prices plus unit info from latest entry."""
     history = doc.get("price_history", [])
     if not isinstance(history, list) or not history:
-        return None
-    # history is stored oldest-first; take the last entry with a normal price
+        return {}
+    result = {}
     for entry in reversed(history):
-        if isinstance(entry, dict):
-            normal = entry.get("normal")
-            if normal and normal.get("price") is not None:
-                return normal["price"]
-    return None
+        if not isinstance(entry, dict):
+            continue
+        normal = entry.get("normal")
+        if normal and normal.get("price") is not None:
+            result["last_scraped_price"] = normal["price"]
+            if normal.get("unit_price") is not None:
+                result["unit_price"] = normal["unit_price"]
+            if normal.get("unit_measure"):
+                result["unit_measure"] = normal["unit_measure"]
+        discount = entry.get("discount")
+        if discount and discount.get("price") is not None:
+            result["discount_price"] = discount["price"]
+            if discount.get("promo_desc"):
+                result["discount_desc"] = discount["promo_desc"]
+        clubcard = entry.get("clubcard")
+        if clubcard and clubcard.get("price") is not None:
+            result["clubcard_price"] = clubcard["price"]
+            if clubcard.get("promo_desc"):
+                result["clubcard_desc"] = clubcard["promo_desc"]
+        if "last_scraped_price" in result:
+            break
+    return result
 
 
 def browse_products(skip=0, limit=100):
@@ -242,7 +259,8 @@ def browse_products(skip=0, limit=100):
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc.pop("_id", None)
         doc["tpnc"] = tpnc
-        doc["last_scraped_price"] = _extract_current_price(doc)
+        price_info = _extract_price_details(doc)
+        doc.update(price_info)
         doc.pop("price_history", None)
         results.append(doc)
     return {"results": results, "total": total, "skip": skip, "limit": limit}
@@ -278,7 +296,8 @@ def search_products(query, skip: int = 0, limit: int = 50):
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc["tpnc"] = tpnc
         doc.pop("_id", None)
-        doc["last_scraped_price"] = _extract_current_price(doc)
+        price_info = _extract_price_details(doc)
+        doc.update(price_info)
         doc.pop("price_history", None)
         doc.pop("score", None)
         cleaned.append(doc)
@@ -337,7 +356,8 @@ def search_products_with_category(
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc["tpnc"] = tpnc
         doc.pop("_id", None)
-        doc["last_scraped_price"] = _extract_current_price(doc)
+        price_info = _extract_price_details(doc)
+        doc.update(price_info)
         doc.pop("price_history", None)
         doc.pop("score", None)
         cleaned.append(doc)

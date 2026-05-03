@@ -236,10 +236,27 @@
   justify-content: space-between;
   padding: 8px 12px 12px;
 }
+.sr-card-pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 .sr-card-price {
   font-size: clamp(14px, 1.2vw, 16px);
   font-weight: 800;
   color: #00539F;
+  &--discount  { color: #d97706; }
+  &--clubcard  { color: #7c3aed; }
+  &--original  { font-size: 10px; font-weight: 600; color: var(--text-muted); text-decoration: line-through; }
+}
+.sr-card-discount-pct {
+  font-size: 10px;
+  font-weight: 800;
+  color: #d97706;
+}
+.sr-card-unit-price {
+  font-size: 9px;
+  color: var(--text-muted);
 }
 .sr-card-no-price {
   font-size: 11px;

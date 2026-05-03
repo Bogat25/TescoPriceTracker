@@ -25,6 +25,7 @@ def startup_event():
     db.init_db()
 
 @app.get("/health")
+@app.get("/api/v1/health")
 def health_check():
     return {"status": "ok"}
 

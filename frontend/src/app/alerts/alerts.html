@@ -87,72 +87,85 @@
         }
         <div class="al-row" [class.enabled]="a.enabled" [class.disabled]="!a.enabled" [class.triggered]="isTriggered(a)">
 
-          <!-- Hex icon -->
-          <app-hex-icon
-            [letter]="productName(a).charAt(0).toUpperCase()"
-            [accent]="isTriggered(a) ? 'var(--hex5)' : (a.enabled ? '#00539F' : 'var(--text-muted)')"
-            [size]="32"/>
-
-          <!-- Alert info -->
-          <div class="al-row-info">
-            <a [routerLink]="['/products', a.productId]" class="al-product-link">
-              {{ productName(a) }}
-            </a>
-            @if (productName(a) !== a.productId) {
-              <div class="al-product-id">TPNC: {{ a.productId }}</div>
-            }
-            <div class="al-row-desc">{{ formatAlertDescription(a) }}</div>
-            <div class="al-row-date">Created {{ a.createdAt | date:'mediumDate' }}</div>
-          </div>
-
-          <!-- Current price -->
-          @if (productPrice(a) !== undefined) {
-            <div class="al-current-price">
-              <div class="al-price-label">Current</div>
-              <div class="al-price-value font-mono-prices">{{ productPrice(a) | number:'1.2-2' }} Ft</div>
-              @if (isTriggered(a)) {
-                <div class="al-triggered-badge">&#x2713; Met</div>
+          <!-- Row 1: Product info -->
+          <div class="al-row-top">
+            <!-- Product image -->
+            <div class="al-product-img">
+              @if (productImage(a)) {
+                <img [src]="productImage(a)" [alt]="productName(a)" loading="lazy" referrerpolicy="no-referrer"/>
+              } @else {
+                <app-hex-icon
+                  [letter]="productName(a).charAt(0).toUpperCase()"
+                  [accent]="isTriggered(a) ? 'var(--hex5)' : (a.enabled ? '#00539F' : 'var(--text-muted)')"
+                  [size]="32"/>
               }
             </div>
-          }
 
-          <!-- Type badge -->
-          <div class="al-type-badge" [class.target]="a.alertType === 'TARGET_PRICE'" [class.pct]="a.alertType === 'PERCENTAGE_DROP'">
-            @if (a.alertType === 'TARGET_PRICE') {
-              <svg width="9" height="11" viewBox="0 0 9 11" style="flex-shrink:0">
-                <polygon points="4.5,0 9,2.75 9,8.25 4.5,11 0,8.25 0,2.75" fill="currentColor" opacity="0.8"/>
-              </svg>
-              Target price
-            } @else {
-              <svg width="9" height="11" viewBox="0 0 9 11" style="flex-shrink:0">
-                <polygon points="4.5,0 9,2.75 9,8.25 4.5,11 0,8.25 0,2.75" fill="currentColor" opacity="0.8"/>
-              </svg>
-              % drop
+            <!-- Name + meta -->
+            <div class="al-row-info">
+              <a [routerLink]="['/products', a.productId]" class="al-product-link">
+                {{ productName(a) }}
+              </a>
+              @if (productName(a) !== a.productId) {
+                <div class="al-product-id">TPNC: {{ a.productId }}</div>
+              }
+              <div class="al-row-desc">{{ formatAlertDescription(a) }}</div>
+            </div>
+
+            <!-- Current price -->
+            @if (productPrice(a) !== undefined) {
+              <div class="al-current-price">
+                <div class="al-price-label">Current</div>
+                <div class="al-price-value font-mono-prices">{{ productPrice(a) | number:'1.2-2' }} Ft</div>
+                @if (isTriggered(a)) {
+                  <div class="al-triggered-badge">&#x2713; Met</div>
+                }
+              </div>
             }
           </div>
 
-          <!-- Toggle switch (DaisyUI) -->
-          <label class="al-toggle" [title]="a.enabled ? 'Disable alert' : 'Enable alert'">
-            <input type="checkbox" class="toggle toggle-sm toggle-primary"
-                   [checked]="a.enabled"
-                   (change)="toggle(a)"/>
-          </label>
+          <!-- Row 2: Actions -->
+          <div class="al-row-bottom">
+            <div class="al-row-date">Created {{ a.createdAt | date:'mediumDate' }}</div>
 
-          <!-- Open in Tesco store -->
-          <a [href]="tescoUrl(a.productId)" target="_blank" rel="noopener"
-             class="al-store-btn" title="Open in Tesco store">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </a>
+            <!-- Type badge -->
+            <div class="al-type-badge" [class.target]="a.alertType === 'TARGET_PRICE'" [class.pct]="a.alertType === 'PERCENTAGE_DROP'">
+              @if (a.alertType === 'TARGET_PRICE') {
+                <svg width="9" height="11" viewBox="0 0 9 11" style="flex-shrink:0">
+                  <polygon points="4.5,0 9,2.75 9,8.25 4.5,11 0,8.25 0,2.75" fill="currentColor" opacity="0.8"/>
+                </svg>
+                Target price
+              } @else {
+                <svg width="9" height="11" viewBox="0 0 9 11" style="flex-shrink:0">
+                  <polygon points="4.5,0 9,2.75 9,8.25 4.5,11 0,8.25 0,2.75" fill="currentColor" opacity="0.8"/>
+                </svg>
+                % drop
+              }
+            </div>
 
-          <!-- Remove -->
-          <button type="button" class="al-remove-btn" (click)="remove(a.id)" title="Remove alert">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+            <!-- Toggle switch -->
+            <label class="al-toggle" [title]="a.enabled ? 'Disable alert' : 'Enable alert'">
+              <input type="checkbox" class="toggle toggle-sm toggle-primary"
+                     [checked]="a.enabled"
+                     (change)="toggle(a)"/>
+            </label>
+
+            <!-- Open in Tesco store -->
+            <a [href]="tescoUrl(a.productId)" target="_blank" rel="noopener"
+               class="al-store-btn" title="Open in Tesco store">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+
+            <!-- Remove -->
+            <button type="button" class="al-remove-btn" (click)="remove(a.id)" title="Remove alert">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
       }
     </div>

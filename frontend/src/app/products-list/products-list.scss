@@ -215,6 +215,20 @@
   font-weight: 800;
   color: var(--text-primary);
   white-space: nowrap;
+  &--discount  { color: #d97706; }
+  &--clubcard  { color: #7c3aed; }
+  &--original  { font-size: 10px; font-weight: 600; color: var(--text-muted); text-decoration: line-through; display: block; }
+}
+.pl-discount-pct {
+  font-size: 10px;
+  font-weight: 800;
+  color: #d97706;
+  display: block;
+}
+.pl-unit-price {
+  font-size: 9px;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
 .pl-no-price { color: var(--text-muted); }
 .pl-rating {
@@ -283,7 +297,7 @@
   .pl-td { padding: 0; border: none; }
   .pl-td-icon { width: 36px; flex-shrink: 0; }
   .pl-td:nth-child(2) { flex: 1; min-width: 0; }
-  .pl-td-right, .pl-td-action { display: none; }
+  .pl-td-right, .pl-td-action, .pl-td-cat { display: none; }
   /* Show price inline */
   .pl-td:nth-child(4) {
     display: block;

@@ -113,6 +113,11 @@ export class Alerts implements OnInit {
     return this.productMap().get(a.productId)?.name || a.productId;
   }
 
+  /** Get product image URL from map. */
+  productImage(a: PriceAlert): string | undefined {
+    return this.productMap().get(a.productId)?.imageUrl;
+  }
+
   /** Get current price from map. */
   productPrice(a: PriceAlert): number | undefined {
     return this.productMap().get(a.productId)?.currentPrice;

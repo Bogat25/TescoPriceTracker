@@ -143,7 +143,19 @@
               <!-- Price -->
               <td class="pl-td pl-td-right">
                 @if (p.currentPrice !== undefined) {
-                  <span class="pl-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                  @if (p.discountPrice !== undefined) {
+                    <span class="pl-price pl-price--discount font-mono-prices">{{ p.discountPrice | number:'1.2-2' }} Ft</span>
+                    <span class="pl-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                    <span class="pl-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
+                  } @else if (p.clubcardPrice !== undefined) {
+                    <span class="pl-price pl-price--clubcard font-mono-prices">{{ p.clubcardPrice | number:'1.2-2' }} Ft</span>
+                    <span class="pl-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                  } @else {
+                    <span class="pl-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                  }
+                  @if (p.unitPrice !== undefined && p.unitMeasure) {
+                    <div class="pl-unit-price">{{ p.unitPrice | number:'1.0-0' }} Ft/{{ p.unitMeasure }}</div>
+                  }
                 } @else {
                   <span class="pl-no-price">—</span>
                 }

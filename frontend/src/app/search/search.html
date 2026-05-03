@@ -110,7 +110,21 @@
             <!-- Footer: price + arrow -->
             <div class="sr-card-footer">
               @if (p.currentPrice !== undefined) {
-                <span class="sr-card-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                <div class="sr-card-pricing">
+                  @if (p.discountPrice !== undefined) {
+                    <span class="sr-card-price sr-card-price--discount font-mono-prices">{{ p.discountPrice | number:'1.2-2' }} Ft</span>
+                    <span class="sr-card-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                    <span class="sr-card-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
+                  } @else if (p.clubcardPrice !== undefined) {
+                    <span class="sr-card-price sr-card-price--clubcard font-mono-prices">{{ p.clubcardPrice | number:'1.2-2' }} Ft</span>
+                    <span class="sr-card-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                  } @else {
+                    <span class="sr-card-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
+                  }
+                  @if (p.unitPrice !== undefined && p.unitMeasure) {
+                    <span class="sr-card-unit-price">{{ p.unitPrice | number:'1.0-0' }} Ft/{{ p.unitMeasure }}</span>
+                  }
+                </div>
               } @else {
                 <span class="sr-card-no-price">No price</span>
               }

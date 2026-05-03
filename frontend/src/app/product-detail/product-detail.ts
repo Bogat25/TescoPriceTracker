@@ -142,7 +142,13 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   private chart?: Chart;
   private analyticsCharts: Chart[] = [];
 
-  chartRange = signal<7 | 30 | 90>(90);
+  chartRange = signal<7 | 30 | 90>(this._initChartRange());
+
+  private _initChartRange(): 7 | 30 | 90 {
+    const cookie = document.cookie.match(/(?:^|; )tpt_chart_range=(\d+)/);
+    const v = cookie ? parseInt(cookie[1], 10) : 30;
+    return v === 7 ? 7 : v === 90 ? 90 : 30;
+  }
 
   /** Current effective price for use in alert form validation. */
   get currentPrice(): number | null {
@@ -176,6 +182,7 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   /** Formatted price points sliced by range for chart redraw. */
   setRange(range: 7 | 30 | 90): void {
     this.chartRange.set(range);
+    document.cookie = `tpt_chart_range=${range}; path=/; max-age=${365 * 86400}; SameSite=Lax`;
     const h = this.history();
     if (!h) return;
     const sliced = range === 90 ? h : { ...h, points: h.points.slice(-range) };
@@ -203,7 +210,9 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         this.stats.set(stats);
         this.history.set(history);
         this.loading.set(false);
-        queueMicrotask(() => this.renderChart(history));
+        const range = this.chartRange();
+        const sliced = history && range < 90 ? { ...history, points: history.points.slice(-range) } : history;
+        queueMicrotask(() => this.renderChart(sliced));
         // Also load full product data for analytics charts
         this.products.getRaw(tpnc).pipe(catchError(() => of(null))).subscribe((raw) => {
           if (raw) {

@@ -31,6 +31,12 @@ export interface ProductResponse {
   pack_size_value?: number;
   pack_size_unit?: string;
   last_scraped_price: string;
+  discount_price?: number;
+  discount_desc?: string;
+  clubcard_price?: number;
+  clubcard_desc?: string;
+  unit_price?: number;
+  unit_measure?: string;
   price_history: PriceHistoryChannels;
   brand_name?: string;
   sub_brand?: string;
@@ -59,6 +65,12 @@ export interface ProductSummary {
   name?: string;
   imageUrl?: string;
   currentPrice?: number;
+  discountPrice?: number;
+  discountDesc?: string;
+  clubcardPrice?: number;
+  clubcardDesc?: string;
+  unitPrice?: number;
+  unitMeasure?: string;
   unit?: string;
   packSize?: string;
   brand?: string;
@@ -116,6 +128,12 @@ export function toSummary(p: ProductResponse): ProductSummary {
     name: p.name,
     imageUrl: p.default_image_url,
     currentPrice: parsePrice(p.last_scraped_price),
+    discountPrice: p.discount_price != null ? p.discount_price : undefined,
+    discountDesc: p.discount_desc,
+    clubcardPrice: p.clubcard_price != null ? p.clubcard_price : undefined,
+    clubcardDesc: p.clubcard_desc,
+    unitPrice: p.unit_price != null ? p.unit_price : undefined,
+    unitMeasure: p.unit_measure || p.unit_of_measure,
     unit: p.unit_of_measure,
     packSize,
     brand: p.brand_name,
