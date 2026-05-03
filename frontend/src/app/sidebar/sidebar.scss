@@ -331,6 +331,7 @@
   .sidebar-logo {
     padding: 14px 0;
     justify-content: center;
+    gap: 0; /* prevent gap from offsetting the SVG when text div is hidden */
     border-bottom: 1px solid var(--sidebar-border);
   }
 
@@ -358,9 +359,21 @@
   .sidebar-lang-btn { padding: 4px 6px; gap: 0; }
 
   .sidebar-user {
+    width: 100%;
     justify-content: center;
-    /* In collapsed mode: only the avatar button is visible — it triggers account() */
+    /* In collapsed mode: only the avatar button is visible — it triggers toggleUserMenu */
     .sidebar-user-menu-btn { display: none; }
+  }
+
+  /* In icon-only mode the popup flies out to the right of the sidebar */
+  .sidebar-user-popup {
+    position: fixed;
+    bottom: 14px;
+    left: 56px; /* == var(--sidebar-width) at this breakpoint */
+    right: auto;
+    width: 180px;
+    margin-left: 8px;
+    border-radius: 10px;
   }
 
   /* Login button: collapsed = icon-only */

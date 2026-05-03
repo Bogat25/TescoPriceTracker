@@ -1,6 +1,8 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { ThemeService } from './services/theme.service';
+import { TranslationService } from './services/translation.service';
 import { Sidebar } from './sidebar/sidebar';
 import { BeehiveBg } from './shared/beehive-bg/beehive-bg';
 
@@ -11,7 +13,11 @@ import { BeehiveBg } from './shared/beehive-bg/beehive-bg';
   styleUrl: './app.scss',
 })
 export class App implements OnInit {
-  private authService = inject(AuthService);
+  public authService  = inject(AuthService);
+  public themeService = inject(ThemeService);
+  public tl           = inject(TranslationService);
+
+  readonly mobileMenuOpen = signal(false);
 
   ngOnInit(): void {
     this.authService.checkSession().subscribe();
@@ -19,9 +25,21 @@ export class App implements OnInit {
 
   mobileAccount(): void {
     if (this.authService.authenticated()) {
-      this.authService.account();
+      this.mobileMenuOpen.set(true);
     } else {
       this.authService.login();
     }
+  }
+
+  closeMobileMenu(): void { this.mobileMenuOpen.set(false); }
+
+  mobileLogout(): void {
+    this.closeMobileMenu();
+    this.authService.logout();
+  }
+
+  mobileAccountSettings(): void {
+    this.closeMobileMenu();
+    this.authService.account();
   }
 }
