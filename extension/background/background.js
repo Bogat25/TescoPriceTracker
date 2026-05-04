@@ -13,6 +13,8 @@ import {
   createAlert,
   deleteAlert,
   toggleAlert,
+  getEmailPrefs,
+  setEmailPrefs,
 } from "./alerts-api.js";
 
 // Standardize browser namespace (Chrome vs Firefox)
@@ -96,6 +98,14 @@ const MESSAGE_HANDLERS = {
 
   ALERTS_TOGGLE: async (msg) => {
     return await toggleAlert(msg.alertId, msg.enabled);
+  },
+
+  ALERTS_GET_PREFS: async () => {
+    return await getEmailPrefs();
+  },
+
+  ALERTS_SET_PREFS: async (msg) => {
+    return await setEmailPrefs(msg.emailEnabled);
   },
 };
 
