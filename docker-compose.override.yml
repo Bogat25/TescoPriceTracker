@@ -106,6 +106,9 @@ services:
       admin_ingress:
         aliases:
         - ${STACK_PREFIX}tesco-tracker-keycloak
+      gavaller-backend-internal:
+        aliases:
+        - tesco-tracker-keycloak
   auth-gateway:
     container_name: ${STACK_PREFIX}tesco-tracker-auth-gateway
     restart: unless-stopped
@@ -152,7 +155,10 @@ services:
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
-    - tesco-tracker-internal
+      tesco-tracker-internal: {}
+      gavaller-backend-internal:
+        aliases:
+        - tesco-price-tracker-api
     depends_on:
       mongo:
         condition: service_healthy
@@ -187,10 +193,12 @@ services:
     environment:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
-      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}
-      KC_ISSUER: ${KC_ISSUER:-${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}}
+      GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
+      GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
+      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://gavaller-backend-gateway:8080/internal/keycloak}
+      KC_ISSUER: ${KC_ISSUER:-${KC_PUBLIC_ISSUER:-http://keycloak:8080/realms/tesco-tracker}}
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
-      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://keycloak:8080}
+      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://gavaller-backend-gateway:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
       KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
       KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
@@ -221,7 +229,9 @@ services:
     environment:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
-      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://keycloak:8080}
+      GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
+      GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
+      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://gavaller-backend-gateway:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
       KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
       KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
@@ -231,13 +241,11 @@ services:
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
-    - tesco-tracker-internal
+      tesco-tracker-internal: {}
+      gavaller-backend-internal: {}
     depends_on:
       mongo:
         condition: service_healthy
-      keycloak:
-        condition: service_started
-        required: false
     build: .
   frontend:
     build:
@@ -248,9 +256,9 @@ services:
     expose:
     - '80'
     environment:
-      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM:-http://${STACK_PREFIX}tesco-price-tracker-api:50202}
-      AUTH_UPSTREAM: ${AUTH_UPSTREAM}
-      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://${STACK_PREFIX}tesco-alert-service:8080}
+      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM:-http://gavaller-backend-gateway:8080}
+      AUTH_UPSTREAM: ${AUTH_UPSTREAM:-http://gavaller-backend-gateway:8080}
+      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://gavaller-backend-gateway:8080}
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
       AUTH_BASE_URL: ${AUTH_BASE_URL}
       AUTH_LOGIN_URL: ${AUTH_LOGIN_URL}
@@ -261,15 +269,13 @@ services:
       NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_UPSTREAM,ALERTS_API_UPSTREAM,AUTH_BASE_URL,AUTH_LOGIN_URL,AUTH_LOGOUT_URL,AUTH_USERINFO_URL,AUTH_ACCOUNT_URL,AUTH_TOKEN_URL
     networks:
       tesco-tracker-internal: {}
+      gavaller-backend-internal: {}
       public_ingress:
         aliases:
         - ${STACK_PREFIX}price-tracker
     depends_on:
       api:
         condition: service_started
-      auth-gateway:
-        condition: service_started
-        required: false
 networks:
   tesco-tracker-internal:
     name: ${STACK_PREFIX}tesco-tracker-internal

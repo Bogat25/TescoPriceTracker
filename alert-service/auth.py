@@ -1,9 +1,13 @@
-"""Keycloak JWT validation for incoming Bearer tokens.
+"""Keycloak JWT validation for incoming Bearer tokens (via Gateway proxy).
 
-Fetches the realm JWKS once and caches it in-memory with a TTL. On a verification
-failure that *might* be due to key rotation, the cache is invalidated and a single
-retry is performed. The decoded `sub` and `email` claims are exposed to route
-handlers via the `current_user` dependency.
+Fetches the realm JWKS through the gateway's internal proxy endpoint and caches
+it in-memory with a TTL. On a verification failure that *might* be due to key
+rotation, the cache is invalidated and a single retry is performed. The decoded
+`sub` and `email` claims are exposed to route handlers via the `current_user`
+dependency.
+
+All Keycloak communication goes through Gateway.API's /internal/keycloak/*
+endpoints, authenticated by X-Internal-Token header.
 """
 
 import logging
@@ -33,7 +37,12 @@ class _JwksCache:
     def _client_or_load(self) -> PyJWKClient:
         if self._client is None or (time.time() - self._loaded_at) > self._ttl:
             logger.info("loading JWKS from %s", self._url)
-            self._client = PyJWKClient(self._url, cache_keys=True, lifespan=self._ttl)
+            headers = {}
+            if settings.GATEWAY_INTERNAL_TOKEN:
+                headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN
+            self._client = PyJWKClient(
+                self._url, cache_keys=True, lifespan=self._ttl, headers=headers
+            )
             self._loaded_at = time.time()
         return self._client
 
@@ -45,7 +54,8 @@ class _JwksCache:
         self._loaded_at = 0.0
 
 
-_jwks_url = f"{settings.KC_INTERNAL_BASE_URL}/protocol/openid-connect/certs"
+# JWKS URL now points to Gateway's internal proxy endpoint
+_jwks_url = f"{settings.KC_INTERNAL_BASE_URL}/certs"
 _jwks = _JwksCache(_jwks_url, settings.JWKS_TTL_SECONDS)
 
 
@@ -126,15 +136,18 @@ def _validate_bearer(token: str) -> dict:
 
 
 async def _userinfo_email(token: str) -> Optional[str]:
-    """Fallback: fetch email from Keycloak userinfo endpoint when not in the token."""
-    url = f"{settings.KC_INTERNAL_BASE_URL}/protocol/openid-connect/userinfo"
+    """Fallback: fetch email from Keycloak userinfo endpoint via Gateway proxy."""
+    url = f"{settings.KC_INTERNAL_BASE_URL}/userinfo"
+    headers = {"X-Downstream-Token": token}
+    if settings.GATEWAY_INTERNAL_TOKEN:
+        headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            r = await client.get(url, headers={"Authorization": f"Bearer {token}"})
+            r = await client.get(url, headers=headers)
         if r.status_code == 200:
             return r.json().get("email")
     except httpx.HTTPError:
-        logger.exception("userinfo fetch failed")
+        logger.exception("userinfo fetch via gateway failed")
     return None
 
 

@@ -9,64 +9,49 @@ server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
 
-    # ── Tesco API proxy ─────────────────────────────────────────────────────
-    # /api/tesco/<path>  →  ${TESCO_API_UPSTREAM}/api/v1/<path>
-    # TESCO_API_UPSTREAM is injected at container startup via envsubst.
-    # This avoids CORS issues — the browser always talks to the same origin.
-    # resolver 127.0.0.11 ensures Docker DNS is used per-request so the correct
-    # STACK_PREFIX-scoped container is always reached even after restarts.
+    # ── All API and auth requests are routed through Gateway.API ─────────────
+    # The Gateway.API is the single source of truth for all authenticated
+    # communication. It handles OIDC sessions, rate limiting, logging, and
+    # reverse-proxies to downstream services.
+
+    # ── Tesco API proxy via Gateway.API ─────────────────────────────────────
+    # /api/tesco/<path>  →  ${TESCO_API_UPSTREAM}/api/tesco/<path>
+    # Gateway.API rewrites to the correct downstream path internally.
     location /api/tesco/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $tesco_upstream ${TESCO_API_UPSTREAM};
-        rewrite ^/api/tesco/(.*)$ /api/v1/$1 break;
-        proxy_pass $tesco_upstream;
+        proxy_pass $tesco_upstream/api/tesco/;
         proxy_http_version 1.1;
-        # When upstream is HTTPS (e.g. https://api.example.com)
-        # the upstream's TLS cert is for its own hostname, so forward that as
-        # both the Host header and the SNI name — not $host (which is *our* domain).
         proxy_ssl_server_name on;
-        proxy_set_header Host $proxy_host;
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
         proxy_read_timeout 30s;
     }
 
-    # ── Alert service ──────────────────────────────────────────────────────
-    # /api/alerts/<path>  →  ${ALERTS_API_UPSTREAM}/api/v1/alerts/<path>
-    # Standalone mode: ALERTS_API_UPSTREAM=http://alert-service:8080 (this stack).
-    # Embedded mode:   normally not used — the YARP gateway handles /api/alerts/*
-    #                  upstream of nginx. This block is here so the standalone
-    #                  build remains usable.
+    # ── Alert service via Gateway.API ──────────────────────────────────────
+    # /api/alerts/<path>  →  ${ALERTS_API_UPSTREAM}/api/alerts/<path>
+    # Gateway.API proxies to alert-service with auth validation and logging.
     location /api/alerts/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $alerts_upstream ${ALERTS_API_UPSTREAM};
-        # Use an explicit rewrite so that all HTTP methods (GET, POST, PATCH,
-        # DELETE) are forwarded with the correct /api/v1/alerts/* URI.
-        # A proxy_pass with a variable+path suffix may skip the location-prefix
-        # stripping; the rewrite+break pattern guarantees the right upstream path
-        # regardless of method.
-        rewrite ^/api/alerts/(.*)$ /api/v1/alerts/$1 break;
-        proxy_pass $alerts_upstream;
+        proxy_pass $alerts_upstream/api/alerts/;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
-        proxy_set_header Host $proxy_host;
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
         proxy_set_header Authorization $http_authorization;
         proxy_read_timeout 30s;
     }
 
-    # ── Auth gateway ───────────────────────────────────────────────────────
+    # ── Auth via Gateway.API ───────────────────────────────────────────────
     # /auth/<path>  →  ${AUTH_UPSTREAM}/auth/<path>
-    # Standalone mode: AUTH_UPSTREAM=http://auth-gateway:8080 (this stack)
-    # Embedded mode:   AUTH_UPSTREAM=http://<external-gateway>:8080 (other stack on public_ingress)
-    #
-    # The proxy_pass uses an nginx variable, not a literal hostname, so DNS is
-    # resolved per request via Docker's embedded resolver (127.0.0.11). This
-    # lets nginx start even when the upstream isn't up yet (or doesn't exist
-    # in this stack at all — e.g. embedded mode with COMPOSE_PROFILES=).
+    # Gateway.API handles OIDC login/logout/userinfo/token endpoints.
     location /auth/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $auth_upstream ${AUTH_UPSTREAM};
@@ -76,6 +61,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
         proxy_read_timeout 30s;
     }
 

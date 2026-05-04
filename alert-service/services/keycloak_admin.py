@@ -1,8 +1,11 @@
-"""Keycloak Admin API client for the daily user sync.
+"""Keycloak Admin API client for the daily user sync (via Gateway proxy).
 
 Authenticates as the ``tesco-alert-admin`` confidential client (client-credentials
-grant) with the ``view-users`` realm-management role. Pages through realm users
-and yields ``(sub, email)`` for each user that has an email.
+grant) through the gateway's internal proxy, then pages through realm users
+yielding ``(sub, email)`` for each user that has an email.
+
+All Keycloak communication goes through Gateway.API's /internal/keycloak/*
+endpoints, authenticated by X-Internal-Token header.
 """
 
 import logging
@@ -20,17 +23,24 @@ class KeycloakAdminError(RuntimeError):
     pass
 
 
+def _internal_headers() -> dict:
+    """Build headers with the internal service token for gateway auth."""
+    headers: dict = {"Accept": "application/json"}
+    if settings.GATEWAY_INTERNAL_TOKEN:
+        headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN
+    return headers
+
+
 async def _get_admin_token(client: httpx.AsyncClient) -> str:
-    url = (
-        f"{settings.KC_ADMIN_BASE_URL}/realms/{settings.KEYCLOAK_REALM}"
-        "/protocol/openid-connect/token"
-    )
+    url = f"{settings.KC_ADMIN_BASE_URL}/internal/keycloak/token"
     data = {
         "grant_type": "client_credentials",
         "client_id": settings.KC_ADMIN_CLIENT_ID,
         "client_secret": settings.KC_ADMIN_CLIENT_SECRET,
     }
-    r = await client.post(url, data=data, headers={"Accept": "application/json"})
+    headers = _internal_headers()
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    r = await client.post(url, data=data, headers=headers)
     if r.status_code != 200:
         raise KeycloakAdminError(
             f"admin token request failed: {r.status_code} {r.text}"
@@ -48,13 +58,12 @@ async def iter_users() -> AsyncIterator[tuple[str, Optional[str]]]:
         raise KeycloakAdminError("KC_ADMIN_CLIENT_SECRET is not configured")
 
     page_size = settings.KEYCLOAK_SYNC_PAGE_SIZE
-    users_url = (
-        f"{settings.KC_ADMIN_BASE_URL}/admin/realms/{settings.KEYCLOAK_REALM}/users"
-    )
+    users_url = f"{settings.KC_ADMIN_BASE_URL}/internal/keycloak/admin/users"
 
     async with httpx.AsyncClient(timeout=20.0) as client:
         token = await _get_admin_token(client)
-        headers = {"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        headers = _internal_headers()
+        headers["X-Admin-Token"] = token
 
         first = 0
         while True:
@@ -66,7 +75,7 @@ async def iter_users() -> AsyncIterator[tuple[str, Optional[str]]]:
             if r.status_code == 401:
                 # Token can expire mid-sweep on a slow run. Refresh once and retry.
                 token = await _get_admin_token(client)
-                headers["Authorization"] = f"Bearer {token}"
+                headers["X-Admin-Token"] = token
                 r = await client.get(
                     users_url,
                     params={"first": first, "max": page_size, "briefRepresentation": "true"},

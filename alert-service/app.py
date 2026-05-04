@@ -17,8 +17,50 @@ logging.basicConfig(level=settings.LOG_LEVEL)
 logger = logging.getLogger("alert-service")
 
 
+def _enforce_gateway_only() -> None:
+    """Startup check: refuse to boot if Keycloak URLs point directly to Keycloak
+    instead of going through the gateway. This enforces the architectural rule
+    that all external communication must be mediated by Gateway.API."""
+    blocked_patterns = ["keycloak:8080", "keycloak:9000", "localhost:8080/realms"]
+
+    violations = []
+    for name, value in [
+        ("KC_INTERNAL_BASE_URL", settings.KC_INTERNAL_BASE_URL),
+        ("KC_ADMIN_BASE_URL", settings.KC_ADMIN_BASE_URL),
+    ]:
+        for pattern in blocked_patterns:
+            if pattern in value:
+                violations.append(f"  {name}={value} (contains '{pattern}' — direct Keycloak access)")
+
+    if violations:
+        msg = (
+            "\n\n"
+            "╔══════════════════════════════════════════════════════════════╗\n"
+            "║  GATEWAY ENFORCEMENT VIOLATION                             ║\n"
+            "║  All Keycloak communication MUST go through Gateway.API.   ║\n"
+            "║  The following env vars point directly to Keycloak:        ║\n"
+            "╚══════════════════════════════════════════════════════════════╝\n"
+            + "\n".join(violations) + "\n\n"
+            "Fix: Set KC_INTERNAL_BASE_URL and KC_ADMIN_BASE_URL to point to\n"
+            "the gateway's internal proxy (e.g. http://gavaller-backend-gateway:8080/internal/keycloak)\n"
+        )
+        logger.critical(msg)
+        raise RuntimeError(
+            "Gateway enforcement failed: services must communicate through Gateway.API, "
+            "not directly to Keycloak. Check KC_INTERNAL_BASE_URL and KC_ADMIN_BASE_URL."
+        )
+
+    if not settings.GATEWAY_INTERNAL_TOKEN:
+        logger.warning(
+            "GATEWAY_INTERNAL_TOKEN is empty — internal proxy calls will be rejected by the gateway."
+        )
+
+    logger.info("Gateway enforcement check passed: all Keycloak URLs route through gateway")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    _enforce_gateway_only()
     await alert_db.ensure_indexes()
     prime_jwks()
     try:

@@ -1,8 +1,8 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
 
-  # â”€â”€ Data store â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # ── Data store ──────────────────────────────────────────────────────────────
   mongo:
     image: mongo:8
     container_name: ${STACK_PREFIX}tesco-tracker-mongo
@@ -46,7 +46,7 @@ services:
       mongo:
         condition: service_healthy
 
-  # ── Identity provider permission fix ──────────────────────────────────────────
+  # -- Identity provider permission fix ------------------------------------------
   # Docker creates host bind mounts as root. Keycloak runs as UID 1000.
   # This quick init container sets the right ownership on the host directory.
   keycloak-init:
@@ -57,7 +57,7 @@ services:
       - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
     command: chown -R 1000:1000 /opt/keycloak/data
 
-  # ── Identity provider ───────────────────────────────────────────────────────
+  # -- Identity provider -------------------------------------------------------
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: ${STACK_PREFIX}tesco-tracker-keycloak
@@ -109,8 +109,11 @@ services:
       admin_ingress:
         aliases:
           - ${STACK_PREFIX}tesco-tracker-keycloak
+      gavaller-backend-internal:
+        aliases:
+          - tesco-tracker-keycloak
 
-  # â”€â”€ Backend API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # ── Backend API ──────────────────────────────────────────────────────────────
   auth-gateway:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-tracker-auth-gateway
@@ -158,12 +161,15 @@ services:
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
-      - tesco-tracker-internal
+      tesco-tracker-internal: {}
+      gavaller-backend-internal:
+        aliases:
+          - tesco-price-tracker-api
     depends_on:
       mongo:
         condition: service_healthy
 
-  # â”€â”€ Scrape scheduler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # ── Scrape scheduler ─────────────────────────────────────────────────────────
   scheduler:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-tracker-scheduler
@@ -185,7 +191,7 @@ services:
       mongo:
         condition: service_healthy
 
-  # ── Alert service ───────────────────────────────────────────────────────
+  # -- Alert service -------------------------------------------------------
   alert-service:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-alert-service
@@ -197,10 +203,12 @@ services:
     environment:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
-      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}
-      KC_ISSUER: ${KC_ISSUER:-${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}}
+      GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
+      GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
+      KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://gavaller-backend-gateway:8080/internal/keycloak}
+      KC_ISSUER: ${KC_ISSUER:-${KC_PUBLIC_ISSUER:-http://keycloak:8080/realms/tesco-tracker}}
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
-      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://keycloak:8080}
+      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://gavaller-backend-gateway:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
       KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
       KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
@@ -221,7 +229,7 @@ services:
       mongo:
         condition: service_healthy
 
-  # ── Alert keycloak sync (daily cron) ───────────────────────────────────
+  # -- Alert keycloak sync (daily cron) -----------------------------------
   alert-keycloak-sync:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-alert-keycloak-sync
@@ -232,7 +240,9 @@ services:
     environment:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
-      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://keycloak:8080}
+      GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
+      GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
+      KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://gavaller-backend-gateway:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
       KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
       KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
@@ -242,15 +252,13 @@ services:
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
-      - tesco-tracker-internal
+      tesco-tracker-internal: {}
+      gavaller-backend-internal: {}
     depends_on:
       mongo:
         condition: service_healthy
-      keycloak:
-        condition: service_started
-        required: false
 
-  # â”€â”€ Angular SPA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # ── Angular SPA ──────────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
@@ -261,17 +269,12 @@ services:
     expose:
       - "80"
     environment:
-      # Nginx upstream for /api/tesco/* proxy.
-      # Derived from the STACK_PREFIX-qualified container name so each stack
-      # instance always routes to its OWN api container, never another stack's.
-      # Override TESCO_API_UPSTREAM in .env only when the backend is external.
-      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM:-http://${STACK_PREFIX}tesco-price-tracker-api:50202}
-      # Nginx upstream for /auth/* proxy. Standalone mode: in-stack auth-gateway.
-      # Embedded mode: an external gateway reachable on a shared network.
-      AUTH_UPSTREAM: ${AUTH_UPSTREAM}
-      # Nginx upstream for /api/alerts/* proxy.
-      # Same STACK_PREFIX isolation as TESCO_API_UPSTREAM above.
-      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://${STACK_PREFIX}tesco-alert-service:8080}
+      # All upstreams default to the Gavaller Gateway so every request is
+      # routed through the single authoritative proxy. Override in .env only
+      # when running in fully standalone mode without the Gavaller ecosystem.
+      TESCO_API_UPSTREAM: ${TESCO_API_UPSTREAM:-http://gavaller-backend-gateway:8080}
+      AUTH_UPSTREAM: ${AUTH_UPSTREAM:-http://gavaller-backend-gateway:8080}
+      ALERTS_API_UPSTREAM: ${ALERTS_API_UPSTREAM:-http://gavaller-backend-gateway:8080}
       # Runtime config injected into window.__APP_CONFIG__ by envsubst at startup
       TESCO_API_BASE_URL: ${TESCO_API_BASE_URL}
       AUTH_BASE_URL: ${AUTH_BASE_URL}
@@ -283,17 +286,15 @@ services:
       NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_UPSTREAM,ALERTS_API_UPSTREAM,AUTH_BASE_URL,AUTH_LOGIN_URL,AUTH_LOGOUT_URL,AUTH_USERINFO_URL,AUTH_ACCOUNT_URL,AUTH_TOKEN_URL
     networks:
       tesco-tracker-internal: {}
+      gavaller-backend-internal: {}
       public_ingress:
         aliases:
           - ${STACK_PREFIX}price-tracker
     depends_on:
       api:
         condition: service_started
-      auth-gateway:
-        condition: service_started
-        required: false
 
-# â”€â”€ Networks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Networks ─────────────────────────────────────────────────────────────────
 networks:
   tesco-tracker-internal:
     name: ${STACK_PREFIX}tesco-tracker-internal
@@ -311,4 +312,4 @@ networks:
     external: true
     name: gavaller-backend-internal
 
-# â”€â”€ Volumes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── Volumes ───────────────────────────────────────────────────────────────────

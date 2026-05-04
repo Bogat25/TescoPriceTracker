@@ -6,14 +6,22 @@ import os
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
 MONGO_ALERTS_DB_NAME = os.environ.get("MONGO_ALERTS_DB_NAME", "tesco_alerts")
 
-KC_INTERNAL_BASE_URL = os.environ.get(
-    "KC_INTERNAL_BASE_URL", "http://keycloak:8080/realms/tesco-tracker"
+# Gateway-mediated Keycloak access.
+# KC_INTERNAL_BASE_URL points to the gateway's internal proxy, NOT directly to Keycloak.
+# The gateway validates the X-Internal-Token and proxies to Keycloak internally.
+GATEWAY_INTERNAL_URL = os.environ.get(
+    "GATEWAY_INTERNAL_URL", "http://gavaller-backend-gateway:8080"
 ).rstrip("/")
-KC_ISSUER = os.environ.get("KC_ISSUER", KC_INTERNAL_BASE_URL).rstrip("/")
+GATEWAY_INTERNAL_TOKEN = os.environ.get("GATEWAY_INTERNAL_TOKEN", "")
+
+KC_INTERNAL_BASE_URL = os.environ.get(
+    "KC_INTERNAL_BASE_URL", f"{GATEWAY_INTERNAL_URL}/internal/keycloak"
+).rstrip("/")
+KC_ISSUER = os.environ.get("KC_ISSUER", "http://keycloak:8080/realms/tesco-tracker").rstrip("/")
 KC_CLIENT_ID = os.environ.get("KC_CLIENT_ID", "tesco-frontend")
 
 KC_ADMIN_BASE_URL = os.environ.get(
-    "KC_ADMIN_BASE_URL", "http://keycloak:8080"
+    "KC_ADMIN_BASE_URL", GATEWAY_INTERNAL_URL
 ).rstrip("/")
 KEYCLOAK_REALM = os.environ.get("KEYCLOAK_REALM", "tesco-tracker")
 KC_ADMIN_CLIENT_ID = os.environ.get("KC_ADMIN_CLIENT_ID", "tesco-alert-admin")
