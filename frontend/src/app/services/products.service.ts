@@ -108,6 +108,13 @@ export interface ProductStats {
   [key: string]: unknown;
 }
 
+export interface RecommendationResponse {
+  recommendations: ProductSummary[];
+  type: 'cold_start' | 'personalized';
+  count: number;
+  categories_used?: string[];
+}
+
 function parsePrice(raw: unknown): number | undefined {
   if (raw === undefined || raw === null) return undefined;
   const n = typeof raw === 'number' ? raw : Number(String(raw).replace(/[^\d.+-]/g, ''));
@@ -237,5 +244,24 @@ export class ProductsService {
 
   stats(tpnc: string): Observable<ProductStats> {
     return this.http.get<ProductStats>(`${this.base}/${encodeURIComponent(tpnc)}/stats`);
+  }
+
+  /** Fetch AI-powered product recommendations.
+   *  If userId is provided, returns personalized results based on tracked items.
+   *  Otherwise returns globally discounted products (cold start). */
+  getRecommendations(userId?: string | null, limit = 20): Observable<RecommendationResponse> {
+    let params = new HttpParams().set('limit', limit);
+    if (userId) {
+      params = params.set('userId', userId);
+    }
+    return this.http.get<RecommendationResponse>(
+      `${this.config.tescoApiBaseUrl}/recommendations`,
+      { params },
+    ).pipe(
+      map(res => ({
+        ...res,
+        recommendations: (res.recommendations ?? []).map(p => toSummary(p as any)),
+      })),
+    );
   }
 }

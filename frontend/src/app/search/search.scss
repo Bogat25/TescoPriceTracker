@@ -312,3 +312,30 @@
   &.active { background: #00539F; color: #fff; border-color: #00539F; }
   &:disabled { opacity: 0.35; cursor: not-allowed; }
 }
+
+/* ── Recommendations section ─────────────────── */
+.sr-recs {
+  margin-top: 8px;
+}
+.sr-recs-header {
+  margin-bottom: 16px;
+}
+.sr-recs-title {
+  font-size: clamp(16px, 2vw, 22px);
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.sr-recs-subtitle {
+  font-size: clamp(11px, 1vw, 13px);
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.sr-recs-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}

@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { ProductSummary, ProductsService } from '../services/products.service';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-search',
@@ -16,6 +17,7 @@ import { ProductSummary, ProductsService } from '../services/products.service';
 })
 export class Search implements OnInit {
   private products = inject(ProductsService);
+  private auth = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
@@ -29,6 +31,11 @@ export class Search implements OnInit {
   readonly error        = signal('');
   readonly searched     = signal(false);
   readonly showDropdown = signal(false);
+
+  /** Recommendation state */
+  readonly recommendations    = signal<ProductSummary[]>([]);
+  readonly recommendationType = signal<'cold_start' | 'personalized'>('cold_start');
+  readonly loadingRecs        = signal(false);
 
   /** Pagination state */
   readonly pageSize    = signal(this._calcPageSize());
@@ -86,7 +93,25 @@ export class Search implements OnInit {
       this.query = q;
       this._lastQuery = q;
       this._doSearch(q, page);
+    } else {
+      // Load recommendations when user hasn't searched yet
+      this._loadRecommendations();
     }
+  }
+
+  private _loadRecommendations(): void {
+    this.loadingRecs.set(true);
+    const userId = this.auth.userId();
+    this.products.getRecommendations(userId, 20).subscribe({
+      next: (res) => {
+        this.recommendations.set(res.recommendations ?? []);
+        this.recommendationType.set(res.type);
+        this.loadingRecs.set(false);
+      },
+      error: () => {
+        this.loadingRecs.set(false);
+      },
+    });
   }
 
   onInput(value: string): void {

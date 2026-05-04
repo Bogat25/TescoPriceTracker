@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mongo import database_manager as db
 from mongo import stats_manager
+from recommendation_engine import get_recommendations
 import uvicorn
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
@@ -314,6 +315,26 @@ def stats_inflation_30d():
 def stats_price_drops_today():
     """Products whose normal price dropped today vs yesterday, sorted by drop %."""
     return _get_stat("price_drops_today", stats_manager.compute_price_drops_today)
+
+
+# ---------------------------------------------------------------------------
+# v1 Recommendations
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/recommendations")
+def get_product_recommendations(
+    user_id: str = Query(default=None, alias="userId"),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    """Get personalized product recommendations.
+
+    If userId is provided (authenticated user), returns semantic recommendations
+    based on their tracked/alerted items using hybrid vector search.
+    Otherwise returns globally discounted products (cold start).
+    """
+    coll = db.get_db()
+    result = get_recommendations(coll, user_id=user_id or None, limit=limit)
+    return result
 
 
 # ---------------------------------------------------------------------------
