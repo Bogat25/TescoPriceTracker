@@ -277,8 +277,8 @@ services:
     restart: unless-stopped
     working_dir: /app/recomendation-system
     command: uvicorn app:app --host 0.0.0.0 --port 8090
-    expose:
-    - '8090'
+    ports:
+    - 8090:8090
     environment:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
