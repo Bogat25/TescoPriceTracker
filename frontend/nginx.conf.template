@@ -20,7 +20,11 @@ server {
     location /api/tesco/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $tesco_upstream ${TESCO_API_UPSTREAM};
-        proxy_pass $tesco_upstream/api/tesco/;
+        # NOTE: proxy_pass must NOT have a path suffix when using a variable.
+        # With a variable, nginx uses the path literally instead of doing
+        # location-prefix substitution — the request path would be dropped.
+        # No path here = nginx forwards the original URI unchanged.
+        proxy_pass $tesco_upstream;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
         proxy_set_header Host $host;
@@ -37,7 +41,8 @@ server {
     location /api/alerts/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $alerts_upstream ${ALERTS_API_UPSTREAM};
-        proxy_pass $alerts_upstream/api/alerts/;
+        # See note above: no path suffix when proxy_pass uses a variable.
+        proxy_pass $alerts_upstream;
         proxy_http_version 1.1;
         proxy_ssl_server_name on;
         proxy_set_header Host $host;
@@ -55,7 +60,8 @@ server {
     location /auth/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $auth_upstream ${AUTH_UPSTREAM};
-        proxy_pass $auth_upstream/auth/;
+        # See note above: no path suffix when proxy_pass uses a variable.
+        proxy_pass $auth_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
