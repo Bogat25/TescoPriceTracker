@@ -48,6 +48,8 @@ data/
 test_data/
 DEPLOYMENT.md
 frontend/node_modules/
+
+
 .claude/
 *.angular/
 STORE_LISTING.md

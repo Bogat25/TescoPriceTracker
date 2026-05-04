@@ -254,7 +254,7 @@ services:
         condition: service_healthy
     build: .
   qdrant:
-    image: qdrant/qdrant:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/qdrant-pi5:latest
     container_name: ${STACK_PREFIX}tesco-tracker-qdrant
     restart: unless-stopped
     volumes:
