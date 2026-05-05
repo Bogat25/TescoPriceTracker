@@ -31,10 +31,26 @@ FROM --platform=linux/arm64 rust:slim-bookworm AS builder
 ARG QDRANT_VERSION
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    make \
     git \
     clang \
+    libclang-dev \
+    llvm-dev \
     libssl-dev \
     pkg-config \
+    protobuf-compiler \
+    libprotobuf-dev \
+    libunwind-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    liblz4-dev \
+    libzstd-dev \
+    libgomp1 \
+    curl \
+    unzip \
+    python3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
@@ -47,6 +63,9 @@ RUN git clone --depth 1 --branch ${QDRANT_VERSION} \
 # This environment variable is read by the tikv-jemalloc-sys crate at build
 # time and passed as --with-lg-page=14 to the jemalloc configure script.
 ENV JEMALLOC_SYS_WITH_LG_PAGE=14
+ENV RUST_BACKTRACE=1
+ENV PROTOC=/usr/bin/protoc
+ENV PROTOC_INCLUDE=/usr/include
 
 RUN cargo build --release --bin qdrant
 

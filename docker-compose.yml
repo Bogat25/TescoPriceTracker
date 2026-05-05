@@ -281,11 +281,12 @@ services:
     networks:
       tesco-tracker-internal: {}
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      # The Qdrant image ships no wget/curl. Use bash's /dev/tcp to probe the port.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 20s
 
   # ── Recommendation Vector Sync API (Internal) ───────────────────────────────
   recommendation-api:

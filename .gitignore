@@ -54,3 +54,4 @@ frontend/node_modules/
 *.angular/
 STORE_LISTING.md
 *tests/
+scripts/
