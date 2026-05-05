@@ -178,127 +178,156 @@ def get_cold_start_recommendations(
         return []
 
 
-# ── Logged-In Recommendations ────────────────────────────────────────────────
+# ── Alert & Category Helpers ──────────────────────────────────────────────────
 
-def get_user_tracked_products(user_id: str) -> list[str]:
-    """Get product IDs the user has alerts on (their tracked/liked items)."""
+def get_user_alert_details(user_id: str) -> list[dict]:
+    """Return [{productId, createdAt}] for all enabled alerts of user_id."""
     try:
-        alerts_db = _get_alerts_db()
-        alerts_coll = alerts_db["alerts"]
-        # Get distinct product IDs from user's alerts
-        product_ids = alerts_coll.distinct(
-            "productId",
-            {"userId": user_id, "enabled": True}
-        )
-        return product_ids
+        alerts_coll = _get_alerts_db()["alerts"]
+        docs = list(alerts_coll.find(
+            {"userId": user_id, "enabled": True},
+            {"productId": 1, "createdAt": 1, "_id": 0},
+        ))
+        return docs
     except Exception as e:
-        logger.error(f"Failed to fetch user tracked products: {e}")
+        logger.error(f"Failed to fetch alert details for {user_id}: {e}")
         return []
 
 
-def get_product_vectors(products_collection, product_ids: list[str]) -> dict:
-    """Fetch vectors for given product IDs from Qdrant.
-
-    Returns: dict mapping product_id -> {"vector": [...], "category": "..."}
-    """
+def resolve_product_categories(product_ids: list[str]) -> dict[str, str]:
+    """Batch-retrieve Qdrant payloads → {product_id: deepest_category_string}."""
     if not product_ids:
         return {}
+    qdrant = _get_qdrant()
+    point_ids = [_string_to_qdrant_id(pid) for pid in product_ids]
+    try:
+        points = qdrant.retrieve(
+            collection_name=QDRANT_COLLECTION,
+            ids=point_ids,
+            with_vectors=False,
+            with_payload=True,
+        )
+        return {
+            p.payload.get("product_id", ""): p.payload.get("category", "")
+            for p in points
+            if p.payload.get("product_id") and p.payload.get("category")
+        }
+    except Exception as e:
+        logger.error(f"Failed to resolve product categories from Qdrant: {e}")
+        return {}
+
+
+def rank_top_categories(
+    alert_details: list[dict],
+    category_map: dict[str, str],
+    top_n: int = 5,
+) -> list[tuple[str, list[str]]]:
+    """Group alerted products by category and return the top N.
+
+    Primary sort:   number of alerted products in the category (DESC)
+    Secondary sort: most recent alert createdAt in the category (DESC)
+
+    Returns list of (category, [distinct_product_ids_in_category]).
+    """
+    groups: dict[str, dict] = {}
+    for alert in alert_details:
+        pid = alert.get("productId", "")
+        cat = category_map.get(pid, "")
+        if not cat:
+            continue
+        if cat not in groups:
+            groups[cat] = {"product_ids": [], "latest": None}
+        if pid not in groups[cat]["product_ids"]:
+            groups[cat]["product_ids"].append(pid)
+        created_at = alert.get("createdAt")
+        if created_at and (
+            groups[cat]["latest"] is None or created_at > groups[cat]["latest"]
+        ):
+            groups[cat]["latest"] = created_at
+
+    ranked = sorted(
+        groups.items(),
+        key=lambda kv: (len(kv[1]["product_ids"]), kv[1]["latest"] or 0),
+        reverse=True,
+    )
+    return [(cat, data["product_ids"]) for cat, data in ranked[:top_n]]
+
+
+def allocate_slots(n_categories: int, total: int = 100) -> list[int]:
+    """Distribute `total` slots evenly; first (total % n) categories get +1.
+
+    Examples:
+      allocate_slots(3, 100) → [34, 33, 33]
+      allocate_slots(5, 100) → [20, 20, 20, 20, 20]
+      allocate_slots(1, 100) → [100]
+    """
+    if n_categories <= 0:
+        return []
+    base = total // n_categories
+    extra = total % n_categories
+    return [base + (1 if i < extra else 0) for i in range(n_categories)]
+
+
+def search_category_bucket(
+    category: str,
+    alerted_product_ids: list[str],
+    slot_size: int,
+    exclude_ids: set[str],
+) -> list[dict]:
+    """Search Qdrant for products similar to alerted_product_ids within category.
+
+    Oversearches by 2.5× so the business-logic scoring step has enough
+    candidates to pick from after deduplication and filtering.
+
+    Returns [{"product_id": str, "score": float (cosine similarity)}, ...]
+    """
+    import math
 
     qdrant = _get_qdrant()
-    results = {}
 
-    # Convert product IDs to Qdrant point IDs
-    point_ids = [_string_to_qdrant_id(pid) for pid in product_ids]
-
+    # Retrieve vectors for the user's alerted products in this category
+    point_ids = [_string_to_qdrant_id(pid) for pid in alerted_product_ids]
     try:
         points = qdrant.retrieve(
             collection_name=QDRANT_COLLECTION,
             ids=point_ids,
             with_vectors=True,
-            with_payload=True,
+            with_payload=False,
         )
-        for point in points:
-            product_id = point.payload.get("product_id", "")
-            results[product_id] = {
-                "vector": point.vector,
-                "category": point.payload.get("category", ""),
-            }
     except Exception as e:
-        logger.error(f"Failed to retrieve vectors from Qdrant: {e}")
+        logger.error(f"Failed to retrieve vectors for category '{category}': {e}")
+        return []
 
-    return results
+    vectors = [p.vector for p in points if p.vector is not None]
+    if not vectors:
+        return []
 
+    mean_vec = compute_mean_vector(vectors)
 
-def group_by_category(
-    product_vectors: dict, max_groups: int = 5
-) -> dict[str, list[list[float]]]:
-    """Group product vectors by their deepest category.
+    # 2.5× oversearch so scoring/dedup has room
+    search_limit = math.ceil(slot_size * 2.5)
 
-    Returns the top N category groups (by count), each containing
-    the list of vectors for products in that category.
-    """
-    groups: dict[str, list[list[float]]] = {}
-
-    for product_id, data in product_vectors.items():
-        category = data.get("category", "")
-        if not category:
-            continue
-        if category not in groups:
-            groups[category] = []
-        groups[category].append(data["vector"])
-
-    # Sort by group size (most tracked categories first) and take top N
-    sorted_groups = dict(
-        sorted(groups.items(), key=lambda x: len(x[1]), reverse=True)[:max_groups]
-    )
-
-    return sorted_groups
-
-
-def search_qdrant_by_category(
-    mean_vector: list[float],
-    category: str,
-    limit: int = 50,
-    exclude_ids: Optional[list[str]] = None,
-) -> list[str]:
-    """Search Qdrant for similar products within a specific category.
-
-    CRITICAL: Uses a strict payload filter to prevent "Vector Bleed"
-    across categories.
-
-    Returns list of product_id strings.
-    """
-    qdrant = _get_qdrant()
-
-    # Strict category filter — prevents vector bleed
     search_filter = Filter(
-        must=[
-            FieldCondition(
-                key="category",
-                match=MatchValue(value=category),
-            )
-        ]
+        must=[FieldCondition(key="category", match=MatchValue(value=category))]
     )
-
     try:
-        results = qdrant.search(
+        hits = qdrant.search(
             collection_name=QDRANT_COLLECTION,
-            query_vector=mean_vector,
+            query_vector=mean_vec,
             query_filter=search_filter,
-            limit=limit,
+            limit=search_limit,
             with_payload=True,
         )
-
-        product_ids = []
-        for hit in results:
-            pid = hit.payload.get("product_id", "")
-            if pid and (not exclude_ids or pid not in exclude_ids):
-                product_ids.append(pid)
-
-        return product_ids
     except Exception as e:
         logger.error(f"Qdrant search failed for category '{category}': {e}")
         return []
+
+    results = []
+    for hit in hits:
+        pid = hit.payload.get("product_id", "")
+        if pid and pid not in exclude_ids:
+            results.append({"product_id": pid, "score": hit.score})
+    return results
 
 
 def hydrate_products(products_collection, product_ids: list[str]) -> list[dict]:
@@ -371,31 +400,45 @@ def _extract_latest_prices(doc: dict) -> dict:
     return result
 
 
-def sort_by_discount(products: list[dict]) -> list[dict]:
-    """Sort products by active discount (items with discounts first).
+def _compute_discount_fraction(product: dict) -> float:
+    """Return the best available discount as a 0.0–1.0 fraction."""
+    normal = product.get("last_scraped_price")
+    if not isinstance(normal, (int, float)) or normal <= 0:
+        return 0.0
+    discount = product.get("discount_price")
+    clubcard = product.get("clubcard_price")
+    best_deal: Optional[float] = None
+    if isinstance(discount, (int, float)):
+        best_deal = discount
+    if isinstance(clubcard, (int, float)):
+        best_deal = clubcard if best_deal is None else min(best_deal, clubcard)
+    if best_deal is None or best_deal >= normal:
+        return 0.0
+    return (normal - best_deal) / normal
 
-    Business logic: push products with active discounts to the top,
-    sorted by discount percentage. Non-discounted items follow.
+
+def score_and_rank_bucket(
+    candidates: list[dict],
+    hydrated_map: dict[str, dict],
+    slot_size: int,
+) -> list[dict]:
+    """Score each candidate and return the top slot_size products.
+
+    Combined score = 0.5 × vector_similarity  (Qdrant cosine score, 0–1)
+                   + 0.5 × discount_fraction  (best deal / normal price, 0–1)
+
+    candidates: [{"product_id": str, "score": float}]
+    hydrated_map: {tpnc: product_dict}
     """
-    def _discount_sort_key(product: dict) -> tuple:
-        normal = product.get("last_scraped_price")
-        discount = product.get("discount_price")
-        clubcard = product.get("clubcard_price")
-
-        # Calculate best available discount
-        best_discount_pct = 0.0
-        if isinstance(normal, (int, float)) and normal > 0:
-            if isinstance(discount, (int, float)):
-                best_discount_pct = max(best_discount_pct, (normal - discount) / normal)
-            if isinstance(clubcard, (int, float)):
-                best_discount_pct = max(best_discount_pct, (normal - clubcard) / normal)
-
-        has_discount = best_discount_pct > 0
-        # Sort: discounted first (has_discount=True sorts before False when negated)
-        # Then by discount percentage descending
-        return (not has_discount, -best_discount_pct)
-
-    return sorted(products, key=_discount_sort_key)
+    scored: list[tuple[float, dict]] = []
+    for c in candidates:
+        product = hydrated_map.get(c["product_id"])
+        if not product:
+            continue
+        combined = 0.5 * c["score"] + 0.5 * _compute_discount_fraction(product)
+        scored.append((combined, product))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [p for _, p in scored[:slot_size]]
 
 
 # ── Main Recommendation Function ─────────────────────────────────────────────
@@ -403,100 +446,116 @@ def sort_by_discount(products: list[dict]) -> list[dict]:
 def get_recommendations(
     products_collection,
     user_id: Optional[str] = None,
-    limit: int = 20,
+    limit: int = 100,
 ) -> dict:
     """Get personalized product recommendations.
 
-    Flow for logged-in users:
-      1. Fetch the user's alert product IDs.
-      2. Retrieve their Qdrant vectors and search for similar products per
-         category (oversearch at 3× limit to give sorting room).
-      3. Hydrate results from MongoDB, sort by discount % descending.
-         These "personalized" results fill the top of the list.
-      4. Fill any remaining slots (vectors unavailable, too few alert
-         products, or Qdrant returned fewer results than limit) with
-         generic globally-discounted cold-start products, excluding
-         anything already shown.
+    Algorithm for authenticated users with alerts:
+      1. Fetch all enabled alerts with timestamps from the alerts DB.
+      2. Resolve each alerted product's deepest category via Qdrant payload
+         (batch retrieve, no vectors needed here).
+      3. Rank the top-5 categories: primary = alert count DESC,
+         tie-breaker = most recent alert createdAt DESC.
+      4. Distribute `limit` slots evenly across categories; first
+         (limit % n_cats) categories receive one extra slot.
+         e.g. 3 cats, 100 slots → [34, 33, 33].
+      5. Per category: compute mean vector of the user's alerted products
+         in that category, then search Qdrant with a strict category filter
+         at 2.5× the slot size (oversearch). Exclude alerted products.
+      6. Batch-hydrate all candidates from MongoDB. Score each by
+         (0.5 × cosine similarity + 0.5 × discount fraction), rank DESC,
+         trim to slot size. Deduplicate globally across buckets.
+      7. Append cold-start filler (top global discounts) for any remaining
+         slots if personalized results don't fill `limit`.
 
-    Users with no alerts get a pure cold-start (top discounts globally).
-
-    Args:
-        products_collection: MongoDB products collection
-        user_id: Authenticated user ID (None for cold start)
-        limit: Max number of recommendations to return
+    Users with no alerts, or when Qdrant is unavailable, receive a pure
+    cold-start response (globally best-discounted products).
 
     Returns:
-        dict with keys: recommendations, type, personalized_count, count
+        dict with: recommendations, type, personalized_count, count
     """
-    # ── Cold Start: no authenticated user ────────────────────────────────────
+    # ── No user → cold start ──────────────────────────────────────────────────
     if not user_id:
         recs = get_cold_start_recommendations(products_collection, limit=limit)
         return {"recommendations": recs, "type": "cold_start",
                 "personalized_count": 0, "count": len(recs)}
 
     try:
-        tracked_ids = get_user_tracked_products(user_id)
-
-        # ── No alerts → pure cold start ───────────────────────────────────────
-        if not tracked_ids:
+        # Step 1 — alert details
+        alert_details = get_user_alert_details(user_id)
+        if not alert_details:
             recs = get_cold_start_recommendations(products_collection, limit=limit)
             return {"recommendations": recs, "type": "cold_start",
                     "personalized_count": 0, "count": len(recs)}
 
-        # ── Bucket 1: Qdrant similarity search ───────────────────────────────
-        # Oversearch (3× limit) so we have enough candidates after dedup/sort.
-        oversearch = limit * 3
+        alerted_ids: list[str] = list({a["productId"] for a in alert_details})
+
+        # Step 2 — resolve deepest category per product from Qdrant payload
+        category_map = resolve_product_categories(alerted_ids)
+        if not category_map:
+            logger.info(f"User {user_id}: no Qdrant vectors found, cold start fallback")
+            recs = get_cold_start_recommendations(products_collection, limit=limit)
+            return {"recommendations": recs, "type": "cold_start",
+                    "personalized_count": 0, "count": len(recs)}
+
+        # Step 3 — rank top-5 categories
+        top_categories = rank_top_categories(alert_details, category_map, top_n=5)
+        if not top_categories:
+            recs = get_cold_start_recommendations(products_collection, limit=limit)
+            return {"recommendations": recs, "type": "cold_start",
+                    "personalized_count": 0, "count": len(recs)}
+
+        # Step 4 — equal slot allocation
+        n = len(top_categories)
+        slots = allocate_slots(n, total=limit)
+        logger.info(
+            f"User {user_id}: {n} categories {[c for c, _ in top_categories]}, "
+            f"slots {slots}"
+        )
+
+        # Step 5 — per-category Qdrant oversearch (excludes alerted items)
+        exclude_ids: set[str] = set(alerted_ids)
+        per_category_candidates: list[list[dict]] = []
+        all_candidate_ids: list[str] = []
+
+        for (category, cat_product_ids), slot_size in zip(top_categories, slots):
+            candidates = search_category_bucket(
+                category=category,
+                alerted_product_ids=cat_product_ids,
+                slot_size=slot_size,
+                exclude_ids=exclude_ids,
+            )
+            per_category_candidates.append(candidates)
+            for c in candidates:
+                all_candidate_ids.append(c["product_id"])
+
+        # Step 6 — batch hydrate once, score + rank per bucket, global dedup
+        unique_ids = list(dict.fromkeys(all_candidate_ids))
+        hydrated_list = hydrate_products(products_collection, unique_ids)
+        hydrated_map: dict[str, dict] = {p["tpnc"]: p for p in hydrated_list}
+
+        shown: set[str] = set(alerted_ids)
         personalized: list[dict] = []
 
-        try:
-            product_vectors = get_product_vectors(products_collection, tracked_ids)
-            if product_vectors:
-                category_groups = group_by_category(product_vectors, max_groups=5)
-                if category_groups:
-                    all_candidate_ids: list[str] = []
-                    exclude_set = set(tracked_ids)
-                    for cat, vectors in category_groups.items():
-                        mean_vec = compute_mean_vector(vectors)
-                        candidate_ids = search_qdrant_by_category(
-                            mean_vector=mean_vec,
-                            category=cat,
-                            limit=oversearch,
-                            exclude_ids=list(exclude_set),
-                        )
-                        all_candidate_ids.extend(candidate_ids)
+        for candidates, slot_size in zip(per_category_candidates, slots):
+            fresh = [c for c in candidates if c["product_id"] not in shown]
+            ranked = score_and_rank_bucket(fresh, hydrated_map, slot_size)
+            for p in ranked:
+                shown.add(p["tpnc"])
+                personalized.append(p)
 
-                    # Deduplicate while preserving Qdrant relevance order
-                    seen: set[str] = set()
-                    unique_ids: list[str] = []
-                    for pid in all_candidate_ids:
-                        if pid not in seen and pid not in exclude_set:
-                            seen.add(pid)
-                            unique_ids.append(pid)
+        logger.info(f"User {user_id}: {len(personalized)} personalized results")
 
-                    if unique_ids:
-                        hydrated = hydrate_products(
-                            products_collection, unique_ids[:limit * 2]
-                        )
-                        personalized = sort_by_discount(hydrated)[:limit]
-                        logger.info(
-                            f"User {user_id}: {len(personalized)} personalized results "
-                            f"from {list(category_groups.keys())}"
-                        )
-        except Exception as qdrant_err:
-            logger.warning(f"User {user_id}: Qdrant search skipped — {qdrant_err}")
-
-        # ── Bucket 2: cold-start filler ───────────────────────────────────────
-        # Used when Qdrant found fewer items than limit (or is unavailable).
-        already_shown = {p["tpnc"] for p in personalized}
+        # Step 7 — cold-start filler for any remaining slots
         remaining = limit - len(personalized)
         filler: list[dict] = []
         if remaining > 0:
             filler = get_cold_start_recommendations(
                 products_collection,
                 limit=remaining,
-                exclude_ids=list(set(tracked_ids) | already_shown),
+                exclude_ids=list(shown),
             )
-            logger.info(f"User {user_id}: {len(filler)} cold-start filler items added")
+            logger.info(f"User {user_id}: {len(filler)} cold-start filler items")
 
         recommendations = personalized + filler
         rec_type = "personalized" if personalized else "cold_start"

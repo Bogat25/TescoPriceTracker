@@ -102,7 +102,7 @@ export class Search implements OnInit {
   private _loadRecommendations(): void {
     this.loadingRecs.set(true);
     const userId = this.auth.userId();
-    this.products.getRecommendations(userId, 20).subscribe({
+    this.products.getRecommendations(userId, 100).subscribe({
       next: (res) => {
         this.recommendations.set(res.recommendations ?? []);
         this.recommendationType.set(res.type);

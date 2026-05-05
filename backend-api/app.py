@@ -324,7 +324,7 @@ def stats_price_drops_today():
 @app.get("/api/v1/recommendations")
 def get_product_recommendations(
     user_id: str = Query(default=None, alias="userId"),
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=100, ge=1, le=200),
 ):
     """Get personalized product recommendations.
 

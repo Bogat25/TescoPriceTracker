@@ -249,7 +249,7 @@ export class ProductsService {
   /** Fetch AI-powered product recommendations.
    *  If userId is provided, returns personalized results based on tracked items.
    *  Otherwise returns globally discounted products (cold start). */
-  getRecommendations(userId?: string | null, limit = 20): Observable<RecommendationResponse> {
+  getRecommendations(userId?: string | null, limit = 100): Observable<RecommendationResponse> {
     let params = new HttpParams().set('limit', limit);
     if (userId) {
       params = params.set('userId', userId);
