@@ -6,15 +6,15 @@ import { catchError, shareReplay, tap } from 'rxjs/operators';
 import { AppConfigService } from './app-config.service';
 
 export interface Claim {
-  Type: string;
-  Value: string;
+  type: string;   // ASP.NET Core minimal API serialises to camelCase
+  value: string;
 }
 
 export interface GatewayUser {
-  Name: string;
-  Sub?: string | null;
-  Email?: string | null;
-  Claims: Claim[];
+  name: string;          // camelCase from gateway JSON
+  sub?: string | null;
+  email?: string | null;
+  claims: Claim[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -77,14 +77,14 @@ export class AuthService {
       .pipe(
         tap((user) => {
           this.authenticated.set(true);
-          this.userName.set(user.Name);
-          // Try top-level Sub first (gateway v2+), then fall back to Claims array.
+          this.userName.set(user.name);
+          // Try top-level sub first (gateway v2+), then fall back to claims array.
           // Handles both MapInboundClaims=false ("sub" type) and legacy sessions
           // where ASP.NET Core remaps sub → WS-Fed nameidentifier URI.
           const sub =
-            user.Sub
-            ?? user.Claims?.find(c => c.Type === 'sub')?.Value
-            ?? user.Claims?.find(c => c.Type.endsWith('/nameidentifier'))?.Value
+            user.sub
+            ?? user.claims?.find(c => c.type === 'sub')?.value
+            ?? user.claims?.find(c => c.type.endsWith('/nameidentifier'))?.value
             ?? null;
           this.userId.set(sub);
           this.userSubject.next(user);
