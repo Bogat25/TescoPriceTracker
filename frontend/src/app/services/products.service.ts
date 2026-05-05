@@ -246,6 +246,34 @@ export class ProductsService {
     return this.http.get<ProductStats>(`${this.base}/${encodeURIComponent(tpnc)}/stats`);
   }
 
+  /** Cold-start recommendations — top discounted products, no auth needed. */
+  getColdRecommendations(limit = 100): Observable<RecommendationResponse> {
+    const params = new HttpParams().set('limit', limit);
+    return this.http.get<RecommendationResponse>(
+      `${this.config.tescoApiBaseUrl}/recommendations/cold`,
+      { params },
+    ).pipe(
+      map(res => ({
+        ...res,
+        recommendations: (res.recommendations ?? []).map(p => toSummary(p as any)),
+      })),
+    );
+  }
+
+  /** Personalized recommendations — requires a real userId (Keycloak sub). */
+  getPersonalizedRecommendations(userId: string, limit = 100): Observable<RecommendationResponse> {
+    const params = new HttpParams().set('limit', limit).set('userId', userId);
+    return this.http.get<RecommendationResponse>(
+      `${this.config.tescoApiBaseUrl}/recommendations/personalized`,
+      { params },
+    ).pipe(
+      map(res => ({
+        ...res,
+        recommendations: (res.recommendations ?? []).map(p => toSummary(p as any)),
+      })),
+    );
+  }
+
   /** Fetch AI-powered product recommendations.
    *  If userId is provided, returns personalized results based on tracked items.
    *  Otherwise returns globally discounted products (cold start). */

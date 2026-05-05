@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Query, Response
@@ -5,8 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mongo import database_manager as db
 from mongo import stats_manager
-from recommendation_engine import get_recommendations
+from recommendation_engine import get_recommendations, get_cold_start_recommendations
 import uvicorn
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
 
@@ -321,23 +324,55 @@ def stats_price_drops_today():
 # v1 Recommendations
 # ---------------------------------------------------------------------------
 
+@app.get("/api/v1/recommendations/cold")
+def get_cold_recommendations(
+    limit: int = Query(default=100, ge=1, le=200),
+):
+    """Cold-start recommendations — top discounted products globally.
+
+    Call this when the user is NOT signed in. The URL path itself is the
+    signal in logs that no personalization was attempted.
+    """
+    coll = db.get_db()
+    recs = get_cold_start_recommendations(coll, limit=limit)
+    return {"recommendations": recs, "type": "cold_start",
+            "personalized_count": 0, "count": len(recs)}
+
+
+@app.get("/api/v1/recommendations/personalized")
+def get_personalized_recommendations(
+    user_id: str = Query(alias="userId"),
+    limit: int = Query(default=100, ge=1, le=200),
+):
+    """Personalized recommendations for an authenticated user.
+
+    userId is REQUIRED — returns 400 if missing. The URL path itself is the
+    signal in logs that the frontend successfully obtained a userId.
+    Falls back to cold-start internally only if the user has no alerts or
+    Qdrant has no vectors for their products.
+    """
+    logger.info("personalized: userId=%r limit=%d", user_id, limit)
+    coll = db.get_db()
+    result = get_recommendations(coll, user_id=user_id, limit=limit)
+    logger.info("personalized: type=%s personalized_count=%d count=%d",
+                result.get("type"), result.get("personalized_count", 0), result.get("count", 0))
+    return result
+
+
 @app.get("/api/v1/recommendations")
 def get_product_recommendations(
     user_id: str = Query(default=None, alias="userId"),
     limit: int = Query(default=100, ge=1, le=200),
 ):
-    """Get personalized product recommendations.
+    """Legacy unified endpoint — prefer /cold or /personalized instead.
 
-    If userId is provided (authenticated user), returns semantic recommendations
-    based on their tracked/alerted items using hybrid vector search.
-    Otherwise returns globally discounted products (cold start).
+    Kept for backwards compatibility with the browser extension and any
+    external consumers. Internally routes to the same logic.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info("recommendations: received userId=%r limit=%d", user_id, limit)
+    logger.info("recommendations (legacy): userId=%r limit=%d", user_id, limit)
     coll = db.get_db()
     result = get_recommendations(coll, user_id=user_id or None, limit=limit)
-    logger.info("recommendations: type=%s personalized=%d count=%d",
+    logger.info("recommendations (legacy): type=%s personalized_count=%d count=%d",
                 result.get("type"), result.get("personalized_count", 0), result.get("count", 0))
     return result
 

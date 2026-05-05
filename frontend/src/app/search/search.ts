@@ -102,11 +102,19 @@ export class Search implements OnInit {
   private _loadRecommendations(): void {
     this.loadingRecs.set(true);
 
-    // checkSession() returns the in-flight observable if auth is still loading,
-    // or replays the last cached value immediately if auth already completed.
-    // Either way, userId() is populated by the time switchMap runs.
+    // Wait for auth to settle (checkSession replays cached result immediately
+    // if already done, or waits for the in-flight /userinfo call to finish).
     this.auth.checkSession().pipe(
-      switchMap(() => this.products.getRecommendations(this.auth.userId(), 100)),
+      switchMap(() => {
+        const userId = this.auth.userId();
+        if (userId) {
+          // Signed-in path — visible as /recommendations/personalized in logs
+          return this.products.getPersonalizedRecommendations(userId, 100);
+        } else {
+          // Anonymous path — visible as /recommendations/cold in logs
+          return this.products.getColdRecommendations(100);
+        }
+      }),
     ).subscribe({
       next: (res) => {
         this.recommendations.set(res.recommendations ?? []);
