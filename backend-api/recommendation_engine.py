@@ -92,31 +92,41 @@ def compute_mean_vector(vectors: list[list[float]]) -> list[float]:
 # ── Cold Start Recommendations ────────────────────────────────────────────────
 
 def get_cold_start_recommendations(products_collection, limit: int = 20) -> list[dict]:
-    """Get globally discounted products for anonymous/new users.
+    """Get globally discounted/deal products for anonymous/new users.
 
-    Queries MongoDB for products with active discount prices,
-    sorted by discount percentage (best deals first).
+    Queries MongoDB for products with an active discount OR clubcard price
+    in their latest price history entry, sorted by best deal percentage.
     """
-    # Find products that have a discount in their latest price history entry
     pipeline = [
         # Get the last price_history entry
         {"$addFields": {
             "latest_entry": {"$arrayElemAt": ["$price_history", -1]}
         }},
-        # Filter: must have a discount price in latest entry
+        # Filter: must have a normal price AND at least one deal (discount or clubcard)
         {"$match": {
-            "latest_entry.discount": {"$ne": None},
-            "latest_entry.discount.price": {"$ne": None},
             "latest_entry.normal.price": {"$ne": None},
+            "$or": [
+                {"latest_entry.discount.price": {"$ne": None}},
+                {"latest_entry.clubcard.price": {"$ne": None}},
+            ],
         }},
-        # Calculate discount percentage
+        # Best deal price = minimum of discount/clubcard prices (ignoring nulls)
+        {"$addFields": {
+            "best_deal_price": {
+                "$min": [
+                    "$latest_entry.discount.price",
+                    "$latest_entry.clubcard.price",
+                ]
+            }
+        }},
+        # Calculate deal percentage against normal price
         {"$addFields": {
             "discount_pct": {
                 "$multiply": [
                     {"$divide": [
                         {"$subtract": [
                             "$latest_entry.normal.price",
-                            "$latest_entry.discount.price"
+                            "$best_deal_price"
                         ]},
                         "$latest_entry.normal.price"
                     ]},
@@ -153,7 +163,7 @@ def get_cold_start_recommendations(products_collection, limit: int = 20) -> list
 
     try:
         results = list(products_collection.aggregate(pipeline))
-        logger.info(f"Cold start: returning {len(results)} discounted products")
+        logger.info(f"Cold start: returning {len(results)} deal products")
         return results
     except Exception as e:
         logger.error(f"Cold start query failed: {e}")
