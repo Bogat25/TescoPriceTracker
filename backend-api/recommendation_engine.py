@@ -91,25 +91,33 @@ def compute_mean_vector(vectors: list[list[float]]) -> list[float]:
 
 # ── Cold Start Recommendations ────────────────────────────────────────────────
 
-def get_cold_start_recommendations(products_collection, limit: int = 20) -> list[dict]:
-    """Get globally discounted/deal products for anonymous/new users.
+def get_cold_start_recommendations(
+    products_collection,
+    limit: int = 20,
+    exclude_ids: Optional[list[str]] = None,
+) -> list[dict]:
+    """Get discounted/deal products sorted by best discount percentage.
 
-    Queries MongoDB for products with an active discount OR clubcard price
-    in their latest price history entry, sorted by best deal percentage.
+    Args:
+        exclude_ids: Product tpnc/ids to omit (tracked by user or already shown).
     """
+    match_stage: dict = {
+        "latest_entry.normal.price": {"$ne": None},
+        "$or": [
+            {"latest_entry.discount.price": {"$ne": None}},
+            {"latest_entry.clubcard.price": {"$ne": None}},
+        ],
+    }
+    if exclude_ids:
+        match_stage["tpnc"] = {"$nin": exclude_ids}
+
     pipeline = [
         # Get the last price_history entry
         {"$addFields": {
             "latest_entry": {"$arrayElemAt": ["$price_history", -1]}
         }},
         # Filter: must have a normal price AND at least one deal (discount or clubcard)
-        {"$match": {
-            "latest_entry.normal.price": {"$ne": None},
-            "$or": [
-                {"latest_entry.discount.price": {"$ne": None}},
-                {"latest_entry.clubcard.price": {"$ne": None}},
-            ],
-        }},
+        {"$match": match_stage},
         # Best deal price = minimum of discount/clubcard prices (ignoring nulls)
         {"$addFields": {
             "best_deal_price": {
@@ -399,104 +407,109 @@ def get_recommendations(
 ) -> dict:
     """Get personalized product recommendations.
 
+    Flow for logged-in users:
+      1. Fetch the user's alert product IDs.
+      2. Retrieve their Qdrant vectors and search for similar products per
+         category (oversearch at 3× limit to give sorting room).
+      3. Hydrate results from MongoDB, sort by discount % descending.
+         These "personalized" results fill the top of the list.
+      4. Fill any remaining slots (vectors unavailable, too few alert
+         products, or Qdrant returned fewer results than limit) with
+         generic globally-discounted cold-start products, excluding
+         anything already shown.
+
+    Users with no alerts get a pure cold-start (top discounts globally).
+
     Args:
         products_collection: MongoDB products collection
         user_id: Authenticated user ID (None for cold start)
         limit: Max number of recommendations to return
 
     Returns:
-        dict with keys: recommendations (list), type ("cold_start" | "personalized")
+        dict with keys: recommendations, type, personalized_count, count
     """
-    # ── Cold Start: No user or no tracked products ────────────────────────────
+    # ── Cold Start: no authenticated user ────────────────────────────────────
     if not user_id:
-        recommendations = get_cold_start_recommendations(products_collection, limit=limit)
-        return {
-            "recommendations": recommendations,
-            "type": "cold_start",
-            "count": len(recommendations),
-        }
+        recs = get_cold_start_recommendations(products_collection, limit=limit)
+        return {"recommendations": recs, "type": "cold_start",
+                "personalized_count": 0, "count": len(recs)}
 
-    # Get user's tracked items
-    tracked_ids = get_user_tracked_products(user_id)
-    if not tracked_ids:
-        # User is logged in but has no alerts — fall back to cold start
-        recommendations = get_cold_start_recommendations(products_collection, limit=limit)
-        return {
-            "recommendations": recommendations,
-            "type": "cold_start",
-            "count": len(recommendations),
-        }
-
-    # ── Personalized: Semantic search based on tracked items ──────────────────
     try:
-        # Get vectors for tracked products
-        product_vectors = get_product_vectors(products_collection, tracked_ids)
+        tracked_ids = get_user_tracked_products(user_id)
 
-        if not product_vectors:
-            # Tracked products don't have vectors yet — cold start fallback
-            logger.info(f"User {user_id}: no vectors for tracked products, falling back")
-            recommendations = get_cold_start_recommendations(products_collection, limit=limit)
-            return {
-                "recommendations": recommendations,
-                "type": "cold_start",
-                "count": len(recommendations),
-            }
+        # ── No alerts → pure cold start ───────────────────────────────────────
+        if not tracked_ids:
+            recs = get_cold_start_recommendations(products_collection, limit=limit)
+            return {"recommendations": recs, "type": "cold_start",
+                    "personalized_count": 0, "count": len(recs)}
 
-        # Group by deepest category
-        category_groups = group_by_category(product_vectors, max_groups=5)
+        # ── Bucket 1: Qdrant similarity search ───────────────────────────────
+        # Oversearch (3× limit) so we have enough candidates after dedup/sort.
+        oversearch = limit * 3
+        personalized: list[dict] = []
 
-        if not category_groups:
-            recommendations = get_cold_start_recommendations(products_collection, limit=limit)
-            return {
-                "recommendations": recommendations,
-                "type": "cold_start",
-                "count": len(recommendations),
-            }
+        try:
+            product_vectors = get_product_vectors(products_collection, tracked_ids)
+            if product_vectors:
+                category_groups = group_by_category(product_vectors, max_groups=5)
+                if category_groups:
+                    all_candidate_ids: list[str] = []
+                    exclude_set = set(tracked_ids)
+                    for cat, vectors in category_groups.items():
+                        mean_vec = compute_mean_vector(vectors)
+                        candidate_ids = search_qdrant_by_category(
+                            mean_vector=mean_vec,
+                            category=cat,
+                            limit=oversearch,
+                            exclude_ids=list(exclude_set),
+                        )
+                        all_candidate_ids.extend(candidate_ids)
 
-        # Calculate mean vectors and search Qdrant per category
-        all_candidate_ids: list[str] = []
-        exclude_set = set(tracked_ids)  # Don't recommend items user already tracks
+                    # Deduplicate while preserving Qdrant relevance order
+                    seen: set[str] = set()
+                    unique_ids: list[str] = []
+                    for pid in all_candidate_ids:
+                        if pid not in seen and pid not in exclude_set:
+                            seen.add(pid)
+                            unique_ids.append(pid)
 
-        for category, vectors in category_groups.items():
-            mean_vec = compute_mean_vector(vectors)
-            candidate_ids = search_qdrant_by_category(
-                mean_vector=mean_vec,
-                category=category,
-                limit=50,
-                exclude_ids=list(exclude_set),
+                    if unique_ids:
+                        hydrated = hydrate_products(
+                            products_collection, unique_ids[:limit * 2]
+                        )
+                        personalized = sort_by_discount(hydrated)[:limit]
+                        logger.info(
+                            f"User {user_id}: {len(personalized)} personalized results "
+                            f"from {list(category_groups.keys())}"
+                        )
+        except Exception as qdrant_err:
+            logger.warning(f"User {user_id}: Qdrant search skipped — {qdrant_err}")
+
+        # ── Bucket 2: cold-start filler ───────────────────────────────────────
+        # Used when Qdrant found fewer items than limit (or is unavailable).
+        already_shown = {p["tpnc"] for p in personalized}
+        remaining = limit - len(personalized)
+        filler: list[dict] = []
+        if remaining > 0:
+            filler = get_cold_start_recommendations(
+                products_collection,
+                limit=remaining,
+                exclude_ids=list(set(tracked_ids) | already_shown),
             )
-            all_candidate_ids.extend(candidate_ids)
+            logger.info(f"User {user_id}: {len(filler)} cold-start filler items added")
 
-        # Deduplicate while preserving order
-        seen = set()
-        unique_ids = []
-        for pid in all_candidate_ids:
-            if pid not in seen and pid not in exclude_set:
-                seen.add(pid)
-                unique_ids.append(pid)
-
-        # Hydrate with full product data from MongoDB
-        hydrated = hydrate_products(products_collection, unique_ids[:limit * 2])
-
-        # Apply business sorting: active discounts first
-        sorted_products = sort_by_discount(hydrated)
-
-        # Trim to requested limit
-        recommendations = sorted_products[:limit]
+        recommendations = personalized + filler
+        rec_type = "personalized" if personalized else "cold_start"
 
         return {
             "recommendations": recommendations,
-            "type": "personalized",
+            "type": rec_type,
+            "personalized_count": len(personalized),
             "count": len(recommendations),
-            "categories_used": list(category_groups.keys()),
         }
 
     except Exception as e:
         logger.error(f"Personalized recommendation failed: {e}", exc_info=True)
-        # Graceful degradation to cold start
-        recommendations = get_cold_start_recommendations(products_collection, limit=limit)
-        return {
-            "recommendations": recommendations,
-            "type": "cold_start",
-            "count": len(recommendations),
-        }
+        recs = get_cold_start_recommendations(products_collection, limit=limit)
+        return {"recommendations": recs, "type": "cold_start",
+                "personalized_count": 0, "count": len(recs)}

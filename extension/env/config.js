@@ -2,9 +2,9 @@
 const ENV = Object.freeze({
   API_BASE_URL: "https://price-tracker.gavaller.com/api/tesco",
   ALERTS_API_URL: "https://price-tracker.gavaller.com/api/alerts",
-  AUTH_GATEWAY_URL: "https://price-tracker.gavaller.com/auth",
-  KEYCLOAK_URL: "https://pub-auth-price-tracker.gavaller.com/realms/tesco-tracker",
-  KEYCLOAK_CLIENT_ID: "tesco-frontend",
+  AUTH_GATEWAY_URL: "https://gateway.gavaller.com",
+  KEYCLOAK_URL: "https://auth.gavaller.com/realms/backend-ecosystem",
+  KEYCLOAK_CLIENT_ID: "gateway-client",
   WEBSITE_URL: "https://price-tracker.gavaller.com",
 });
 
