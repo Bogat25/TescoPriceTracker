@@ -23,8 +23,11 @@ export class UserSettings implements OnInit {
         this.auth.login(window.location.href);
         return;
       }
-      this.userName.set(user.Name);
-      const sub = user.Claims?.find((c) => c.Type === 'sub')?.Value ?? '';
+      this.userName.set(user.name);
+      const sub = user.sub
+        ?? user.claims?.find((c) => c.type === 'sub')?.value
+        ?? user.claims?.find((c) => c.type.endsWith('/nameidentifier'))?.value
+        ?? '';
       this.userId.set(sub);
       this.loading.set(false);
     });
