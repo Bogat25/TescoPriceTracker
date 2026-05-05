@@ -78,9 +78,15 @@ export class AuthService {
         tap((user) => {
           this.authenticated.set(true);
           this.userName.set(user.Name);
-          // Use the top-level Sub field returned by the gateway — reliable
-          // regardless of ASP.NET Core's MapInboundClaims setting.
-          this.userId.set(user.Sub ?? null);
+          // Try top-level Sub first (gateway v2+), then fall back to Claims array.
+          // Handles both MapInboundClaims=false ("sub" type) and legacy sessions
+          // where ASP.NET Core remaps sub → WS-Fed nameidentifier URI.
+          const sub =
+            user.Sub
+            ?? user.Claims?.find(c => c.Type === 'sub')?.Value
+            ?? user.Claims?.find(c => c.Type.endsWith('/nameidentifier'))?.Value
+            ?? null;
+          this.userId.set(sub);
           this.userSubject.next(user);
           this.loadingAuthState.set(false);
         }),
