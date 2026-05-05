@@ -421,11 +421,13 @@ def score_and_rank_bucket(
     candidates: list[dict],
     hydrated_map: dict[str, dict],
     slot_size: int,
-) -> list[dict]:
-    """Score each candidate and return the top slot_size products.
+) -> list[tuple[float, dict]]:
+    """Score each candidate and return the top slot_size (score, product) pairs.
 
     Combined score = 0.5 × vector_similarity  (Qdrant cosine score, 0–1)
                    + 0.5 × discount_fraction  (best deal / normal price, 0–1)
+
+    Returns scored tuples so the caller can re-sort globally across buckets.
 
     candidates: [{"product_id": str, "score": float}]
     hydrated_map: {tpnc: product_dict}
@@ -438,7 +440,7 @@ def score_and_rank_bucket(
         combined = 0.5 * c["score"] + 0.5 * _compute_discount_fraction(product)
         scored.append((combined, product))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [p for _, p in scored[:slot_size]]
+    return scored[:slot_size]
 
 
 # ── Main Recommendation Function ─────────────────────────────────────────────
@@ -535,14 +537,21 @@ def get_recommendations(
         hydrated_map: dict[str, dict] = {p["tpnc"]: p for p in hydrated_list}
 
         shown: set[str] = set(alerted_ids)
-        personalized: list[dict] = []
+        all_scored: list[tuple[float, dict]] = []
 
         for candidates, slot_size in zip(per_category_candidates, slots):
             fresh = [c for c in candidates if c["product_id"] not in shown]
+            # score_and_rank_bucket selects the best slot_size from this category
+            # (diversity guardrail) but returns scores so we can sort globally
             ranked = score_and_rank_bucket(fresh, hydrated_map, slot_size)
-            for p in ranked:
-                shown.add(p["tpnc"])
-                personalized.append(p)
+            for score, p in ranked:
+                if p["tpnc"] not in shown:
+                    shown.add(p["tpnc"])
+                    all_scored.append((score, p))
+
+        # Global re-sort: best combined score wins regardless of which category it came from
+        all_scored.sort(key=lambda x: x[0], reverse=True)
+        personalized = [p for _, p in all_scored]
 
         logger.info(f"User {user_id}: {len(personalized)} personalized results")
 
