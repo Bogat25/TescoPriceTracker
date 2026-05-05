@@ -4,8 +4,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, skip, take } from 'rxjs/operators';
+import { Observable, of } from 'rxjs';
 import { ProductSummary, ProductsService } from '../services/products.service';
 import { AuthService } from '../services/auth.service';
 
@@ -101,8 +101,17 @@ export class Search implements OnInit {
 
   private _loadRecommendations(): void {
     this.loadingRecs.set(true);
-    const userId = this.auth.userId();
-    this.products.getRecommendations(userId, 100).subscribe({
+
+    // Guard against the auth timing race: App.ngOnInit fires checkSession() and
+    // Search.ngOnInit fires simultaneously, so userId() is still null while the
+    // /userinfo HTTP call is in flight. Wait for auth to settle first.
+    const authReady$: Observable<unknown> = this.auth.loadingAuthState()
+      ? this.auth.user$.pipe(skip(1), take(1))  // wait for checkSession() to finish
+      : of(null);                                // auth already settled — fire now
+
+    authReady$.pipe(
+      switchMap(() => this.products.getRecommendations(this.auth.userId(), 100)),
+    ).subscribe({
       next: (res) => {
         this.recommendations.set(res.recommendations ?? []);
         this.recommendationType.set(res.type);
