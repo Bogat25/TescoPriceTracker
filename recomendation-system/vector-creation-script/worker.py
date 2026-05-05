@@ -193,6 +193,8 @@ def run_single_batch(model) -> int:
 
 
 def main():
+    global BATCH_SIZE
+
     parser = argparse.ArgumentParser(description="AI Worker Node - Vector Generation")
     parser.add_argument("--loop", action="store_true", help="Run continuously")
     parser.add_argument(
@@ -209,7 +211,6 @@ def main():
         logger.error("VECTOR_SYNC_API_TOKEN not set. Exiting.")
         sys.exit(1)
 
-    global BATCH_SIZE
     BATCH_SIZE = args.batch_size
 
     # Load model once
