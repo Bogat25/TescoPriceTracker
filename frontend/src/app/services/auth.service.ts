@@ -12,6 +12,8 @@ export interface Claim {
 
 export interface GatewayUser {
   Name: string;
+  Sub?: string | null;
+  Email?: string | null;
   Claims: Claim[];
 }
 
@@ -76,15 +78,9 @@ export class AuthService {
         tap((user) => {
           this.authenticated.set(true);
           this.userName.set(user.Name);
-          // Handle both raw JWT claim name ("sub") and WS-Federation URI that
-          // ASP.NET Core produces when MapInboundClaims is true (the default).
-          // Old session cookies baked before MapInboundClaims=false was deployed
-          // still carry the long URI, so we must check both.
-          const sub = user.Claims?.find((c) =>
-            c.Type === 'sub' ||
-            c.Type === 'http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'
-          )?.Value ?? null;
-          this.userId.set(sub);
+          // Use the top-level Sub field returned by the gateway — reliable
+          // regardless of ASP.NET Core's MapInboundClaims setting.
+          this.userId.set(user.Sub ?? null);
           this.userSubject.next(user);
           this.loadingAuthState.set(false);
         }),
