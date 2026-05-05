@@ -478,13 +478,16 @@ def get_recommendations(
     """
     # ── No user → cold start ──────────────────────────────────────────────────
     if not user_id:
+        logger.info("recommendations: no user_id → cold start")
         recs = get_cold_start_recommendations(products_collection, limit=limit)
         return {"recommendations": recs, "type": "cold_start",
                 "personalized_count": 0, "count": len(recs)}
 
     try:
         # Step 1 — alert details
+        logger.info("recommendations: user_id=%r fetching alerts", user_id)
         alert_details = get_user_alert_details(user_id)
+        logger.info("recommendations: user_id=%r found %d alerts", user_id, len(alert_details))
         if not alert_details:
             recs = get_cold_start_recommendations(products_collection, limit=limit)
             return {"recommendations": recs, "type": "cold_start",
@@ -494,6 +497,7 @@ def get_recommendations(
 
         # Step 2 — resolve deepest category per product from Qdrant payload
         category_map = resolve_product_categories(alerted_ids)
+        logger.info("recommendations: user_id=%r category_map=%r", user_id, category_map)
         if not category_map:
             logger.info(f"User {user_id}: no Qdrant vectors found, cold start fallback")
             recs = get_cold_start_recommendations(products_collection, limit=limit)

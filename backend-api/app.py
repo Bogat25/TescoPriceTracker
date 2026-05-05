@@ -332,9 +332,84 @@ def get_product_recommendations(
     based on their tracked/alerted items using hybrid vector search.
     Otherwise returns globally discounted products (cold start).
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("recommendations: received userId=%r limit=%d", user_id, limit)
     coll = db.get_db()
     result = get_recommendations(coll, user_id=user_id or None, limit=limit)
+    logger.info("recommendations: type=%s personalized=%d count=%d",
+                result.get("type"), result.get("personalized_count", 0), result.get("count", 0))
     return result
+
+
+@app.get("/api/v1/recommendations/debug")
+def debug_recommendations(
+    user_id: str = Query(default=None, alias="userId"),
+):
+    """Pipeline diagnostic — returns every intermediate step result.
+
+    Use this to verify the full recommendation pipeline without needing
+    to read Docker logs. Does NOT return hydrated products.
+    """
+    from recommendation_engine import (
+        get_user_alert_details,
+        resolve_product_categories,
+        rank_top_categories,
+        allocate_slots,
+        _get_qdrant,
+        QDRANT_COLLECTION,
+    )
+    steps: dict = {}
+
+    steps["received_user_id"] = user_id
+
+    if not user_id:
+        return {"error": "no userId provided — pass ?userId=<sub>", "steps": steps}
+
+    # Step 1 — alert details
+    alert_details = get_user_alert_details(user_id)
+    steps["alert_details_count"] = len(alert_details)
+    steps["alert_details_sample"] = alert_details[:5]
+
+    if not alert_details:
+        steps["stopped_at"] = "no_alerts"
+        return {"pipeline": "stopped_at_no_alerts", "steps": steps}
+
+    alerted_ids = list({a["productId"] for a in alert_details})
+    steps["distinct_alerted_product_ids"] = alerted_ids
+
+    # Step 2 — resolve categories from Qdrant
+    category_map = resolve_product_categories(alerted_ids)
+    steps["category_map"] = category_map
+
+    if not category_map:
+        steps["stopped_at"] = "no_qdrant_vectors"
+        return {"pipeline": "stopped_at_no_qdrant_vectors", "steps": steps}
+
+    # Step 3 — top categories
+    top_categories = rank_top_categories(alert_details, category_map, top_n=5)
+    steps["top_categories"] = [
+        {"category": cat, "product_ids": pids} for cat, pids in top_categories
+    ]
+
+    # Step 4 — slot allocation
+    n = len(top_categories)
+    slots = allocate_slots(n, total=100)
+    steps["slot_allocation"] = slots
+
+    # Quick Qdrant collection info
+    try:
+        qdrant = _get_qdrant()
+        info = qdrant.get_collection(QDRANT_COLLECTION)
+        steps["qdrant_collection"] = {
+            "points_count": info.points_count,
+            "vectors_count": info.vectors_count,
+            "status": str(info.status),
+        }
+    except Exception as e:
+        steps["qdrant_collection_error"] = str(e)
+
+    return {"pipeline": "ok", "steps": steps}
 
 
 # ---------------------------------------------------------------------------
