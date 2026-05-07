@@ -17,7 +17,7 @@ from typing import Optional
 import httpx
 import jwt
 from fastapi import Header, HTTPException, status
-from jwt import PyJWKClient, PyJWTError
+from jwt import PyJWKSet, PyJWTError
 
 import settings
 
@@ -26,31 +26,86 @@ logger = logging.getLogger(__name__)
 
 
 class _JwksCache:
-    """Thin wrapper around PyJWKClient with manual TTL invalidation."""
+    """Fetches JWKS via httpx with X-Internal-Token, caches with TTL.
+
+    Uses httpx.get directly (instead of PyJWKClient/urllib) so the
+    X-Internal-Token header is sent as-is without urllib's capitalize()
+    normalisation, and so that JWKS fetch failures produce actionable log
+    lines that include the HTTP status code and whether the token was present.
+    """
 
     def __init__(self, jwks_url: str, ttl: int) -> None:
         self._url = jwks_url
         self._ttl = ttl
-        self._client: Optional[PyJWKClient] = None
+        self._jwk_set: Optional[PyJWKSet] = None
         self._loaded_at: float = 0.0
 
-    def _client_or_load(self) -> PyJWKClient:
-        if self._client is None or (time.time() - self._loaded_at) > self._ttl:
-            logger.info("loading JWKS from %s", self._url)
-            headers = {}
-            if settings.GATEWAY_INTERNAL_TOKEN:
-                headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN
-            self._client = PyJWKClient(
-                self._url, cache_keys=True, lifespan=self._ttl, headers=headers
+    def _fetch(self) -> PyJWKSet:
+        headers: dict = {}
+        if settings.GATEWAY_INTERNAL_TOKEN:
+            headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN
+        else:
+            logger.warning(
+                "GATEWAY_INTERNAL_TOKEN is not set — JWKS request to %s carries no auth "
+                "header and will be rejected (HTTP 403) by the gateway.",
+                self._url,
             )
+
+        logger.info("fetching JWKS from %s", self._url)
+        try:
+            r = httpx.get(self._url, headers=headers, timeout=30.0)
+        except Exception as exc:
+            logger.error(
+                "JWKS network error fetching %s: %s: %s", self._url, type(exc).__name__, exc
+            )
+            raise PyJWTError(f"JWKS network error: {exc}") from exc
+
+        if r.status_code != 200:
+            logger.error(
+                "JWKS fetch failed: HTTP %d from %s — "
+                "X-Internal-Token was %s. "
+                "Ensure GATEWAY_INTERNAL_TOKEN (alert-service) matches "
+                "INTERNAL_SERVICE_TOKEN (gateway).",
+                r.status_code,
+                self._url,
+                "SENT" if settings.GATEWAY_INTERNAL_TOKEN else "NOT SENT (GATEWAY_INTERNAL_TOKEN is empty)",
+            )
+            raise PyJWTError(f"JWKS endpoint returned HTTP {r.status_code}")
+
+        try:
+            return PyJWKSet.from_dict(r.json())
+        except Exception as exc:
+            logger.error("Failed to parse JWKS response from %s: %s", self._url, exc)
+            raise PyJWTError(f"JWKS parse error: {exc}") from exc
+
+    def _jwk_set_or_load(self) -> PyJWKSet:
+        if self._jwk_set is None or (time.time() - self._loaded_at) > self._ttl:
+            self._jwk_set = self._fetch()
             self._loaded_at = time.time()
-        return self._client
+        return self._jwk_set
 
     def get_signing_key(self, token: str):
-        return self._client_or_load().get_signing_key_from_jwt(token).key
+        try:
+            header = jwt.get_unverified_header(token)
+        except Exception as exc:
+            raise PyJWTError(f"Cannot decode token header: {exc}") from exc
+
+        kid = header.get("kid")
+        jwk_set = self._jwk_set_or_load()
+
+        for jwk in jwk_set.keys:
+            if kid is None or jwk.key_id == kid:
+                return jwk.key
+
+        # No kid match — warn and fall back to first key (single-key realms)
+        if jwk_set.keys:
+            logger.warning("No JWK matched kid=%r; falling back to first available key", kid)
+            return jwk_set.keys[0].key
+
+        raise PyJWTError(f"JWKS contained no usable keys (kid={kid!r})")
 
     def invalidate(self) -> None:
-        self._client = None
+        self._jwk_set = None
         self._loaded_at = 0.0
 
 
@@ -60,12 +115,18 @@ _jwks = _JwksCache(_jwks_url, settings.JWKS_TTL_SECONDS)
 
 
 def prime_jwks() -> None:
-    """Force-load the JWKS during app startup so the first request is fast."""
+    """Fetch and cache JWKS at startup to verify connectivity and warm the cache."""
     try:
-        _jwks._client_or_load()
-        logger.info("JWKS primed")
+        _jwks.invalidate()
+        _jwks._jwk_set_or_load()
+        n = len(_jwks._jwk_set.keys) if _jwks._jwk_set else 0
+        logger.info("JWKS primed: %d key(s) cached from %s", n, _jwks_url)
     except Exception:
-        logger.exception("JWKS prime failed; will retry on first request")
+        logger.exception(
+            "JWKS prime FAILED — alerts will return 401 on every request until resolved. "
+            "Most likely cause: GATEWAY_INTERNAL_TOKEN env var is empty or "
+            "INTERNAL_SERVICE_TOKEN is not configured on the gateway."
+        )
 
 
 def _decode(token: str) -> dict:
