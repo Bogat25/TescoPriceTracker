@@ -27,7 +27,7 @@ from typing import Optional, Tuple
 from urllib.parse import urlencode, urlparse, quote
 
 import httpx
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet, MultiFernet, InvalidToken
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
@@ -61,7 +61,13 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() == "true"
 SCOPES = os.environ.get("SCOPES", "openid profile email")
 
 # Fernet needs a 32-byte url-safe base64 key; SHA-256 of any user-supplied secret works.
-_fernet = Fernet(base64.urlsafe_b64encode(hashlib.sha256(_required("SESSION_SECRET").encode()).digest()))
+# To support key rotation, multiple comma-separated keys can be passed in SESSION_SECRET.
+# MultiFernet uses the first key for encryption, and attempts decryption with all keys.
+_fernets = [
+    Fernet(base64.urlsafe_b64encode(hashlib.sha256(sec.strip().encode()).digest()))
+    for sec in _required("SESSION_SECRET").split(",") if sec.strip()
+]
+_fernet = MultiFernet(_fernets)
 
 AUTH_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/protocol/openid-connect/auth"
 LOGOUT_ENDPOINT_PUBLIC = f"{KC_PUBLIC_BASE_URL}/protocol/openid-connect/logout"
