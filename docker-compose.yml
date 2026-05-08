@@ -345,7 +345,9 @@ services:
       NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_UPSTREAM,ALERTS_API_UPSTREAM,AUTH_BASE_URL,AUTH_LOGIN_URL,AUTH_LOGOUT_URL,AUTH_USERINFO_URL,AUTH_ACCOUNT_URL,AUTH_TOKEN_URL
     networks:
       tesco-tracker-internal: {}
-      gavaller-backend-internal: {}
+      gavaller-backend-internal:
+        aliases:
+          - tesco-tracker-frontend
       public_ingress:
         aliases:
           - ${STACK_PREFIX}price-tracker
