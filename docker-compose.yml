@@ -1,3 +1,18 @@
+# =============================================================================
+# WARNING — this file is the in-repo template, NOT the active deployment.
+# =============================================================================
+# The Pi deploys with `docker-compose.override.yml` merged on top of this file
+# (Compose's default behaviour). Both files are kept in the repo and MUST stay
+# in sync for two reasons:
+#
+#   1. Local tooling (`docker compose config`, IDE compose plugins, our pytest
+#      suite) reads the merged result, so missing changes here surface as
+#      drift between repo and Pi.
+#   2. If you ever drop the override file, this is what you fall back to.
+#
+# Whenever you edit one, mirror the change into the other in the same commit.
+# =============================================================================
+
 version: '3.8'
 
 services:
@@ -117,6 +132,8 @@ services:
   auth-gateway:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-tracker-auth-gateway
+    labels:
+    - vector.enable=true
     restart: unless-stopped
     profiles: ["auth"]
     working_dir: /app/auth-gateway
@@ -149,6 +166,8 @@ services:
   api:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-price-tracker-api
+    labels:
+    - vector.enable=true
     restart: unless-stopped
     working_dir: /app/backend-api
     command: uvicorn app:app --host 0.0.0.0 --port 50202
@@ -179,6 +198,8 @@ services:
   scheduler:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-tracker-scheduler
+    labels:
+    - vector.enable=true
     restart: unless-stopped
     working_dir: /app/scheduler
     command: python scheduler.py
@@ -201,6 +222,8 @@ services:
   alert-service:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-alert-service
+    labels:
+    - vector.enable=true
     restart: unless-stopped
     working_dir: /app/alert-service
     command: uvicorn app:app --host 0.0.0.0 --port 8080
@@ -239,6 +262,8 @@ services:
   alert-keycloak-sync:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-alert-keycloak-sync
+    labels:
+    - vector.enable=true
     restart: unless-stopped
     profiles: ["auth"]
     working_dir: /app/alert-service
@@ -292,6 +317,8 @@ services:
   recommendation-api:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
     container_name: ${STACK_PREFIX}tesco-tracker-recommendation-api
+    labels:
+    - vector.enable=true
     restart: unless-stopped
     working_dir: /app/recomendation-system
     command: uvicorn app:app --host 0.0.0.0 --port 8090
