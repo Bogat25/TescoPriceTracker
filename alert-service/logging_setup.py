@@ -83,6 +83,7 @@ _DEFAULT_SERVICE_NAME = "unknown"
 # calls can echo it via `correlation_headers()` so a single trace ID can
 # follow a request across service boundaries.
 _CORRELATION_HEADER = "X-Correlation-ID"
+_ANON_HEADER = "X-Anon-Id"
 
 # Map structlog's lowercase level names to the Serilog-Compact level
 # vocabulary used on the wire (Information / Warning / Error / Fatal /
@@ -122,7 +123,7 @@ def _rename_to_serilog_compact(_logger, _method, event_dict):
     event_dict["@mt"] = msg
 
     reserved = {"@t", "@l", "@m", "@mt", "Service", "Category", "Action",
-                "RequestId", "CorrelationId", "Context", "exception", "exc_info"}
+                "RequestId", "CorrelationId", "AnonId", "Context", "exception", "exc_info"}
     extras = {k: event_dict.pop(k) for k in list(event_dict.keys()) if k not in reserved}
     if extras:
         ctx = event_dict.get("Context")
@@ -209,6 +210,10 @@ def bind_correlation_id(value: Optional[str] = None) -> str:
     structlog.contextvars.bind_contextvars(CorrelationId=cid)
     return cid
 
+def bind_anon_id(value: str) -> str:
+    structlog.contextvars.bind_contextvars(AnonId=value)
+    return value
+
 
 def bind_request_id(value: Optional[str] = None) -> str:
     rid = value or uuid.uuid4().hex
@@ -233,10 +238,14 @@ def correlation_headers() -> dict[str, str]:
     during startup or in unit tests). Never raises.
     """
     bound = structlog.contextvars.get_contextvars()
+    headers = {}
     cid = bound.get("CorrelationId")
-    if not cid:
-        return {}
-    return {_CORRELATION_HEADER: str(cid)}
+    if cid:
+        headers[_CORRELATION_HEADER] = str(cid)
+    anon = bound.get("AnonId")
+    if anon:
+        headers[_ANON_HEADER] = str(anon)
+    return headers
 
 
 # ── FastAPI middleware ───────────────────────────────────────────────────────
@@ -251,12 +260,17 @@ def correlation_middleware():
     services can pick it up.
     """
     async def middleware(request, call_next: Callable[..., Awaitable]):
-        incoming = request.headers.get(_CORRELATION_HEADER)
-        cid = bind_correlation_id(incoming)
+        incoming_corr = request.headers.get(_CORRELATION_HEADER)
+        incoming_anon = request.headers.get(_ANON_HEADER)
+        cid = bind_correlation_id(incoming_corr)
+        if incoming_anon:
+            bind_anon_id(incoming_anon)
         rid = bind_request_id()
         try:
             response = await call_next(request)
             response.headers[_CORRELATION_HEADER] = cid
+            if incoming_anon:
+                response.headers[_ANON_HEADER] = incoming_anon
             response.headers["X-Request-ID"] = rid
             return response
         finally:
