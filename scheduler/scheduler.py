@@ -5,8 +5,9 @@ from datetime import datetime
 import pytz
 from config import SCHEDULER_CRON, SCHEDULER_TIMEZONE, DEFAULT_THREADS
 from scraper.scraper import run_scraper, is_today_scrape_done
+from logging_setup import setup_logging, bind_correlation_id, clear_context
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -15,12 +16,19 @@ def now_in_tz():
 
 
 def job():
-    logger.info("Starting scheduled scrape job...")
+    # Generate a fresh correlation ID per scrape run so all log lines emitted
+    # while this job runs share the same trace ID and can be filtered as one
+    # logical unit later.
+    bind_correlation_id()
     try:
-        run_scraper(threads=DEFAULT_THREADS)
-        logger.info("Scrape job finished.")
-    except Exception as e:
-        logger.error(f"Error during scrape job: {e}")
+        logger.info("Starting scheduled scrape job...")
+        try:
+            run_scraper(threads=DEFAULT_THREADS)
+            logger.info("Scrape job finished.")
+        except Exception as e:
+            logger.error(f"Error during scrape job: {e}")
+    finally:
+        clear_context()
 
 
 if __name__ == "__main__":

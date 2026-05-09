@@ -13,7 +13,9 @@ from auth import prime_jwks
 from routers import alerts, health, internal
 
 
-logging.basicConfig(level=settings.LOG_LEVEL)
+from logging_setup import setup_logging, correlation_middleware
+
+setup_logging(level=settings.LOG_LEVEL)
 logger = logging.getLogger("alert-service")
 
 
@@ -79,6 +81,7 @@ app = FastAPI(
     # accept both forms explicitly on the routes instead.
     redirect_slashes=False,
 )
+app.middleware("http")(correlation_middleware())
 
 
 _cors_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()]

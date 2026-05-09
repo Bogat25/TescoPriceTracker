@@ -26,7 +26,9 @@ from qdrant_client.models import (
 import settings
 from data_preparation import build_embedding_text
 
-logging.basicConfig(level=logging.INFO)
+from logging_setup import setup_logging, correlation_middleware
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # ── Database clients ──────────────────────────────────────────────────────────
@@ -101,6 +103,7 @@ app = FastAPI(
     version="1.0",
     lifespan=lifespan,
 )
+app.middleware("http")(correlation_middleware())
 
 
 # ── Models ────────────────────────────────────────────────────────────────────

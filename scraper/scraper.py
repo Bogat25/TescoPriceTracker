@@ -14,7 +14,9 @@ from mongo.queries import FULL_PRODUCT_QUERY, PRICE_ONLY_QUERY
 from mongo import database_manager as db
 from mongo import stats_manager
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# NOTE: structured logging is configured at the entrypoint that imports
+# this module (scheduler.py calls setup_logging()). Don't call basicConfig
+# here or it'll add a second handler that emits plain-text lines.
 logger = logging.getLogger(__name__)
 
 
@@ -502,11 +504,16 @@ def _notify_alert_service():
         logger.info("No price drops to notify the alert-service about.")
         return
 
+    # Forward our scrape-job correlation ID so alert-service's log lines
+    # for this trigger share the same trace ID as ours.
+    from logging_setup import correlation_headers
+    headers = {"X-Internal-Token": token, **correlation_headers()}
+
     try:
         r = requests.post(
             url,
             json={"drops": drops},
-            headers={"X-Internal-Token": token},
+            headers=headers,
             timeout=30,
         )
         if r.status_code == 200:

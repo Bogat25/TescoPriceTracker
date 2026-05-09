@@ -6,6 +6,17 @@ collection. This keeps the alert pipeline self-sufficient when a user hasn't
 hit any of the alert API endpoints recently (so JIT didn't refresh them).
 """
 
+# Path bootstrap — must run BEFORE any sibling imports.
+# This script lives in alert-service/jobs/ but sibling-imports modules from
+# alert-service/ (db, settings, services, logging_setup). Python only adds
+# the script's own directory (jobs/) to sys.path, not its parent. Inject the
+# parent so `import settings` etc. resolve regardless of how the script is
+# invoked (`python jobs/keycloak_sync.py`, `python -m jobs.keycloak_sync`,
+# etc.).
+import os as _os
+import sys as _sys
+_sys.path.insert(0, _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+
 import argparse
 import asyncio
 import logging
@@ -19,7 +30,9 @@ import settings
 from services import keycloak_admin, user_repo
 
 
-logging.basicConfig(level=settings.LOG_LEVEL)
+from logging_setup import setup_logging, bind_correlation_id, clear_context
+
+setup_logging(level=settings.LOG_LEVEL)
 logger = logging.getLogger("alert-keycloak-sync")
 
 TZ = ZoneInfo("Europe/Budapest")
@@ -43,9 +56,15 @@ async def _main_loop() -> None:
         try:
             now = datetime.now(TZ)
             if pycron.is_now(settings.KEYCLOAK_SYNC_CRON, dt=now):
-                logger.info("Tick: running Keycloak sync")
-                upserted, skipped = await run_sync_once()
-                logger.info("Sync complete — upserted=%d skipped=%d", upserted, skipped)
+                # New correlation ID per sync invocation so log lines from
+                # this run share one trace ID and can be filtered together.
+                bind_correlation_id()
+                try:
+                    logger.info("Tick: running Keycloak sync")
+                    upserted, skipped = await run_sync_once()
+                    logger.info("Sync complete — upserted=%d skipped=%d", upserted, skipped)
+                finally:
+                    clear_context()
                 # Skip past the matched minute so we don't double-fire on the next tick.
                 await asyncio.sleep(60)
         except Exception:
@@ -54,8 +73,12 @@ async def _main_loop() -> None:
 
 
 async def _run_once_and_exit() -> None:
-    upserted, skipped = await run_sync_once()
-    logger.info("One-shot sync complete — upserted=%d skipped=%d", upserted, skipped)
+    bind_correlation_id()
+    try:
+        upserted, skipped = await run_sync_once()
+        logger.info("One-shot sync complete — upserted=%d skipped=%d", upserted, skipped)
+    finally:
+        clear_context()
 
 
 def _close_db_sync() -> None:

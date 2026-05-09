@@ -4,3 +4,8 @@ uvicorn==0.31.1
 pymongo==4.9.2
 qdrant-client==1.12.1
 pydantic==2.9.2
+# NOTE: This file is NOT used at deploy time. The recommendation-api container
+# is built from the root Dockerfile and uses the root requirements.txt
+# (see docker-compose.yml — `build: .`). Keep this list in sync if you ever
+# split it into its own image. structlog must be present in whatever the
+# active image installs, since logging_setup.py imports it.

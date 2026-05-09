@@ -31,7 +31,9 @@ from cryptography.fernet import Fernet, MultiFernet, InvalidToken
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
-logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+from logging_setup import setup_logging, correlation_middleware
+
+setup_logging()
 logger = logging.getLogger("auth-gateway")
 
 
@@ -154,6 +156,7 @@ def _is_session_expired(session: dict) -> bool:
 
 
 app = FastAPI(title="auth-gateway", version="1.0.0")
+app.middleware("http")(correlation_middleware())
 
 # ── CORS for browser-extension endpoints ─────────────────────────────────────
 # Extension service workers have chrome-extension:// / moz-extension:// origins

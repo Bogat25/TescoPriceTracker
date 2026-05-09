@@ -14,6 +14,7 @@ from typing import AsyncIterator, Optional
 import httpx
 
 import settings
+from logging_setup import correlation_headers
 
 
 logger = logging.getLogger(__name__)
@@ -24,8 +25,13 @@ class KeycloakAdminError(RuntimeError):
 
 
 def _internal_headers() -> dict:
-    """Build headers with the internal service token for gateway auth."""
-    headers: dict = {"Accept": "application/json"}
+    """Build headers with the internal service token for gateway auth.
+
+    Also forwards the current X-Correlation-ID so the gateway logs the
+    same trace ID we logged with on this side. correlation_headers()
+    returns {} when no ID is bound (e.g. during cold-start / unit tests).
+    """
+    headers: dict = {"Accept": "application/json", **correlation_headers()}
     if settings.GATEWAY_INTERNAL_TOKEN:
         headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN
     return headers

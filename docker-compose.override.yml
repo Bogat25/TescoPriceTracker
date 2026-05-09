@@ -121,6 +121,7 @@ services:
     expose:
     - '8080'
     environment:
+      SERVICE_NAME: auth-gateway
       KC_PUBLIC_BASE_URL: ${KC_PUBLIC_BASE_URL}
       KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://keycloak:8080/realms/tesco-tracker}
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
@@ -153,6 +154,7 @@ services:
     expose:
     - '50202'
     environment:
+      SERVICE_NAME: backend-api
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
@@ -181,6 +183,7 @@ services:
     working_dir: /app/scheduler
     command: python scheduler.py
     environment:
+      SERVICE_NAME: scheduler
       API_KEY: ${API_KEY}
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
@@ -205,6 +208,7 @@ services:
     expose:
     - '8080'
     environment:
+      SERVICE_NAME: alert-service
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
@@ -243,6 +247,7 @@ services:
     working_dir: /app/alert-service
     command: python jobs/keycloak_sync.py
     environment:
+      SERVICE_NAME: alert-keycloak-sync
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
@@ -291,6 +296,7 @@ services:
     expose:
     - '8090'
     environment:
+      SERVICE_NAME: recommendation-api
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}

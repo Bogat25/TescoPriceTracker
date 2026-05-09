@@ -9,9 +9,15 @@ from mongo import stats_manager
 from recommendation_engine import get_recommendations, get_cold_start_recommendations
 import uvicorn
 
+from logging_setup import setup_logging, correlation_middleware
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
+
+# Bind correlation IDs early so every later middleware/handler logs with them.
+app.middleware("http")(correlation_middleware())
 
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
 if not allowed_origins or allowed_origins == [""]:
