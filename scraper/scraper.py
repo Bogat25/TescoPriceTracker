@@ -343,6 +343,15 @@ def process_product(tpnc, force=False, progress_prefix=""):
     # ---- Single load/save for all categories + optional metadata ----
     results = db.insert_daily_prices(tpnc, price_updates, metadata=metadata)
 
+    if metadata:
+        try:
+            from mongo.products_catalog_manager import upsert_product_catalog
+            catalog_meta = dict(metadata)
+            catalog_meta["tpnc"] = str(tpnc)
+            upsert_product_catalog(catalog_meta)
+        except Exception:
+            logger.warning("Catalog upsert failed for %s (non-fatal)", tpnc, exc_info=True)
+
     # ---- Logging ----
     change_status = "Changed" if any(results.values()) else "Unchanged"
     log_prices = [f"Normal: {price_actual}"]

@@ -190,6 +190,9 @@ services:
       gavaller-backend-internal:
         aliases:
           - tesco-price-tracker-api
+      tesco-internal:
+        aliases:
+          - tesco-backend-api
     depends_on:
       mongo:
         condition: service_healthy
@@ -405,5 +408,11 @@ networks:
   gavaller-backend-internal:
     external: true
     name: gavaller-backend-internal
+  # External, owned by the infra stack. The refdata-sync worker in the Gavaller
+  # ecosystem uses this network to reach backend-api for catalog sync.
+  #   docker network create tesco-internal
+  tesco-internal:
+    external: true
+    name: tesco-internal
 
 # ── Volumes ───────────────────────────────────────────────────────────────────

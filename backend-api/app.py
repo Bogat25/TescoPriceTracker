@@ -10,11 +10,13 @@ from recommendation_engine import get_recommendations, get_cold_start_recommenda
 import uvicorn
 
 from logging_setup import setup_logging, correlation_middleware
+from routers.internal_catalog import router as internal_catalog_router
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
+app.include_router(internal_catalog_router)
 
 # Bind correlation IDs early so every later middleware/handler logs with them.
 app.middleware("http")(correlation_middleware())

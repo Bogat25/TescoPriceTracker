@@ -169,6 +169,9 @@ services:
       gavaller-backend-internal:
         aliases:
         - tesco-price-tracker-api
+      tesco-internal:
+        aliases:
+        - tesco-backend-api
     depends_on:
       mongo:
         condition: service_healthy
@@ -357,3 +360,6 @@ networks:
   gavaller-backend-internal:
     external: true
     name: gavaller-backend-internal
+  tesco-internal:
+    external: true
+    name: tesco-internal
