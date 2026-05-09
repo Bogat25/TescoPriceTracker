@@ -4,6 +4,8 @@ services:
     image: mongo:8
     container_name: ${STACK_PREFIX}tesco-tracker-mongo
     restart: unless-stopped
+    labels:
+    - vector.enable=true
     volumes:
     - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/mongo:/data/db
     environment:
@@ -25,6 +27,8 @@ services:
     image: mongo-express:latest
     container_name: ${STACK_PREFIX}tesco-tracker-mongo-express
     restart: unless-stopped
+    labels:
+    - vector.enable=true
     expose:
     - '8081'
     environment:
@@ -54,6 +58,8 @@ services:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: ${STACK_PREFIX}tesco-tracker-keycloak
     restart: unless-stopped
+    labels:
+    - vector.enable=true
     profiles:
     - auth
     depends_on:
@@ -275,6 +281,8 @@ services:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/qdrant-pi5:latest
     container_name: ${STACK_PREFIX}tesco-tracker-qdrant
     restart: unless-stopped
+    labels:
+    - vector.enable=true
     volumes:
     - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/qdrant/storage:/qdrant/storage
     - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/qdrant/snapshots:/qdrant/snapshots
@@ -325,6 +333,8 @@ services:
       dockerfile: Dockerfile
     container_name: ${STACK_PREFIX}tesco-tracker-frontend
     restart: unless-stopped
+    labels:
+    - vector.enable=true
     expose:
     - '80'
     environment:
