@@ -2,5 +2,9 @@ fastapi==0.115.0
 uvicorn==0.31.1
 qdrant-client==1.12.1
 numpy==1.26.4
+# umap-learn 0.5.6 calls scikit-learn's check_array with the old
+# `force_all_finite` keyword, which was renamed to `ensure_all_finite`
+# in scikit-learn 1.6. Pin to <1.6 until umap-learn ships a fix.
+scikit-learn==1.5.2
 umap-learn==0.5.6
 pymongo==4.9.2
