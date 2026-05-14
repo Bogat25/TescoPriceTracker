@@ -371,14 +371,8 @@ services:
   # ── Vector Visualization (admin-only) ───────────────────────────────────────
   # Tailnet-only product map. Pulls vectors from Qdrant, runs UMAP, renders
   # with Plotly. Reachable via the admin nginx at tesco-vector-viz.internal.
-  # Built locally on the Pi (umap-learn pulls heavy ML deps that we don't
-  # want in the shared monorepo image). Mirrors the frontend pattern: a
-  # `build:` block with no `image:` field, so Portainer will not try to
-  # pull a published manifest before deploying.
   vector-viz:
-    build:
-      context: ./vector-viz
-      dockerfile: Dockerfile
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-vector-viz:latest
     container_name: ${STACK_PREFIX}tesco-tracker-vector-viz
     labels:
       - "vector.enable=true"
