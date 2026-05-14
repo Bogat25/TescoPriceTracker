@@ -338,7 +338,6 @@ services:
     build:
       context: ./vector-viz
       dockerfile: Dockerfile
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-vector-viz:latest
     container_name: ${STACK_PREFIX}tesco-tracker-vector-viz
     labels:
     - vector.enable=true
