@@ -1,0 +1,50 @@
+{
+  "limit": 5000,
+  "filter": {
+    "should": [
+      { "key": "category", "match": { "text": "ital" } },
+      { "key": "category", "match": { "text": "üdítő" } },
+      { "key": "category", "match": { "text": "bor" } },
+      { "key": "category", "match": { "text": "sör" } },
+      { "key": "category", "match": { "text": "kávé" } },
+      { "key": "category", "match": { "text": "tea" } },
+
+      { "key": "category", "match": { "text": "zöldség" } },
+      { "key": "category", "match": { "text": "gyümölcs" } },
+      { "key": "category", "match": { "text": "hús" } },
+      { "key": "category", "match": { "text": "hal" } },
+
+      { "key": "category", "match": { "text": "tejtermék" } },
+      { "key": "category", "match": { "text": "sajt" } },
+      { "key": "category", "match": { "text": "joghurt" } },
+
+      { "key": "category", "match": { "text": "fagyaszt" } },
+
+      { "key": "category", "match": { "text": "pék" } },
+      { "key": "category", "match": { "text": "kenyér" } },
+
+      { "key": "category", "match": { "text": "édesség" } },
+      { "key": "category", "match": { "text": "csoki" } },
+      { "key": "category", "match": { "text": "keksz" } },
+      { "key": "category", "match": { "text": "snack" } },
+      { "key": "category", "match": { "text": "chips" } },
+
+      { "key": "category", "match": { "text": "tisztító" } },
+      { "key": "category", "match": { "text": "mosó" } },
+
+      { "key": "category", "match": { "text": "kozmetik" } },
+      { "key": "category", "match": { "text": "sampon" } },
+      { "key": "category", "match": { "text": "fog" } }
+    ]
+  },
+  "color_by": {
+    "payload": "category"
+  },
+  "algorithm": {
+    "type": "UMAP",
+    "n_neighbors": 80,
+    "min_dist": 0.4,
+    "spread": 2.0,
+    "epochs": 500
+  }
+}

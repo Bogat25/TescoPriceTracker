@@ -1,0 +1,11 @@
+{
+  "limit": 500,
+  "color_by": {
+    "payload": "category"
+  },
+  "using": "default",
+  "recommend": {
+    "positive": [123456789012345],
+    "strategy": "average_vector"
+  }
+}

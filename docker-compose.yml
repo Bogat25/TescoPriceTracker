@@ -368,6 +368,40 @@ services:
       qdrant:
         condition: service_healthy
 
+  # ── Vector Visualization (admin-only) ───────────────────────────────────────
+  # Tailnet-only product map. Pulls vectors from Qdrant, runs UMAP, renders
+  # with Plotly. Reachable via the admin nginx at tesco-vector-viz.internal.
+  vector-viz:
+    build:
+      context: ./vector-viz
+      dockerfile: Dockerfile
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-vector-viz:latest
+    container_name: ${STACK_PREFIX}tesco-tracker-vector-viz
+    labels:
+      - "vector.enable=true"
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-products}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
+      MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
+      TZ: Europe/Budapest
+    networks:
+      tesco-tracker-internal: {}
+      admin_ingress:
+        aliases:
+          - ${STACK_PREFIX}tesco-tracker-vector-viz
+    depends_on:
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
   # ── Angular SPA ──────────────────────────────────────────────────────────────
   frontend:
     build:

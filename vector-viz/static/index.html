@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Tesco Vector Map</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; background: #0b0d12; color: #e6e8ee; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    #toolbar { padding: 12px 16px; display: flex; gap: 16px; align-items: center; border-bottom: 1px solid #1f2230; }
+    #toolbar label { font-size: 13px; color: #9aa3b8; }
+    #toolbar input { width: 80px; padding: 4px 8px; background: #161922; color: #e6e8ee; border: 1px solid #2a2f40; border-radius: 4px; }
+    #toolbar button { padding: 6px 14px; background: #4f7cff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+    #toolbar button:hover { background: #6390ff; }
+    #toolbar button:disabled { background: #2a2f40; cursor: wait; }
+    #status { font-size: 13px; color: #9aa3b8; margin-left: auto; }
+    #plot { width: 100vw; height: calc(100vh - 49px); }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <label>Points: <input id="limit" type="number" value="3000" min="100" max="10000" step="500"></label>
+    <button id="run">Render</button>
+    <span id="status">Ready.</span>
+  </div>
+  <div id="plot"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => $("status").textContent = msg;
+
+    async function render() {
+      const limit = parseInt($("limit").value, 10);
+      $("run").disabled = true;
+      status(`Pulling ${limit} vectors and running UMAP… this can take 30–90 seconds.`);
+
+      const t0 = performance.now();
+      let data;
+      try {
+        const res = await fetch(`/api/projection?limit=${limit}`);
+        if (!res.ok) {
+          status(`Error ${res.status}: ${await res.text()}`);
+          $("run").disabled = false;
+          return;
+        }
+        data = await res.json();
+      } catch (e) {
+        status(`Network error: ${e.message}`);
+        $("run").disabled = false;
+        return;
+      }
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      status(`Rendered ${data.count} points in ${dt}s. Hover for details, scroll to zoom.`);
+
+      const trace = {
+        x: data.points.map(p => p.x),
+        y: data.points.map(p => p.y),
+        mode: "markers",
+        type: "scattergl",
+        marker: {
+          size: 6,
+          color: data.points.map(p => p.color),
+          line: { width: 0 },
+        },
+        text: data.points.map(p => `<b>${escapeHtml(p.name)}</b><br>${escapeHtml(p.category)}`),
+        hoverinfo: "text",
+      };
+
+      const layout = {
+        paper_bgcolor: "#0b0d12",
+        plot_bgcolor: "#0b0d12",
+        margin: { l: 20, r: 20, t: 20, b: 20 },
+        xaxis: { visible: false, scaleanchor: "y", scaleratio: 1 },
+        yaxis: { visible: false },
+        hoverlabel: { bgcolor: "#161922", bordercolor: "#4f7cff", font: { color: "#e6e8ee" } },
+        showlegend: false,
+      };
+
+      Plotly.newPlot("plot", [trace], layout, { displaylogo: false, responsive: true });
+      $("run").disabled = false;
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[c]));
+    }
+
+    $("run").addEventListener("click", render);
+    render();
+  </script>
+</body>
+</html>

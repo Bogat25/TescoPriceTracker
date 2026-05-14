@@ -1,0 +1,18 @@
+{
+  "limit": 2000,
+  "filter": {
+    "should": [
+      { "key": "category", "match": { "text": "friss" } },
+      { "key": "category", "match": { "text": "fagyaszt" } },
+      { "key": "category", "match": { "text": "hűtött" } }
+    ]
+  },
+  "color_by": {
+    "payload": "category"
+  },
+  "algorithm": {
+    "type": "UMAP",
+    "n_neighbors": 30,
+    "min_dist": 0.05
+  }
+}

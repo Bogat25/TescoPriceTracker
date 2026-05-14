@@ -1,0 +1,6 @@
+{
+  "limit": 2000,
+  "color_by": {
+    "payload": "category"
+  }
+}

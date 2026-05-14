@@ -1,0 +1,13 @@
+{
+  "limit": 10000,
+  "color_by": {
+    "payload": "category"
+  },
+  "algorithm": {
+    "type": "UMAP",
+    "n_neighbors": 100,
+    "min_dist": 0.5,
+    "spread": 2.0,
+    "epochs": 500
+  }
+}

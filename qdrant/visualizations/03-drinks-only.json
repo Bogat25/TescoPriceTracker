@@ -1,0 +1,17 @@
+{
+  "limit": 1500,
+  "filter": {
+    "should": [
+      { "key": "category", "match": { "text": "ital" } },
+      { "key": "category", "match": { "text": "üdítő" } },
+      { "key": "category", "match": { "text": "bor" } },
+      { "key": "category", "match": { "text": "sör" } },
+      { "key": "category", "match": { "text": "víz" } },
+      { "key": "category", "match": { "text": "kávé" } },
+      { "key": "category", "match": { "text": "tea" } }
+    ]
+  },
+  "color_by": {
+    "payload": "category"
+  }
+}

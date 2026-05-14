@@ -1,0 +1,11 @@
+{
+  "limit": 5000,
+  "color_by": {
+    "payload": "category"
+  },
+  "algorithm": {
+    "type": "TSNE",
+    "perplexity": 50,
+    "epochs": 1000
+  }
+}
