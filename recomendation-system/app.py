@@ -51,6 +51,7 @@ def get_qdrant():
             host=settings.QDRANT_HOST,
             port=settings.QDRANT_PORT,
             api_key=settings.QDRANT_API_KEY,
+            https=False,
         )
     return _qdrant_client
 

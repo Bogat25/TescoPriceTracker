@@ -40,6 +40,7 @@ def _get_qdrant() -> QdrantClient:
             host=QDRANT_HOST,
             port=QDRANT_PORT,
             api_key=QDRANT_API_KEY,
+            https=False,
             timeout=10,
         )
     return _qdrant_client
