@@ -189,6 +189,7 @@ services:
       QDRANT_HOST: ${QDRANT_HOST:-qdrant}
       QDRANT_PORT: ${QDRANT_PORT:-6333}
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-products}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
       INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
       PYTHONPATH: /app
       TZ: Europe/Budapest
@@ -320,8 +321,12 @@ services:
       - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/qdrant/snapshots:/qdrant/snapshots
     environment:
       QDRANT__SERVICE__GRPC_PORT: "6334"
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
     networks:
       tesco-tracker-internal: {}
+      admin_ingress:
+        aliases:
+          - ${STACK_PREFIX}tesco-tracker-qdrant
     healthcheck:
       # The Qdrant image ships no wget/curl. Use bash's /dev/tcp to probe the port.
       test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/localhost/6333' || exit 1"]
@@ -348,6 +353,7 @@ services:
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       QDRANT_HOST: qdrant
       QDRANT_PORT: "6333"
+      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
       VECTOR_SYNC_API_TOKEN: ${VECTOR_SYNC_API_TOKEN:-changeme-vector-sync-token}
       PYTHONPATH: /app
       TZ: Europe/Budapest

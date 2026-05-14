@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
 QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", "products")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY") or None
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
 MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "tesco_tracker")
 MONGO_COLLECTION = os.environ.get("MONGO_COLLECTION", "products")
@@ -35,7 +36,12 @@ _alerts_mongo_client: Optional[MongoClient] = None
 def _get_qdrant() -> QdrantClient:
     global _qdrant_client
     if _qdrant_client is None:
-        _qdrant_client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT, timeout=10)
+        _qdrant_client = QdrantClient(
+            host=QDRANT_HOST,
+            port=QDRANT_PORT,
+            api_key=QDRANT_API_KEY,
+            timeout=10,
+        )
     return _qdrant_client
 
 

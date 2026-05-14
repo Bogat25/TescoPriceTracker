@@ -9,6 +9,7 @@ MONGO_COLLECTION = os.environ.get("MONGO_COLLECTION", "products")
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
 QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", "products")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY") or None
 
 VECTOR_SYNC_API_TOKEN = os.environ.get("VECTOR_SYNC_API_TOKEN", "")
 VECTOR_DIMENSION = 384  # intfloat/multilingual-e5-small output dimension
