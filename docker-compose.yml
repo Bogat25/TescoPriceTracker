@@ -11,12 +11,13 @@ services:
   # ── Data store ──────────────────────────────────────────────────────────────
   mongo:
     image: mongo:8
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-mongo
     restart: unless-stopped
     labels:
       - "vector.enable=true"
     volumes:
-      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/mongo:/data/db
+      - mongo-data:/data/db
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}
@@ -34,6 +35,7 @@ services:
 
   mongo-express:
     image: mongo-express:latest
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-mongo-express
     restart: unless-stopped
     labels:
@@ -57,19 +59,22 @@ services:
         condition: service_healthy
 
   # -- Identity provider permission fix ------------------------------------------
-  # Docker creates host bind mounts as root. Keycloak runs as UID 1000.
-  # This quick init container sets the right ownership on the host directory.
+  # Docker creates named volumes as root. Keycloak runs as UID 1000.
+  # This quick init container sets the right ownership on the data volume.
   keycloak-init:
     image: busybox
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-keycloak-init
     profiles: ["auth"]
+    network_mode: "none"
     volumes:
-      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
+      - keycloak-data:/opt/keycloak/data
     command: chown -R 1000:1000 /opt/keycloak/data
 
   # -- Identity provider -------------------------------------------------------
   keycloak:
     image: quay.io/keycloak/keycloak:26.0.5
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-keycloak
     restart: unless-stopped
     labels:
@@ -103,7 +108,7 @@ services:
     volumes:
       - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
       - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
-      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/keycloak:/opt/keycloak/data
+      - keycloak-data:/opt/keycloak/data
     healthcheck:
       # Keycloak 26 image (UBI9-micro based) has no curl/wget. Use the bundled JVM
       # to probe the management /health/ready endpoint. This is the approach
@@ -127,7 +132,8 @@ services:
 
   # ── Backend API ──────────────────────────────────────────────────────────────
   auth-gateway:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-auth-gateway
     labels:
     - vector.enable=true
@@ -162,7 +168,8 @@ services:
         required: false
 
   api:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-price-tracker-api
     labels:
     - vector.enable=true
@@ -200,7 +207,8 @@ services:
 
   # ── Scrape scheduler ─────────────────────────────────────────────────────────
   scheduler:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-scheduler
     labels:
     - vector.enable=true
@@ -225,7 +233,8 @@ services:
 
   # -- Alert service -------------------------------------------------------
   alert-service:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-alert-service
     labels:
     - vector.enable=true
@@ -266,7 +275,8 @@ services:
 
   # -- Alert keycloak sync (daily cron) -----------------------------------
   alert-keycloak-sync:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-alert-keycloak-sync
     labels:
     - vector.enable=true
@@ -298,16 +308,15 @@ services:
 
   # ── Vector Database (Qdrant) ──────────────────────────────────────────────────
   qdrant:
-    # Intel/amd64 hosts use the official image. For a Raspberry Pi 5 deploy,
-    # set QDRANT_IMAGE=ghcr.io/<GHCR_USERNAME>/qdrant-pi5:latest.
     image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.17}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-qdrant
     restart: unless-stopped
     labels:
       - "vector.enable=true"
     volumes:
-      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/qdrant/storage:/qdrant/storage
-      - ${HOST_ROOT_PATH:?HOST_ROOT_PATH must be set in .env}/qdrant/snapshots:/qdrant/snapshots
+      - qdrant-storage:/qdrant/storage
+      - qdrant-snapshots:/qdrant/snapshots
     environment:
       QDRANT__SERVICE__GRPC_PORT: "6334"
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
@@ -326,7 +335,8 @@ services:
 
   # ── Recommendation Vector Sync API (Internal) ───────────────────────────────
   recommendation-api:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-recommendation-api
     labels:
     - vector.enable=true
@@ -361,7 +371,8 @@ services:
   # Tailnet-only product map. Pulls vectors from Qdrant, runs UMAP, renders
   # with Plotly. Reachable via the admin nginx at tesco-vector-viz.internal.
   vector-viz:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-vector-viz:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-vector-viz:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-vector-viz
     labels:
       - "vector.enable=true"
@@ -390,10 +401,8 @@ services:
 
   # ── Angular SPA ──────────────────────────────────────────────────────────────
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-frontend:latest
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-frontend:${TESCO_IMAGE_TAG:-latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-frontend
     restart: unless-stopped
     labels:
@@ -453,3 +462,12 @@ networks:
     name: tesco-internal
 
 # ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  mongo-data:
+    name: ${STACK_PREFIX}tesco-tracker-mongo-data
+  keycloak-data:
+    name: ${STACK_PREFIX}tesco-tracker-keycloak-data
+  qdrant-storage:
+    name: ${STACK_PREFIX}tesco-tracker-qdrant-storage
+  qdrant-snapshots:
+    name: ${STACK_PREFIX}tesco-tracker-qdrant-snapshots
