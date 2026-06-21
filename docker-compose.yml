@@ -1,19 +1,10 @@
 # =============================================================================
-# WARNING — this file is the in-repo template, NOT the active deployment.
+# Tesco Price Tracker — single-source compose file.
 # =============================================================================
-# The Pi deploys with `docker-compose.override.yml` merged on top of this file
-# (Compose's default behaviour). Both files are kept in the repo and MUST stay
-# in sync for two reasons:
-#
-#   1. Local tooling (`docker compose config`, IDE compose plugins, our pytest
-#      suite) reads the merged result, so missing changes here surface as
-#      drift between repo and Pi.
-#   2. If you ever drop the override file, this is what you fall back to.
-#
-# Whenever you edit one, mirror the change into the other in the same commit.
+# This is the active deployment definition. Do not generate or rely on a
+# secondary compose layer for production; keep service logic here so local
+# validation and deployed behavior stay identical.
 # =============================================================================
-
-version: '3.8'
 
 services:
 
@@ -306,12 +297,10 @@ services:
         condition: service_healthy
 
   # ── Vector Database (Qdrant) ──────────────────────────────────────────────────
-  # Custom build required: qdrant/qdrant:latest is compiled for 4KB page size;
-  # Raspberry Pi 5 + Ubuntu uses 16KB pages, causing an immediate jemalloc crash.
-  # See qdrant/Dockerfile for the fix (JEMALLOC_SYS_WITH_LG_PAGE=14).
-  # Build once on your laptop and push: see qdrant/Dockerfile header for command.
   qdrant:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/qdrant-pi5:latest
+    # Intel/amd64 hosts use the official image. For a Raspberry Pi 5 deploy,
+    # set QDRANT_IMAGE=ghcr.io/<GHCR_USERNAME>/qdrant-pi5:latest.
+    image: ${QDRANT_IMAGE:-qdrant/qdrant:v1.17}
     container_name: ${STACK_PREFIX}tesco-tracker-qdrant
     restart: unless-stopped
     labels:
