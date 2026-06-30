@@ -37,10 +37,6 @@ jobs:
             image: tesco-tracker-frontend
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
-          - service: vector-viz
-            image: tesco-vector-viz
-            context: ./vector-viz
-            dockerfile: ./vector-viz/Dockerfile
 
     steps:
       - name: Checkout
