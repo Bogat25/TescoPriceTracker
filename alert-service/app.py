@@ -28,6 +28,8 @@ def _enforce_gateway_only() -> None:
     violations = []
     for name, value in [
         ("KC_INTERNAL_BASE_URL", settings.KC_INTERNAL_BASE_URL),
+        ("KC_JWKS_URL", settings.KC_JWKS_URL),
+        ("KC_USERINFO_URL", settings.KC_USERINFO_URL),
         ("KC_ADMIN_BASE_URL", settings.KC_ADMIN_BASE_URL),
     ]:
         for pattern in blocked_patterns:
@@ -43,13 +45,14 @@ def _enforce_gateway_only() -> None:
             "║  The following env vars point directly to Keycloak:        ║\n"
             "╚══════════════════════════════════════════════════════════════╝\n"
             + "\n".join(violations) + "\n\n"
-            "Fix: Set KC_INTERNAL_BASE_URL and KC_ADMIN_BASE_URL to point to\n"
+            "Fix: Set the Keycloak proxy URLs and KC_ADMIN_BASE_URL to point to\n"
             "the gateway's internal proxy (e.g. http://gavaller-backend-gateway:8080/internal/keycloak)\n"
         )
         logger.critical(msg)
         raise RuntimeError(
             "Gateway enforcement failed: services must communicate through Gateway.API, "
-            "not directly to Keycloak. Check KC_INTERNAL_BASE_URL and KC_ADMIN_BASE_URL."
+            "not directly to Keycloak. Check KC_INTERNAL_BASE_URL, KC_JWKS_URL, "
+            "KC_USERINFO_URL, and KC_ADMIN_BASE_URL."
         )
 
     if not settings.GATEWAY_INTERNAL_TOKEN:

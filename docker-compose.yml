@@ -250,6 +250,11 @@ services:
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
       KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://gavaller-backend-gateway:8080/internal/keycloak}
+      # The public SPA authenticates through the main Gavaller gateway in the
+      # production profile. Use that realm's dedicated internal proxy routes;
+      # standalone deployments can override both URLs for the Tesco realm.
+      KC_JWKS_URL: ${KC_JWKS_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/certs}
+      KC_USERINFO_URL: ${KC_USERINFO_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/userinfo}
       KC_ISSUER: ${KC_ISSUER:-${KC_PUBLIC_ISSUER:-http://keycloak:8080/realms/tesco-tracker}}
       KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
       KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://gavaller-backend-gateway:8080}

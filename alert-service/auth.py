@@ -109,8 +109,11 @@ class _JwksCache:
         self._loaded_at = 0.0
 
 
-# JWKS URL now points to Gateway's internal proxy endpoint
-_jwks_url = f"{settings.KC_INTERNAL_BASE_URL}/certs"
+# Keep the exact identity-provider endpoints explicit. Production authenticates
+# against the backend-ecosystem realm while standalone mode can still point at
+# the Tesco realm; deriving both from one legacy base URL made those modes easy
+# to mix accidentally.
+_jwks_url = settings.KC_JWKS_URL
 _jwks = _JwksCache(_jwks_url, settings.JWKS_TTL_SECONDS)
 
 
@@ -141,19 +144,16 @@ def _decode(token: str) -> dict:
 
 
 def _safe_dump_claims(token: str) -> str:
-    """Best-effort decode without verification to log what's actually in the
-    token when validation fails. Values are truncated to 80 chars and tokens
-    that fail to parse return a placeholder. Never raises."""
+    """Return only non-identifying JWT routing metadata for diagnostics.
+
+    Authentication failures are shipped to the central log store, so dumping
+    the complete unverified claims would unnecessarily expose names, email
+    addresses and stable subject identifiers. Never raises.
+    """
     try:
         unverified = jwt.decode(token, options={"verify_signature": False, "verify_exp": False})
-        # Show short scalar claims in full; truncate longer ones; list keys for dicts/arrays.
-        safe = {}
-        for k, v in unverified.items():
-            if isinstance(v, (str, int, float, bool)) or v is None:
-                s = str(v)
-                safe[k] = s if len(s) <= 80 else f"{s[:77]}..."
-            else:
-                safe[k] = f"<{type(v).__name__} keys={list(v.keys()) if isinstance(v, dict) else len(v)}>"
+        safe_keys = ("iss", "aud", "azp", "typ", "exp", "iat")
+        safe = {key: unverified.get(key) for key in safe_keys if key in unverified}
         return repr(safe)
     except Exception as e:
         return f"<unparseable: {type(e).__name__}: {e}>"
@@ -198,7 +198,7 @@ def _validate_bearer(token: str) -> dict:
 
 async def _userinfo_email(token: str) -> Optional[str]:
     """Fallback: fetch email from Keycloak userinfo endpoint via Gateway proxy."""
-    url = f"{settings.KC_INTERNAL_BASE_URL}/userinfo"
+    url = settings.KC_USERINFO_URL
     headers = {"X-Downstream-Token": token}
     if settings.GATEWAY_INTERNAL_TOKEN:
         headers["X-Internal-Token"] = settings.GATEWAY_INTERNAL_TOKEN

@@ -17,6 +17,12 @@ GATEWAY_INTERNAL_TOKEN = os.environ.get("GATEWAY_INTERNAL_TOKEN", "")
 KC_INTERNAL_BASE_URL = os.environ.get(
     "KC_INTERNAL_BASE_URL", f"{GATEWAY_INTERNAL_URL}/internal/keycloak"
 ).rstrip("/")
+KC_JWKS_URL = os.environ.get(
+    "KC_JWKS_URL", f"{KC_INTERNAL_BASE_URL}/certs"
+).rstrip("/")
+KC_USERINFO_URL = os.environ.get(
+    "KC_USERINFO_URL", f"{KC_INTERNAL_BASE_URL}/userinfo"
+).rstrip("/")
 KC_ISSUER = os.environ.get("KC_ISSUER", "http://keycloak:8080/realms/tesco-tracker").rstrip("/")
 KC_CLIENT_ID = os.environ.get("KC_CLIENT_ID", "tesco-frontend")
 
