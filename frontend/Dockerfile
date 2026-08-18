@@ -25,7 +25,18 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # env vars (TESCO_API_BASE_URL) without being rebuilt.
 COPY runtime-config.template.js /usr/share/nginx/html/runtime-config.template.js
 COPY docker-entrypoint.d/40-envsubst-runtime-config.sh /docker-entrypoint.d/40-envsubst-runtime-config.sh
-RUN chmod +x /docker-entrypoint.d/40-envsubst-runtime-config.sh
+RUN chmod +x /docker-entrypoint.d/40-envsubst-runtime-config.sh \
+    && chown -R nginx:nginx \
+        /etc/nginx/conf.d \
+        /etc/nginx/templates \
+        /usr/share/nginx/html \
+        /var/cache/nginx \
+        /var/run
+
+# Docker permits unprivileged users to bind low ports inside its network
+# namespace. Writable runtime/template paths are owned above so the stock
+# entrypoint and Nginx never need root.
+USER nginx
 
 EXPOSE 80
 

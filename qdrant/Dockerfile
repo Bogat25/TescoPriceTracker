@@ -75,3 +75,12 @@ RUN cargo build --release --bin qdrant
 FROM --platform=linux/arm64 qdrant/qdrant:v1.17
 
 COPY --chmod=0755 --from=builder /build/target/release/qdrant /qdrant/qdrant
+
+# The upstream image defaults to root. Create a dedicated runtime identity and
+# pre-own the named-volume mount points so newly created volumes remain usable.
+RUN groupadd --gid 1000 qdrant \
+    && useradd --uid 1000 --gid 1000 --no-create-home qdrant \
+    && mkdir -p /qdrant/storage /qdrant/snapshots \
+    && chown -R 1000:1000 /qdrant
+
+USER 1000:1000

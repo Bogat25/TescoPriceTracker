@@ -5,3 +5,7 @@ FROM quay.io/keycloak/keycloak:26.0.5
 # missing checkout file cannot turn into a directory at container creation.
 COPY --chmod=0755 keycloak/docker-entrypoint.sh /opt/keycloak/bin/tesco-entrypoint.sh
 COPY --chmod=0644 keycloak/realm-template.json /opt/keycloak/realm-template.json
+
+# The upstream Keycloak image already runs as UID 1000. Restate it explicitly
+# so this derived image's security contract is visible to static scanners.
+USER 1000
