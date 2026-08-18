@@ -61,6 +61,9 @@ SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "tesco_auth")
 COOKIE_DOMAIN = os.environ.get("COOKIE_DOMAIN") or None
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() == "true"
 SCOPES = os.environ.get("SCOPES", "openid profile email")
+DEFAULT_REFRESH_SESSION_SECONDS = int(
+    os.environ.get("DEFAULT_REFRESH_SESSION_SECONDS", "2592000")
+)
 
 # Fernet needs a 32-byte url-safe base64 key; SHA-256 of any user-supplied secret works.
 # To support key rotation, multiple comma-separated keys can be passed in SESSION_SECRET.
@@ -153,6 +156,15 @@ def _read_session(request: Request) -> Optional[dict]:
 
 def _is_session_expired(session: dict) -> bool:
     return session.get("exp", 0) < int(time.time())
+
+
+def _session_cookie_max_age(session: dict) -> int:
+    """Keep the cookie for the refresh-token session, not the access token."""
+    now = int(time.time())
+    refresh_expires_at = int(
+        session.get("rt_exp", now + DEFAULT_REFRESH_SESSION_SECONDS)
+    )
+    return max(refresh_expires_at - now, 60)
 
 
 app = FastAPI(title="auth-gateway", version="1.0.0")
@@ -266,12 +278,13 @@ async def callback(
         "rt":    tokens.get("refresh_token"),
         "it":    tokens.get("id_token"),
         "exp":   int(time.time()) + expires_in,
+        "rt_exp": int(time.time()) + refresh_expires_in,
         "name":  name,
         "email": email,
     }
 
     resp = RedirectResponse(state_data["r"], status_code=302)
-    _set_session_cookie(resp, _seal(session), max_age=refresh_expires_in)
+    _set_session_cookie(resp, _seal(session), max_age=_session_cookie_max_age(session))
     return resp
 
 
@@ -299,11 +312,19 @@ async def _refresh_tokens(session: dict) -> Optional[dict]:
             return None
         tokens = r.json()
         expires_in = int(tokens.get("expires_in", 300))
+        remaining_refresh_lifetime = max(
+            int(session.get("rt_exp", 0)) - int(time.time()),
+            60,
+        )
+        refresh_expires_in = int(
+            tokens.get("refresh_expires_in", remaining_refresh_lifetime)
+        )
         return {
             "at":    tokens["access_token"],
             "rt":    tokens.get("refresh_token", rt),
             "it":    tokens.get("id_token", session.get("it")),
             "exp":   int(time.time()) + expires_in,
+            "rt_exp": int(time.time()) + refresh_expires_in,
             # Carry forward name/email — they don't change on refresh.
             "name":  session.get("name"),
             "email": session.get("email"),
@@ -362,9 +383,12 @@ async def userinfo(request: Request):
 
     # If we refreshed, update the session cookie in the response.
     if refreshed_session:
-        expires_in = refreshed_session["exp"] - int(time.time())
         resp = JSONResponse(body)
-        _set_session_cookie(resp, _seal(refreshed_session), max_age=max(expires_in, 60))
+        _set_session_cookie(
+            resp,
+            _seal(refreshed_session),
+            max_age=_session_cookie_max_age(refreshed_session),
+        )
         return resp
 
     return body
@@ -394,7 +418,11 @@ async def token(request: Request):
     if refreshed:
         resp = JSONResponse(body)
         # Persist the refreshed tokens back into the session cookie.
-        _set_session_cookie(resp, _seal(refreshed), max_age=max(expires_in, 60))
+        _set_session_cookie(
+            resp,
+            _seal(refreshed),
+            max_age=_session_cookie_max_age(refreshed),
+        )
         return resp
     return body
 

@@ -4,6 +4,7 @@ FROM quay.io/keycloak/keycloak:26.0.5
 # bind-mounted files. Bake both startup inputs into the immutable image so a
 # missing checkout file cannot turn into a directory at container creation.
 COPY --chmod=0755 keycloak/docker-entrypoint.sh /opt/keycloak/bin/tesco-entrypoint.sh
+COPY --chmod=0755 keycloak/configure-session-lifetimes.sh /opt/keycloak/bin/configure-session-lifetimes.sh
 COPY --chmod=0644 keycloak/realm-template.json /opt/keycloak/realm-template.json
 
 # The upstream Keycloak image already runs as UID 1000. Restate it explicitly

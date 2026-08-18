@@ -131,6 +131,25 @@ services:
         aliases:
           - tesco-tracker-keycloak
 
+  keycloak-session-config:
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-keycloak:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: ${STACK_PREFIX}tesco-tracker-keycloak-session-config
+    restart: "no"
+    profiles: ["auth"]
+    entrypoint: ["/bin/sh", "/opt/keycloak/bin/configure-session-lifetimes.sh"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_INTERNAL_URL: http://keycloak:8080
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
+    networks:
+      - tesco-tracker-internal
+    depends_on:
+      keycloak:
+        condition: service_healthy
+
   # ── Backend API ──────────────────────────────────────────────────────────────
   auth-gateway:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
@@ -158,6 +177,7 @@ services:
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-tesco_auth}
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      DEFAULT_REFRESH_SESSION_SECONDS: ${DEFAULT_REFRESH_SESSION_SECONDS:-2592000}
       SCOPES: ${SCOPES:-openid profile email}
       PYTHONPATH: /app
       TZ: Europe/Budapest
