@@ -12,7 +12,7 @@ from typing import Optional
 
 from pymongo import MongoClient
 from qdrant_client import QdrantClient
-from qdrant_client.models import Filter, FieldCondition, MatchValue, SearchRequest
+from qdrant_client.models import Filter, FieldCondition, MatchValue
 
 logger = logging.getLogger(__name__)
 
@@ -318,9 +318,9 @@ def search_category_bucket(
         must=[FieldCondition(key="category", match=MatchValue(value=category))]
     )
     try:
-        hits = qdrant.search(
+        response = qdrant.query_points(
             collection_name=QDRANT_COLLECTION,
-            query_vector=mean_vec,
+            query=mean_vec,
             query_filter=search_filter,
             limit=search_limit,
             with_payload=True,
@@ -330,7 +330,7 @@ def search_category_bucket(
         return []
 
     results = []
-    for hit in hits:
+    for hit in response.points:
         pid = hit.payload.get("product_id", "")
         if pid and pid not in exclude_ids:
             results.append({"product_id": pid, "score": hit.score})
