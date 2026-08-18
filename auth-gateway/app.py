@@ -5,7 +5,7 @@ cookies. Owned by /auth/* routes on the same origin as the frontend.
 Contract (do not break — other services depend on it):
   GET /auth/login?returnUrl=...           -> 302 to Keycloak authorize
   GET /auth/callback?code&state           -> exchanges code, sets session cookie, 302 to returnUrl
-  GET /auth/userinfo                      -> {Name, Claims[]} or 401
+  GET /auth/userinfo                      -> {name, sub, email, claims[]} or 401
   GET /auth/token                         -> {access_token, expires_in} for Bearer-only backends, or 401
   GET /auth/logout?returnUrl=...          -> clears cookie, 302 to Keycloak end-session
   GET /auth/extension-relay               -> after login: creates one-time ext_code, 302 to /auth/extension-done?ext_code=...
@@ -352,16 +352,22 @@ async def userinfo(request: Request):
 
     info = r.json()
     name = info.get("preferred_username") or info.get("name") or info.get("email") or "user"
-    claims = [{"Type": k, "Value": str(v)} for k, v in info.items() if v is not None]
+    claims = [{"type": k, "value": str(v)} for k, v in info.items() if v is not None]
+    body = {
+        "name": name,
+        "sub": info.get("sub"),
+        "email": info.get("email"),
+        "claims": claims,
+    }
 
     # If we refreshed, update the session cookie in the response.
     if refreshed_session:
         expires_in = refreshed_session["exp"] - int(time.time())
-        resp = JSONResponse({"Name": name, "Claims": claims})
+        resp = JSONResponse(body)
         _set_session_cookie(resp, _seal(refreshed_session), max_age=max(expires_in, 60))
         return resp
 
-    return {"Name": name, "Claims": claims}
+    return body
 
 
 @app.get("/auth/token")

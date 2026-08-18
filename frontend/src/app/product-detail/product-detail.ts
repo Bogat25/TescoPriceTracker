@@ -33,8 +33,8 @@ import {
   TimeScale,
   Tooltip,
 } from 'chart.js';
-import { combineLatest, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { combineLatest, of, throwError } from 'rxjs';
+import { catchError, switchMap } from 'rxjs/operators';
 import {
   PriceEntry,
   ProductDetail as ProductDetailModel,
@@ -381,7 +381,11 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
     }
 
     this.alertSaving.set(true);
-    this.alertsApi.create(req).subscribe({
+    this.auth.checkSession().pipe(
+      switchMap((user) => user
+        ? this.alertsApi.create(req)
+        : throwError(() => ({ status: 401 }))),
+    ).subscribe({
       next: () => {
         this.alertMessage.set('Alert saved!');
         this.alertSaving.set(false);

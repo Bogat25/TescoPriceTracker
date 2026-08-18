@@ -27,16 +27,44 @@ query GetProduct($tpnc: String) {
       id
       name
     }
-    manufacturer
-    manufacturerAddress
-    distributorAddress
-    importerAddress
-    returnTo
+    manufacturer {
+      addresses
+    }
+    manufacturerAddress {
+      name
+      addressLine1
+      addressLine2
+      city
+      postcode
+    }
+    distributorAddress {
+      name
+      addressLine1
+      addressLine2
+      city
+      postcode
+    }
+    importerAddress {
+      name
+      addressLine1
+      addressLine2
+      city
+      postcode
+    }
+    returnTo {
+      name
+      addressLine1
+      addressLine2
+      city
+      postcode
+    }
     depositAmount
-    maxQuantityAllowed
     maxWeight
     minWeight
     storageClassification
+    ... on ProductType {
+      maxQuantityAllowed
+    }
     displayImages {
       url
       default
@@ -47,60 +75,34 @@ query GetProduct($tpnc: String) {
         units
       }
       ingredients
-      allergens
+      allergens {
+        name
+        values
+      }
       nutrition {
-        tableType
-        rows {
-          label
-          valuePer100
-          valuePerServing
-        }
+        name
+        value1
+        value2
+        value3
+        value4
       }
       gda {
-        values {
-          name
-          percent
-          rating
-          value
-        }
+        name
+        value
+        percent
+        rating
       }
       storage
-      cookingInstructions {
-        oven {
-          chilled {
-            time
-            temperature {
-              value
-            }
-            instructions
-          }
-          frozen {
-            time
-            temperature {
-              value
-            }
-            instructions
-          }
-        }
-        microwave {
-          chilled {
-            detail
-          }
-          frozen {
-            detail
-          }
-        }
-        otherInstructions
-        cookingGuidelines
-        cookingPrecautions
-      }
       preparationAndUsage
       preparationGuidelines
       marketing
       productMarketing
       brandMarketing
       manufacturerMarketing
-      originInformation
+      originInformation {
+        title
+        value
+      }
       recyclingInfo
       netContents
       drainedWeight
@@ -109,8 +111,26 @@ query GetProduct($tpnc: String) {
       upperAgeLimit
       healthmark
       numberOfUses
-      freezingInstructions
-      alcohol
+      freezingInstructions {
+        standardGuidelines
+        freezingGuidelines
+        defrosting
+      }
+      alcohol {
+        grapeVariety
+        storageType
+        percentageAlcohol
+        regionOfOrigin
+        alcoholType
+        wineColour
+        alcoholUnits
+        producer
+        country
+        legalNotice {
+          message
+          link
+        }
+      }
       dosage
       directions
       features
@@ -118,32 +138,55 @@ query GetProduct($tpnc: String) {
       nutritionalClaims
       boxContents
       legalNotice
-      shelfLifeInfo
+      shelfLifeInfo {
+        hasShelfLife
+        inStoreShelfLife
+        depotShelLife
+        customerShelfLife
+      }
       otherInformation
       warnings
       additives
-      dietaryInfo
-      intoleranceInfo
-      hfss
-      specifications
-      components
+      dietaryInfo {
+        includes
+        excludes
+      }
+      intoleranceInfo {
+        includes {
+          category
+          subCategory
+        }
+        excludes {
+          category
+          subCategory
+        }
+      }
+      hfss {
+        type
+        score
+        category
+        indicator
+      }
     }
     icons {
-      label
-      imageUrl
+      id
+      caption
+      url
+      type
+      customerFacing
     }
-    shelfLife
+    shelfLife {
+      url
+      message
+    }
     reviews {
       stats {
         overallRating
         noOfReviews
         overallRatingRange
         ratingsDistribution {
-          one
-          two
-          three
-          four
-          five
+          name
+          value
         }
       }
     }

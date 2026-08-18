@@ -15,3 +15,6 @@ COPY . .
 
 # Allows cross-folder imports (mongo/, scraper/, config.py) regardless of working_dir
 ENV PYTHONPATH=/app
+
+RUN addgroup -S app && adduser -S -G app app && chown -R app:app /app
+USER app

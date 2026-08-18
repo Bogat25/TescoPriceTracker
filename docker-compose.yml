@@ -103,10 +103,6 @@ services:
       KC_HTTP_ENABLED: "true"
       KC_PROXY_HEADERS: "xforwarded"
       KC_HOSTNAME: ${KC_HOSTNAME}
-      KC_HOSTNAME_PORT: ${KC_HOSTNAME_PORT:-443}
-      KC_HOSTNAME_STRICT: "false"
-      KC_HOSTNAME_STRICT_HTTPS: "false"
-      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "false"
       KC_HEALTH_ENABLED: "true"
       QUARKUS_LOG_CATEGORY__IO_QUARKUS_VERTX_HTTP_RUNTIME_FORWARDEDPARSER__LEVEL: "OFF"
       REALM_REDIRECT_URIS: ${REALM_REDIRECT_URIS:-*}
@@ -171,6 +167,12 @@ services:
       keycloak:
         condition: service_started
         required: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/auth/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   api:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
@@ -209,6 +211,12 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:50202/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ── Scrape scheduler ─────────────────────────────────────────────────────────
   scheduler:
@@ -235,6 +243,12 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/scheduler/healthcheck.py"]
+      interval: 2m
+      timeout: 15s
+      retries: 3
+      start_period: 5m
 
   # -- Alert service -------------------------------------------------------
   alert-service:
@@ -255,13 +269,13 @@ services:
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
       KC_INTERNAL_BASE_URL: ${KC_INTERNAL_BASE_URL:-http://gavaller-backend-gateway:8080/internal/keycloak}
-      # The public SPA authenticates through the main Gavaller gateway in the
-      # production profile. Use that realm's dedicated internal proxy routes;
-      # standalone deployments can override both URLs for the Tesco realm.
+      # Browser JWT validation is deliberately separate from the in-stack
+      # Tesco Keycloak client used by auth-gateway and admin synchronization.
+      # Production SPA sessions are issued by the main Gavaller gateway realm.
       KC_JWKS_URL: ${KC_JWKS_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/certs}
       KC_USERINFO_URL: ${KC_USERINFO_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/userinfo}
-      KC_ISSUER: ${KC_ISSUER:-${KC_PUBLIC_ISSUER:-http://keycloak:8080/realms/tesco-tracker}}
-      KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
+      KC_ISSUER: ${ALERT_KC_ISSUER:-https://auth.gavaller.com/realms/backend-ecosystem}
+      KC_CLIENT_ID: ${ALERT_KC_CLIENT_ID:-gateway-client}
       KC_ADMIN_BASE_URL: ${KC_ADMIN_BASE_URL:-http://gavaller-backend-gateway:8080}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
       KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
@@ -282,6 +296,12 @@ services:
     depends_on:
       mongo:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # -- Alert keycloak sync (daily cron) -----------------------------------
   alert-keycloak-sync:
@@ -376,6 +396,12 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ── Angular SPA ──────────────────────────────────────────────────────────────
   frontend:
@@ -414,6 +440,12 @@ services:
     depends_on:
       api:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
 # ── Networks ─────────────────────────────────────────────────────────────────
 networks:

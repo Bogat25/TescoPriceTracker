@@ -23,8 +23,10 @@ KC_JWKS_URL = os.environ.get(
 KC_USERINFO_URL = os.environ.get(
     "KC_USERINFO_URL", f"{KC_INTERNAL_BASE_URL}/userinfo"
 ).rstrip("/")
-KC_ISSUER = os.environ.get("KC_ISSUER", "http://keycloak:8080/realms/tesco-tracker").rstrip("/")
-KC_CLIENT_ID = os.environ.get("KC_CLIENT_ID", "tesco-frontend")
+KC_ISSUER = os.environ.get(
+    "KC_ISSUER", "https://auth.gavaller.com/realms/backend-ecosystem"
+).rstrip("/")
+KC_CLIENT_ID = os.environ.get("KC_CLIENT_ID", "gateway-client")
 
 KC_ADMIN_BASE_URL = os.environ.get(
     "KC_ADMIN_BASE_URL", GATEWAY_INTERNAL_URL

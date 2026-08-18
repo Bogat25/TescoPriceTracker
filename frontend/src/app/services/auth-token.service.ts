@@ -15,6 +15,7 @@ export class AuthTokenService {
 
   private cachedToken: string | null = null;
   private expiresAt = 0;
+  private inFlight: Promise<string> | null = null;
 
   async getToken(): Promise<string> {
     const now = Date.now();
@@ -23,16 +24,30 @@ export class AuthTokenService {
       return this.cachedToken;
     }
 
-    const res = await firstValueFrom(
-      this.http.get<TokenResponse>(this.config.authTokenUrl, { withCredentials: true }),
-    );
-    this.cachedToken = res.access_token;
-    this.expiresAt = now + res.expires_in * 1000;
-    return this.cachedToken;
+    if (this.inFlight) return this.inFlight;
+
+    this.inFlight = (async () => {
+      const res = await firstValueFrom(
+        this.http.get<TokenResponse>(this.config.authTokenUrl, { withCredentials: true }),
+      );
+      if (!res.access_token || res.expires_in <= 0) {
+        throw new Error('Authentication gateway returned an expired access token');
+      }
+      this.cachedToken = res.access_token;
+      this.expiresAt = Date.now() + res.expires_in * 1000;
+      return this.cachedToken;
+    })();
+
+    try {
+      return await this.inFlight;
+    } finally {
+      this.inFlight = null;
+    }
   }
 
   clear(): void {
     this.cachedToken = null;
     this.expiresAt = 0;
+    this.inFlight = null;
   }
 }

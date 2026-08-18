@@ -7,6 +7,24 @@ from config import MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION
 
 logger = logging.getLogger(__name__)
 
+# These fields feed recomendation-system/data_preparation.py. Any change must
+# invalidate the existing embedding so Mongo and Qdrant do not silently drift.
+_EMBEDDING_SOURCE_FIELDS = {
+    "name",
+    "brand_name",
+    "sub_brand",
+    "super_department_name",
+    "department_name",
+    "aisle_name",
+    "shelf_name",
+    "short_description",
+    "marketing",
+    "product_marketing",
+    "features",
+    "nutritional_claims",
+    "ingredients",
+}
+
 # Mongo Setup
 _client = None
 _db = None
@@ -106,7 +124,14 @@ def insert_daily_prices(tpnc, price_updates, metadata=None):
         today_entry[category] = dict(fields)
 
     if metadata:
+        embedding_changed = any(
+            data.get(field) != metadata.get(field)
+            for field in _EMBEDDING_SOURCE_FIELDS
+            if field in metadata
+        )
         data.update(metadata)
+        if embedding_changed and "vector_embedding" in data:
+            data["needs_revector"] = True
 
     data["last_scraped_price"] = datetime.now().isoformat()
     save_product_data(tpnc, data)

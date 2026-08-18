@@ -53,5 +53,8 @@ frontend/node_modules/
 .claude/
 *.angular/
 STORE_LISTING.md
-*tests/
 scripts/
+recomendation-system/tests/
+tests/*.sh
+tests/*.ps1
+tests/README.md

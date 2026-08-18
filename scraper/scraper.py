@@ -7,6 +7,7 @@ import logging
 import argparse
 import concurrent.futures
 import threading
+from enum import Enum
 from datetime import datetime
 from lxml import etree  # type: ignore[import-untyped]
 from config import API_URL, HEADERS, SITEMAP_INDEX_URL, DEFAULT_THREADS
@@ -18,6 +19,55 @@ from mongo import stats_manager
 # this module (scheduler.py calls setup_logging()). Don't call basicConfig
 # here or it'll add a second handler that emits plain-text lines.
 logger = logging.getLogger(__name__)
+
+
+class ProductResult(str, Enum):
+    SUCCESS = "success"
+    SKIPPED = "skipped"
+    UNAVAILABLE = "unavailable"
+    FAILED = "failed"
+
+
+class GraphQLContractError(RuntimeError):
+    """The deployed query does not conform to Tesco's current schema."""
+
+
+class UpstreamConfigurationError(RuntimeError):
+    """Authentication or request configuration prevents all upstream calls."""
+
+
+def _manufacturer_text(value):
+    """Normalize Tesco's ManufacturerAddressType to the legacy display string."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        addresses = value.get("addresses")
+        if isinstance(addresses, list):
+            return ", ".join(str(part).strip() for part in addresses if part)
+    return None
+
+
+def _allergens_text(value):
+    """Flatten the current allergen object list for the product detail view."""
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, list):
+        return None
+    rendered = []
+    for item in value:
+        if isinstance(item, str):
+            rendered.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        values = item.get("values")
+        if isinstance(values, list):
+            values = ", ".join(str(entry) for entry in values if entry)
+        text = ": ".join(str(part) for part in (name, values) if part)
+        if text:
+            rendered.append(text)
+    return "; ".join(rendered) or None
 
 
 # ---------------------------------------------------------------------------
@@ -108,12 +158,30 @@ def get_product_api(tpnc, query_type="full"):
     for attempt in range(max_retries):
         try:
             response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=30)
-            if response.status_code == 429:
-                raise requests.RequestException("Rate Limited (429)")
+            if response.status_code in (401, 403):
+                raise UpstreamConfigurationError(
+                    f"Tesco API rejected configured credentials (HTTP {response.status_code})"
+                )
+            if response.status_code == 400:
+                try:
+                    error_body = response.json()
+                except ValueError:
+                    error_body = response.text[:500]
+                raise GraphQLContractError(
+                    f"Tesco GraphQL rejected {operation_name}: {error_body}"
+                )
+            if response.status_code == 429 or response.status_code >= 500:
+                raise requests.RequestException(f"Retryable upstream HTTP {response.status_code}")
             response.raise_for_status()
             response_json = response.json()
             if isinstance(response_json, list) and len(response_json) > 0:
-                return response_json[0]
+                result = response_json[0]
+                errors = result.get("errors") if isinstance(result, dict) else None
+                if errors:
+                    raise GraphQLContractError(
+                        f"Tesco GraphQL returned errors for {operation_name}: {errors}"
+                    )
+                return result
             return None
         except (requests.RequestException, ValueError) as e:
             if attempt < max_retries - 1:
@@ -137,25 +205,32 @@ def get_product_api(tpnc, query_type="full"):
 def process_product(tpnc, force=False, progress_prefix=""):
     """Fetch data for *tpnc* and store prices in all applicable categories.
 
-    Returns True if the product was processed (API called), False if skipped/failed.
+    Returns a ProductResult so unavailable products and actual failures are not
+    conflated with successful skips.
     """
     exists = db.product_exists(tpnc)
 
     if exists and not force and not needs_scraping(tpnc):
         logger.debug(f"{progress_prefix}Skipping {tpnc}: already up-to-date.")
-        return False
+        return ProductResult.SKIPPED
 
-    query_type = "price" if exists else "full"
+    # A forced run refreshes metadata as well as prices. Previously --force
+    # still selected the price-only query for existing products, so schema and
+    # metadata recovery could never repair them.
+    query_type = "full" if force or not exists else "price"
     data = get_product_api(tpnc, query_type)
-    if not data or 'data' not in data or not data['data']['product']:
-        logger.warning(f"{progress_prefix}No data returned for {tpnc}. Response: {data}")
-        return False
+    if not data or 'data' not in data:
+        logger.error(f"{progress_prefix}Malformed response for {tpnc}. Response: {data}")
+        return ProductResult.FAILED
+    if not data['data'].get('product'):
+        logger.info(f"{progress_prefix}Product {tpnc} is unavailable upstream.")
+        return ProductResult.UNAVAILABLE
 
     product_data = data['data']['product']
     price_info = product_data.get('price')
     if not price_info:
         logger.info(f"{progress_prefix}No price info for {tpnc}, possibly unavailable.")
-        return False
+        return ProductResult.UNAVAILABLE
 
     price_actual = price_info.get('actual')
     unit_price = price_info.get('unitPrice')
@@ -262,7 +337,7 @@ def process_product(tpnc, force=False, progress_prefix=""):
             "taxonomy_id": primary_taxonomy.get('id'),
             "taxonomy_name": primary_taxonomy.get('name'),
             # Manufacturer / source
-            "manufacturer": product_data.get('manufacturer'),
+            "manufacturer": _manufacturer_text(product_data.get('manufacturer')),
             "manufacturer_address": product_data.get('manufacturerAddress'),
             "distributor_address": product_data.get('distributorAddress'),
             "importer_address": product_data.get('importerAddress'),
@@ -275,7 +350,7 @@ def process_product(tpnc, force=False, progress_prefix=""):
             "manufacturer_marketing": details.get('manufacturerMarketing'),
             # Nutrition & dietary
             "ingredients": details.get('ingredients'),
-            "allergens": details.get('allergens'),
+            "allergens": _allergens_text(details.get('allergens')),
             "nutrition": details.get('nutrition'),
             "gda": details.get('gda'),
             "dietary_info": details.get('dietaryInfo'),
@@ -286,7 +361,6 @@ def process_product(tpnc, force=False, progress_prefix=""):
             "additives": details.get('additives'),
             # Storage & preparation
             "storage": details.get('storage'),
-            "cooking_instructions": details.get('cookingInstructions'),
             "preparation_and_usage": details.get('preparationAndUsage'),
             "preparation_guidelines": details.get('preparationGuidelines'),
             "freezing_instructions": details.get('freezingInstructions'),
@@ -311,8 +385,6 @@ def process_product(tpnc, force=False, progress_prefix=""):
             "box_contents": details.get('boxContents'),
             "legal_notice": details.get('legalNotice'),
             "other_information": details.get('otherInformation'),
-            "specifications": details.get('specifications'),
-            "components": details.get('components'),
             # Product constraints
             "deposit_amount": product_data.get('depositAmount'),
             "max_quantity_allowed": product_data.get('maxQuantityAllowed'),
@@ -362,7 +434,7 @@ def process_product(tpnc, force=False, progress_prefix=""):
             log_prices.append(f"Clubcard: {fields['price']}")
 
     logger.info(f"{progress_prefix}Processed {tpnc} ({change_status}). {', '.join(log_prices)}")
-    return True
+    return ProductResult.SUCCESS
 
 
 # ---------------------------------------------------------------------------
@@ -419,10 +491,17 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
             'date': datetime.now().date().isoformat(),
             'total_items': len(all_items),
             'processed_count': len(all_items),
+            'status_counts': {
+                ProductResult.SUCCESS.value: 0,
+                ProductResult.SKIPPED.value: len(all_items),
+                ProductResult.UNAVAILABLE.value: 0,
+                ProductResult.FAILED.value: 0,
+            },
+            'failed_items': {},
             'completed': True,
             'finished_at': datetime.now().isoformat(),
         })
-        return
+        return db.load_run_state()
 
     # ---- Initialize advisory run-state ----
     state = {
@@ -431,33 +510,83 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         'started_at': datetime.now().isoformat(),
         'total_items': len(all_items),
         'processed_count': len(all_items) - len(items_to_process),
+        'status_counts': {
+            ProductResult.SUCCESS.value: 0,
+            ProductResult.SKIPPED.value: len(all_items) - len(items_to_process),
+            ProductResult.UNAVAILABLE.value: 0,
+            ProductResult.FAILED.value: 0,
+        },
+        'failed_items': {},
+        # Kept for compatibility with existing run-state consumers.
         'errors': {},
         'completed': False,
+        'heartbeat_at': datetime.now().isoformat(),
     }
     db.save_run_state(state)
 
+    # Validate the full-product contract once before starting thousands of
+    # requests. A schema drift is a job-level failure, not a per-product miss.
+    full_query_probe = next(
+        (tpnc for tpnc in items_to_process if force or not db.product_exists(tpnc)),
+        None,
+    )
+    if full_query_probe:
+        try:
+            get_product_api(full_query_probe, "full")
+        except (GraphQLContractError, UpstreamConfigurationError) as exc:
+            state['failed_items'][str(full_query_probe)] = type(exc).__name__
+            state['errors'][str(full_query_probe)] = 1
+            state['status_counts'][ProductResult.FAILED.value] = 1
+            state['failed_count'] = 1
+            state['failure_reason'] = str(exc)[:2000]
+            state['finished_at'] = datetime.now().isoformat()
+            state['heartbeat_at'] = state['finished_at']
+            db.save_run_state(state)
+            logger.error("Scrape aborted during GraphQL contract preflight: %s", exc)
+            raise
+
     # ---- Process items with thread pool ----
     lock = threading.Lock()
+    fatal_error = threading.Event()
+    fatal_exception = []
     total = len(all_items)
     # Pre-build index to avoid O(n²) .index() calls inside the loop
     item_index = {tpnc: i + 1 for i, tpnc in enumerate(all_items)}
 
     def _task_wrapper(idx, tpnc):
-        success = False
-        try:
-            success = process_product(tpnc, force=force,
-                                      progress_prefix=f"[{idx}/{total}] ")
-        except Exception as e:
-            logger.exception(f"Unhandled error processing {tpnc}: {e}")
+        result = ProductResult.FAILED
+        failure_name = None
+        if fatal_error.is_set():
+            failure_name = "aborted_after_fatal_error"
+        else:
+            try:
+                result = process_product(tpnc, force=force,
+                                         progress_prefix=f"[{idx}/{total}] ")
+            except (GraphQLContractError, UpstreamConfigurationError) as exc:
+                logger.exception("Fatal upstream error processing %s", tpnc)
+                failure_name = type(exc).__name__
+                fatal_exception.append(exc)
+                fatal_error.set()
+            except Exception as exc:
+                logger.exception(f"Unhandled error processing {tpnc}: {exc}")
+                failure_name = type(exc).__name__
 
-        with lock:
-            if success or not needs_scraping(tpnc):
-                state['processed_count'] = state.get('processed_count', 0) + 1
-            else:
-                state.setdefault('errors', {})[tpnc] = \
-                    state.get('errors', {}).get(tpnc, 0) + 1
-        # DB write outside the lock to avoid blocking other threads during I/O
-        db.save_run_state(state)
+        try:
+            with lock:
+                state['status_counts'][result.value] = \
+                    state['status_counts'].get(result.value, 0) + 1
+                if result is not ProductResult.FAILED:
+                    state['processed_count'] = state.get('processed_count', 0) + 1
+                else:
+                    state['failed_items'][str(tpnc)] = failure_name or "request_failed"
+                    state['errors'][str(tpnc)] = state['errors'].get(str(tpnc), 0) + 1
+                state['failed_count'] = state['status_counts'].get(ProductResult.FAILED.value, 0)
+                state['heartbeat_at'] = datetime.now().isoformat()
+                # Keep mutation and persistence ordered. Saving outside the lock
+                # allowed an older snapshot to overwrite newer progress.
+                db.save_run_state(state)
+        except Exception:
+            logger.exception("Failed to persist run state for %s", tpnc)
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
     futures = []
@@ -476,9 +605,13 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     finally:
         executor.shutdown(wait=True)
 
+    if fatal_exception:
+        state['failure_reason'] = str(fatal_exception[0])[:2000]
+
     # ---- Finalize run-state ----
     processed = state.get('processed_count', 0)
-    if processed >= len(all_items):
+    failed = state.get('failed_count', 0)
+    if processed >= len(all_items) and failed == 0:
         state['completed'] = True
         state['finished_at'] = datetime.now().isoformat()
         db.save_run_state(state)
@@ -487,8 +620,14 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         stats_manager.rebuild_all_cache()
         _notify_alert_service()
     else:
+        state['finished_at'] = datetime.now().isoformat()
         db.save_run_state(state)
-        logger.info(f"Daily scrape partial: {processed}/{len(all_items)} items — will resume on next run.")
+        logger.error(
+            "Daily scrape incomplete: %s/%s classified, %s failed — will resume on next run.",
+            processed, len(all_items), failed,
+        )
+
+    return state
 
 
 def _notify_alert_service():

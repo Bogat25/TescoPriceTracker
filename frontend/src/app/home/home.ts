@@ -64,9 +64,10 @@ export class Home implements OnInit {
     // Load real statistics
     this.loadStatistics();
 
-    // Load recent alerts for the dashboard panel (authenticated users only)
-    if (this.auth.authenticated()) {
-      this.alertsService.list()
+    // Wait for the shared session lookup instead of racing its initial signal.
+    this.auth.checkSession().subscribe((user) => {
+      if (user) {
+        this.alertsService.list()
         .pipe(catchError(() => of({ alerts: [] })))
         .subscribe(res => {
           const sorted = (res.alerts ?? []).sort(
@@ -90,9 +91,10 @@ export class Home implements OnInit {
             this.alertProductNames.set(names);
           });
         });
-    } else {
-      this.alertsLoaded.set(true);
-    }
+      } else {
+        this.alertsLoaded.set(true);
+      }
+    });
   }
 
   private loadStatistics(): void {

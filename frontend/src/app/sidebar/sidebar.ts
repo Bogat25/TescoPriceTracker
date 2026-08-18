@@ -69,6 +69,7 @@ export class Sidebar implements OnInit, OnDestroy {
   activeRoute = signal('/');
 
   private routerSub?: Subscription;
+  private authSub?: Subscription;
 
   get userInitials(): string {
     const name = this.auth.userName();
@@ -82,9 +83,10 @@ export class Sidebar implements OnInit, OnDestroy {
       .pipe(filter(e => e instanceof NavigationEnd))
       .subscribe(e => this.activeRoute.set((e as NavigationEnd).urlAfterRedirects));
 
-    if (this.auth.authenticated()) {
-      this.loadAlertCount();
-    }
+    this.authSub = this.auth.checkSession().subscribe((user) => {
+      if (user) this.loadAlertCount();
+      else this.alertCount.set(0);
+    });
   }
 
   private loadAlertCount(): void {
@@ -118,6 +120,7 @@ export class Sidebar implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSub?.unsubscribe();
+    this.authSub?.unsubscribe();
   }
 
   /** 3×3 hex decoration data: 3 columns, each col shifted down for col 1 */

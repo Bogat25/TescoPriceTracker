@@ -65,12 +65,21 @@ export class Alerts implements OnInit {
   });
 
   ngOnInit(): void {
-    // Show login prompt immediately if not authenticated — no API call needed
-    if (!this.authService.authenticated()) {
-      this.error.set('unauthorized');
-      this.loading.set(false);
-      return;
-    }
+    // Do not read the initial signal synchronously: AppComponent's /userinfo
+    // request is commonly still in flight while this routed component starts.
+    // Waiting for the shared session observable prevents a signed-in user from
+    // being permanently rendered as anonymous.
+    this.authService.checkSession().subscribe((user) => {
+      if (!user) {
+        this.error.set('unauthorized');
+        this.loading.set(false);
+        return;
+      }
+      this.loadAlerts();
+    });
+  }
+
+  private loadAlerts(): void {
     this.alertsApi.list().subscribe({
       next: (res) => {
         const list = res.alerts || [];
