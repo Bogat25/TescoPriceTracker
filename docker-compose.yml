@@ -73,7 +73,14 @@ services:
 
   # -- Identity provider -------------------------------------------------------
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0.5
+    # The entrypoint and realm template are baked into this image. Portainer's
+    # Git checkout does not reliably materialize repository-relative bind files;
+    # missing sources become directories and prevent the container from starting.
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-keycloak:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
+    build:
+      context: .
+      dockerfile: ./keycloak/Dockerfile
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-keycloak
     restart: unless-stopped
@@ -83,7 +90,7 @@ services:
     depends_on:
       keycloak-init:
         condition: service_completed_successfully
-    entrypoint: ["/bin/sh", "/scripts/docker-entrypoint.sh"]
+    entrypoint: ["/bin/sh", "/opt/keycloak/bin/tesco-entrypoint.sh"]
     expose:
       - "8080"
     environment:
@@ -106,8 +113,6 @@ services:
       REALM_WEB_ORIGINS: ${REALM_WEB_ORIGINS:-*}
       REALM_POST_LOGOUT_REDIRECT_URIS: ${REALM_POST_LOGOUT_REDIRECT_URIS:-+}
     volumes:
-      - ./keycloak/docker-entrypoint.sh:/scripts/docker-entrypoint.sh:ro
-      - ./keycloak/realm-template.json:/scripts/realm-template.json:ro
       - keycloak-data:/opt/keycloak/data
     healthcheck:
       # Keycloak 26 image (UBI9-micro based) has no curl/wget. Use the bundled JVM

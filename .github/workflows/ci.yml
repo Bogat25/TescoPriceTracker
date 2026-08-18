@@ -37,6 +37,10 @@ jobs:
             image: tesco-tracker-frontend
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
+          - service: keycloak
+            image: tesco-tracker-keycloak
+            context: .
+            dockerfile: ./keycloak/Dockerfile
 
     steps:
       - name: Checkout

@@ -19,12 +19,19 @@ import logging
 import os
 import sys
 import time
+from pathlib import Path
 from typing import Optional
 
 import requests
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load shared repository settings first, then allow the worker-local file to
+# supply worker-only settings such as SERVICE_B_BASE_URL. Neither file
+# overrides a token injected into the process by a secret manager or runner.
+SCRIPT_DIR = Path(__file__).resolve().parent
+REPOSITORY_ROOT = SCRIPT_DIR.parents[1]
+load_dotenv(REPOSITORY_ROOT / ".env")
+load_dotenv(SCRIPT_DIR / ".env", override=False)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,6 +60,16 @@ def get_headers() -> dict:
         "Authorization": f"Bearer {VECTOR_SYNC_API_TOKEN}",
         "Content-Type": "application/json",
     }
+
+
+def validate_configuration() -> None:
+    """Reject incomplete or unsafe worker configuration before loading the model."""
+    if not VECTOR_SYNC_API_TOKEN:
+        logger.error("VECTOR_SYNC_API_TOKEN not set. Exiting.")
+        raise SystemExit(1)
+
+    if SERVICE_B_BASE_URL in {"http://localhost:8090", "http://localhost:8080"}:
+        logger.warning("Using a localhost recommendation API endpoint: %s", SERVICE_B_BASE_URL)
 
 
 def load_model():
@@ -176,9 +193,10 @@ def push_vectors(vectors: list[dict]) -> bool:
     return False
 
 
-def run_single_batch(model) -> int:
+def run_single_batch(model, products: Optional[list[dict]] = None) -> int:
     """Run a single vectorization batch. Returns count of processed products."""
-    products = fetch_products()
+    if products is None:
+        products = fetch_products()
     if products is None:
         return -1  # Signal connection failure
     if not products:
@@ -196,7 +214,18 @@ def main():
     global BATCH_SIZE
 
     parser = argparse.ArgumentParser(description="AI Worker Node - Vector Generation")
-    parser.add_argument("--loop", action="store_true", help="Run continuously")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--loop", action="store_true", help="Run continuously")
+    mode.add_argument(
+        "--drain",
+        action="store_true",
+        help="Process batches until no un-vectorized products remain",
+    )
+    mode.add_argument(
+        "--check",
+        action="store_true",
+        help="Check API connectivity and authentication without loading the model",
+    )
     parser.add_argument(
         "--interval", type=int, default=30,
         help="Seconds between polls in loop mode (default: 30)"
@@ -207,16 +236,52 @@ def main():
     )
     args = parser.parse_args()
 
-    if not VECTOR_SYNC_API_TOKEN:
-        logger.error("VECTOR_SYNC_API_TOKEN not set. Exiting.")
-        sys.exit(1)
+    validate_configuration()
 
     BATCH_SIZE = args.batch_size
+
+    if args.check:
+        products = fetch_products(batch_size=1)
+        if products is None:
+            sys.exit(1)
+        logger.info("Recommendation API connectivity and authentication check passed.")
+        return
+
+    initial_products = None
+    if not args.loop:
+        # Verify connectivity/authentication and discover an empty backlog before
+        # paying the cost of loading the embedding model.
+        initial_products = fetch_products()
+        if initial_products is None:
+            sys.exit(1)
+        if not initial_products:
+            if args.drain:
+                logger.info("Vector backlog drained. Total processed this session: 0")
+            else:
+                logger.info("No products need vectorization.")
+            return
 
     # Load model once
     model = load_model()
 
-    if args.loop:
+    if args.drain:
+        total_processed = 0
+        pending_products = initial_products
+        while True:
+            count = run_single_batch(model, pending_products)
+            pending_products = None
+            if count < 0:
+                logger.error("Drain stopped after a failed batch.")
+                sys.exit(1)
+            if count == 0:
+                logger.info(
+                    "Vector backlog drained. Total processed this session: %d",
+                    total_processed,
+                )
+                return
+            total_processed += count
+            logger.info("Total processed this session: %d", total_processed)
+    elif args.loop:
         logger.info(f"Starting continuous polling (interval: {args.interval}s, batch: {BATCH_SIZE})")
         total_processed = 0
         consecutive_empty = 0
@@ -248,7 +313,7 @@ def main():
                 time.sleep(args.interval)
     else:
         # Single run
-        count = run_single_batch(model)
+        count = run_single_batch(model, initial_products)
         if count > 0:
             logger.info(f"Successfully processed {count} products.")
         elif count == 0:

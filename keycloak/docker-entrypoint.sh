@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-TEMPLATE=/scripts/realm-template.json
+TEMPLATE=/opt/keycloak/realm-template.json
 OUTPUT=/opt/keycloak/data/import/realm.json
 
 mkdir -p /opt/keycloak/data/import
