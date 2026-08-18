@@ -25,7 +25,8 @@ COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 # env vars (TESCO_API_BASE_URL) without being rebuilt.
 COPY runtime-config.template.js /usr/share/nginx/html/runtime-config.template.js
 COPY docker-entrypoint.d/40-envsubst-runtime-config.sh /docker-entrypoint.d/40-envsubst-runtime-config.sh
-RUN chmod +x /docker-entrypoint.d/40-envsubst-runtime-config.sh \
+RUN sed -i 's#^pid[[:space:]].*#pid /tmp/nginx.pid;#' /etc/nginx/nginx.conf \
+    && chmod +x /docker-entrypoint.d/40-envsubst-runtime-config.sh \
     && chown -R nginx:nginx \
         /etc/nginx/conf.d \
         /etc/nginx/templates \
