@@ -2,7 +2,7 @@
 fastapi==0.141.1
 uvicorn==0.52.3
 pymongo==4.17.0
-qdrant-client==1.19.0
+qdrant-client==1.17.1
 pydantic==2.13.4
 # NOTE: This file is NOT used at deploy time. The recommendation-api container
 # is built from the root Dockerfile and uses the root requirements.txt
