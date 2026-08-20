@@ -7,10 +7,13 @@ from scraper import scraper
 
 
 class FakeResponse:
-    def __init__(self, status_code, payload=None, text=""):
+    def __init__(self, status_code, payload=None, text="", headers=None):
         self.status_code = status_code
         self._payload = payload
         self.text = text
+        # A real requests.Response always exposes headers; the retry path reads
+        # Retry-After from them, so the stub has to model that too.
+        self.headers = headers or {}
 
     def json(self):
         if isinstance(self._payload, Exception):
@@ -55,6 +58,60 @@ def test_retryable_500_is_retried(monkeypatch):
 
     assert result["data"]["product"]["id"] == "123"
     assert post.call_count == 2
+
+
+def test_rate_limit_waits_at_least_the_servers_retry_after(monkeypatch):
+    """A 429 must back off for as long as Tesco asked.
+
+    The generic 2/4/8/16s ladder is shorter than a typical penalty window, so
+    ignoring Retry-After burned all five attempts before the limit cleared.
+    """
+    slept = []
+    post = Mock(side_effect=[
+        FakeResponse(429, {}, headers={"Retry-After": "45"}),
+        FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
+    ])
+    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    result = scraper.get_product_api("123", "full")
+
+    assert result["data"]["product"]["id"] == "123"
+    assert slept and slept[0] >= 45
+
+
+def test_retry_after_is_capped(monkeypatch):
+    """One hostile Retry-After must not stall the whole run."""
+    slept = []
+    post = Mock(side_effect=[
+        FakeResponse(429, {}, headers={"Retry-After": "99999"}),
+        FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
+    ])
+    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    scraper.get_product_api("123", "full")
+
+    assert slept[0] == scraper.RETRY_AFTER_CAP_SECONDS
+
+
+def test_backoff_still_grows_without_a_retry_after_header(monkeypatch):
+    """Missing header keeps the exponential ladder rather than a flat wait."""
+    slept = []
+    post = Mock(side_effect=[
+        FakeResponse(500, {}),
+        FakeResponse(500, {}),
+        FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
+    ])
+    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    scraper.get_product_api("123", "full")
+
+    assert slept == [2, 4]
 
 
 def test_current_object_shapes_are_normalized_for_the_frontend():

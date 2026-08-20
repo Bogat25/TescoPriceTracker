@@ -8,7 +8,8 @@ import argparse
 import concurrent.futures
 import threading
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from lxml import etree  # type: ignore[import-untyped]
 from config import API_URL, HEADERS, SITEMAP_INDEX_URL, DEFAULT_THREADS
 from mongo.queries import FULL_PRODUCT_QUERY, PRICE_ONLY_QUERY
@@ -28,12 +29,49 @@ class ProductResult(str, Enum):
     FAILED = "failed"
 
 
+# Longest we will honour a Retry-After for. Beyond this the product is left for
+# the next run rather than stalling the whole pass on one rate-limited item.
+RETRY_AFTER_CAP_SECONDS = 120
+
+
 class GraphQLContractError(RuntimeError):
     """The deployed query does not conform to Tesco's current schema."""
 
 
 class UpstreamConfigurationError(RuntimeError):
     """Authentication or request configuration prevents all upstream calls."""
+
+
+class RetryableUpstreamError(requests.RequestException):
+    """Upstream is rate limiting or failing; carries its Retry-After when sent."""
+
+    def __init__(self, message, retry_after=None):
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
+def _parse_retry_after(value):
+    """Seconds from a Retry-After header, which may be a delay or an HTTP date.
+
+    Capped because Tesco occasionally returns a very long penalty: waiting it out
+    would stall the whole run, and the product is retried on the next pass anyway.
+    """
+    if not value:
+        return None
+    try:
+        return min(float(value), RETRY_AFTER_CAP_SECONDS)
+    except (TypeError, ValueError):
+        pass
+    try:
+        retry_at = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if retry_at is None:
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    delay = (retry_at - datetime.now(timezone.utc)).total_seconds()
+    return min(max(delay, 0.0), RETRY_AFTER_CAP_SECONDS) if delay > 0 else None
 
 
 def _manufacturer_text(value):
@@ -171,7 +209,12 @@ def get_product_api(tpnc, query_type="full"):
                     f"Tesco GraphQL rejected {operation_name}: {error_body}"
                 )
             if response.status_code == 429 or response.status_code >= 500:
-                raise requests.RequestException(f"Retryable upstream HTTP {response.status_code}")
+                # Keep the server's own backoff instruction. Discarding it was why
+                # a 429 burned all five attempts inside the penalty window.
+                raise RetryableUpstreamError(
+                    f"Retryable upstream HTTP {response.status_code}",
+                    retry_after=_parse_retry_after(response.headers.get("Retry-After")),
+                )
             response.raise_for_status()
             response_json = response.json()
             if isinstance(response_json, list) and len(response_json) > 0:
@@ -182,12 +225,21 @@ def get_product_api(tpnc, query_type="full"):
                         f"Tesco GraphQL returned errors for {operation_name}: {errors}"
                     )
                 return result
+            # Not the retry path: the call succeeded but returned nothing usable.
+            # Logged here so it stays visible now that the caller no longer
+            # reports every None as a malformed response.
+            logger.error(
+                f"Empty response body for {tpnc} ({operation_name}). Response: {response_json}"
+            )
             return None
         except (requests.RequestException, ValueError) as e:
             if attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
-                if "Max retries exceeded" in str(e):
-                    sleep_time = 3
+                # A rate limit is only cleared by waiting as long as the server
+                # asked, so never back off for less than Retry-After.
+                retry_after = getattr(e, "retry_after", None)
+                if retry_after is not None:
+                    sleep_time = max(sleep_time, retry_after)
                 logger.warning(f"API request failed for {tpnc} (Attempt {attempt+1}/{max_retries}). "
                                f"Retrying in {sleep_time:.2f}s. Error: {e}")
                 time.sleep(sleep_time)
@@ -219,7 +271,12 @@ def process_product(tpnc, force=False, progress_prefix=""):
     # metadata recovery could never repair them.
     query_type = "full" if force or not exists else "price"
     data = get_product_api(tpnc, query_type)
-    if not data or 'data' not in data:
+    if data is None:
+        # get_product_api already logged the cause (rate limit, timeout, ...).
+        # Calling this "malformed" duplicated every failure with a second, wrong
+        # line that made upstream throttling look like a data problem.
+        return ProductResult.FAILED
+    if 'data' not in data:
         logger.error(f"{progress_prefix}Malformed response for {tpnc}. Response: {data}")
         return ProductResult.FAILED
     if not data['data'].get('product'):
