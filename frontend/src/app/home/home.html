@@ -5,13 +5,13 @@
 
     <!-- Left: greeting + actions -->
     <div class="hm-hero-text">
-      <div class="hm-greeting">
+      <h1 class="hm-greeting">
         @if (auth.authenticated()) {
           Good {{ timeOfDay() }}, <span class="hm-name">{{ auth.userName() }}</span>
         } @else {
           {{ 'home.hero.title' | translate }}
         }
-      </div>
+      </h1>
       <p class="hm-hero-sub">{{ 'home.hero.sub' | translate }}</p>
       <div class="hm-action-row">
         <a routerLink="/search"     class="hm-btn hm-btn-primary">{{ 'home.btn.search' | translate }}</a>

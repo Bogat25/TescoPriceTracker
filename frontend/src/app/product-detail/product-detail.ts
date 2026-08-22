@@ -45,6 +45,7 @@ import {
 } from '../services/products.service';
 import { AuthService } from '../services/auth.service';
 import { AlertType, AlertsService, CreateAlertRequest } from '../services/alerts.service';
+import { SeoService } from '../services/seo.service';
 
 Chart.register(
   LineController,
@@ -119,6 +120,7 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   private products = inject(ProductsService);
   private alertsApi = inject(AlertsService);
   private cdr = inject(ChangeDetectorRef);
+  private seo = inject(SeoService);
   public auth = inject(AuthService);
 
   readonly tpnc = signal<string>('');
@@ -253,6 +255,15 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         this.product.set(product);
         this.stats.set(stats);
         this.history.set(history);
+        const productName = product.name || product.tpnc;
+        const price = product.currentPrice
+          ? ` The latest tracked price is ${product.currentPrice.toLocaleString('hu-HU')} Ft.`
+          : '';
+        this.seo.update({
+          title: `${productName} Price History — Tesco Price Tracker`,
+          description: `Track ${productName} at Tesco Hungary. View its price history, promotions and trends.${price}`,
+          path: `/products/${encodeURIComponent(tpnc)}`,
+        });
         this.loading.set(false);
         // detectChanges forces Angular to render @if(product()) block so the canvas is in the DOM
         this.cdr.detectChanges();
@@ -273,6 +284,12 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
       },
       error: (err) => {
         this.error.set(err?.error?.error || 'Failed to load product.');
+        this.seo.update({
+          title: 'Product Not Found — Tesco Price Tracker',
+          description: 'The requested Tesco product could not be found.',
+          path: `/products/${encodeURIComponent(tpnc)}`,
+          robots: 'noindex, nofollow',
+        });
         this.loading.set(false);
       },
     });

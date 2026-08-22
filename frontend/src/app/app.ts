@@ -3,6 +3,7 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from './services/auth.service';
 import { ThemeService } from './services/theme.service';
 import { TranslationService } from './services/translation.service';
+import { SeoService } from './services/seo.service';
 import { Sidebar } from './sidebar/sidebar';
 import { BeehiveBg } from './shared/beehive-bg/beehive-bg';
 
@@ -16,10 +17,12 @@ export class App implements OnInit {
   public authService  = inject(AuthService);
   public themeService = inject(ThemeService);
   public tl           = inject(TranslationService);
+  private seo         = inject(SeoService);
 
   readonly mobileMenuOpen = signal(false);
 
   ngOnInit(): void {
+    this.seo.start();
     this.authService.checkSession().subscribe();
   }
 

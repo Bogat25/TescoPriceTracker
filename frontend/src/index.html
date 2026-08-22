@@ -2,9 +2,20 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Tesco Price Tracker</title>
+  <title>Tesco Price Tracker — Price History, Analytics and Alerts</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Track Tesco Hungary product prices, compare price history and promotions, explore shopping analytics, and create free price-drop alerts.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <meta name="theme-color" content="#00539f">
+  <meta property="og:site_name" content="Tesco Price Tracker">
+  <meta property="og:title" content="Tesco Price Tracker — Price History, Analytics and Alerts">
+  <meta property="og:description" content="Track Tesco Hungary product prices, compare price history and promotions, explore shopping analytics, and create free price-drop alerts.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://price-tracker.gavaller.com/">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Tesco Price Tracker — Price History, Analytics and Alerts">
+  <meta name="twitter:description" content="Track Tesco Hungary product prices, compare price history and promotions, explore shopping analytics, and create free price-drop alerts.">
   <!-- Favicon / app icons (from the browser extension icon set) -->
   <link rel="icon"             type="image/png" sizes="16x16"  href="icon-16.png">
   <link rel="icon"             type="image/png" sizes="32x32"  href="icon-32.png">
@@ -14,6 +25,36 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://price-tracker.gavaller.com/#website",
+          "url": "https://price-tracker.gavaller.com/",
+          "name": "Tesco Price Tracker",
+          "description": "Independent Tesco Hungary price history, analytics and price-alert service",
+          "inLanguage": ["en", "hu"]
+        },
+        {
+          "@type": "SoftwareApplication",
+          "@id": "https://price-tracker.gavaller.com/#application",
+          "name": "Tesco Price Tracker",
+          "url": "https://price-tracker.gavaller.com/",
+          "applicationCategory": "FinanceApplication",
+          "operatingSystem": "Chrome, Microsoft Edge, Firefox",
+          "description": "A free, independent Tesco Hungary price tracker with price history, analytics, browser extensions and price-drop alerts.",
+          "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "HUF"
+          },
+          "isAccessibleForFree": true
+        }
+      ]
+    }
+  </script>
   <!-- Deploy-time configuration (TESCO_API_BASE_URL etc.). Loaded BEFORE the
        Angular bundle so services can read window.__APP_CONFIG__ on init. -->
   <script src="runtime-config.js"></script>
