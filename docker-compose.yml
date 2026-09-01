@@ -153,6 +153,7 @@ services:
   # ── Backend API ──────────────────────────────────────────────────────────────
   auth-gateway:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-auth-gateway
     labels:
@@ -196,6 +197,7 @@ services:
 
   api:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-price-tracker-api
     labels:
@@ -241,6 +243,7 @@ services:
   # ── Scrape scheduler ─────────────────────────────────────────────────────────
   scheduler:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-scheduler
     labels:
@@ -273,6 +276,7 @@ services:
   # -- Alert service -------------------------------------------------------
   alert-service:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-alert-service
     labels:
@@ -326,6 +330,7 @@ services:
   # -- Alert keycloak sync (daily cron) -----------------------------------
   alert-keycloak-sync:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-alert-keycloak-sync
     labels:
@@ -386,6 +391,7 @@ services:
   # ── Recommendation Vector Sync API (Internal) ───────────────────────────────
   recommendation-api:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-recommendation-api
     labels:

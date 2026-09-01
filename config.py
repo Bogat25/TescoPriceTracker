@@ -40,6 +40,19 @@ DEFAULT_THREADS = 2
 # ---------------------------------------------------------------------------
 SCHEDULER_CRON = '0 5 * * *'
 SCHEDULER_TIMEZONE = 'Europe/Budapest'
+SCHEDULER_RETRY_INITIAL_SECONDS = max(
+    1, int(os.getenv('SCHEDULER_RETRY_INITIAL_SECONDS', '1800'))
+)
+SCHEDULER_RETRY_MAX_SECONDS = max(
+    SCHEDULER_RETRY_INITIAL_SECONDS,
+    int(os.getenv('SCHEDULER_RETRY_MAX_SECONDS', '7200')),
+)
+SCHEDULER_MAX_RETRIES_PER_DAY = max(
+    0, int(os.getenv('SCHEDULER_MAX_RETRIES_PER_DAY', '6'))
+)
+SCHEDULER_RETRY_CUTOFF_HOUR = min(
+    23, max(0, int(os.getenv('SCHEDULER_RETRY_CUTOFF_HOUR', '23')))
+)
 
 # ---------------------------------------------------------------------------
 # Tesco API

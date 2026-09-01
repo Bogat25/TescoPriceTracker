@@ -90,6 +90,34 @@ def test_stdlib_logger_emits_serilog_compact_json(logging_setup):
     assert payload["Service"] == "test-service"
 
 
+def test_stdlib_parameterized_log_preserves_stable_template(logging_setup):
+    _, buf = logging_setup
+    logging.getLogger("scheduler").error(
+        "API request failed for %s after %s attempts",
+        "123456",
+        5,
+        extra={"Action": "graphql.retry_exhausted", "Category": "upstream"},
+    )
+    payload = _last_json(buf)
+
+    assert payload["@m"] == "API request failed for 123456 after 5 attempts"
+    assert payload["@mt"] == "API request failed for %s after %s attempts"
+    assert payload["Action"] == "graphql.retry_exhausted"
+    assert payload["Category"] == "upstream"
+
+
+def test_stdlib_exception_is_emitted_as_serilog_exception(logging_setup):
+    _, buf = logging_setup
+    try:
+        raise RuntimeError("test failure")
+    except RuntimeError:
+        logging.getLogger("scheduler").exception("Worker failed for %s", "123")
+
+    payload = _last_json(buf)
+    assert payload["@mt"] == "Worker failed for %s"
+    assert "RuntimeError: test failure" in payload["@x"]
+
+
 def test_structlog_logger_promotes_known_keys_and_buckets_extras(logging_setup):
     ls, buf = logging_setup
     log = ls.get_logger().bind()

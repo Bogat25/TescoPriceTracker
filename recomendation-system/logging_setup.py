@@ -36,7 +36,7 @@ Field reference
    @t            ISO-8601 UTC timestamp (auto-added)
    @l            Information / Warning / Error / Fatal / Debug
    @m            Rendered message
-   @mt           Message template (same as @m for now)
+   @mt           Stable message template (before stdlib positional rendering)
    Service       Logical service name (from SERVICE_NAME env, fallback "unknown")
    Action        Optional verb e.g. "scrape.start"
    Category      Optional bucket e.g. "job", "http"
@@ -110,7 +110,7 @@ def _rename_to_serilog_compact(_logger, _method, event_dict):
     Map structlog's default keys onto the Serilog-Compact wire format.
        timestamp -> @t
        level     -> @l (also remapped to Serilog level naming)
-       event     -> @m and @mt
+       event     -> @m; the original stdlib LogRecord.msg -> @mt
     Any kwargs the call site passed are bucketed into a `Context` object
     so the top-level JSON keeps a stable, predictable shape regardless
     of what callers pass in.
@@ -119,11 +119,23 @@ def _rename_to_serilog_compact(_logger, _method, event_dict):
     raw_level = str(event_dict.pop("level", "info")).lower()
     event_dict["@l"] = _LEVEL_TO_SERILOG.get(raw_level, "Information")
     msg = event_dict.pop("event", "")
+    record = event_dict.get("_record")
+    from_structlog = event_dict.get("_from_structlog", False)
+    message_template = msg
+    if record is not None and not from_structlog:
+        # ProcessorFormatter uses record.getMessage() for ``event``. Keep that
+        # rendered value in @m, but fingerprint on the original format string.
+        message_template = str(record.msg)
     event_dict["@m"] = msg
-    event_dict["@mt"] = msg
+    event_dict["@mt"] = message_template
+
+    exception = event_dict.pop("exception", None)
+    if exception:
+        event_dict["@x"] = exception
 
     reserved = {"@t", "@l", "@m", "@mt", "Service", "Category", "Action",
-                "RequestId", "CorrelationId", "AnonId", "Context", "exception", "exc_info"}
+                "RequestId", "CorrelationId", "AnonId", "Context", "@x",
+                "exception", "exc_info", "_record", "_from_structlog"}
     extras = {k: event_dict.pop(k) for k in list(event_dict.keys()) if k not in reserved}
     if extras:
         ctx = event_dict.get("Context")
@@ -159,10 +171,11 @@ def setup_logging(level: Optional[str] = None) -> None:
     # The final formatter the stdlib handler uses to render any record
     # (including those coming from non-structlog libraries like uvicorn).
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=pre_chain,
+        foreign_pre_chain=[*pre_chain, structlog.stdlib.ExtraAdder()],
         processors=[
-            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.processors.format_exc_info,
             _rename_to_serilog_compact,
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             structlog.processors.JSONRenderer(),
         ],
     )

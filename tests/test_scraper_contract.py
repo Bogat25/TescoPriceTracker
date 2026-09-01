@@ -114,6 +114,65 @@ def test_backoff_still_grows_without_a_retry_after_header(monkeypatch):
     assert slept == [2, 4]
 
 
+def test_exhausted_upstream_retries_raise_to_the_run_controller(monkeypatch):
+    post = Mock(return_value=FakeResponse(503, {}))
+    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper.time, "sleep", lambda _seconds: None)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    with pytest.raises(scraper.RetryableUpstreamError):
+        scraper.get_product_api("123", "full")
+
+    assert post.call_count == 5
+
+
+def test_graphql_embedded_rate_limit_is_retried(monkeypatch):
+    slept = []
+    post = Mock(side_effect=[
+        FakeResponse(200, [{"errors": [{
+            "message": "Too many requests",
+            "extensions": {"code": "RATE_LIMITED", "http": {"status": 429}},
+        }]}]),
+        FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
+    ])
+    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    result = scraper.get_product_api("123", "full")
+
+    assert result["data"]["product"]["id"] == "123"
+    assert post.call_count == 2
+    assert slept == [2]
+    assert scraper._rate_limit_until == 0.0
+
+
+def test_graphql_embedded_validation_error_is_job_fatal(monkeypatch):
+    post = Mock(return_value=FakeResponse(200, [{"errors": [{
+        "message": "Cannot query field 'removedField' on type 'Product'",
+        "extensions": {"code": "GRAPHQL_VALIDATION_FAILED"},
+    }]}]))
+    monkeypatch.setattr(scraper.requests, "post", post)
+
+    with pytest.raises(scraper.GraphQLContractError):
+        scraper.get_product_api("123", "full")
+
+    assert post.call_count == 1
+
+
+def test_unknown_graphql_execution_error_is_product_scoped(monkeypatch):
+    post = Mock(return_value=FakeResponse(200, [{
+        "data": {"product": None},
+        "errors": [{"message": "Resolver failed", "path": ["product"]}],
+    }]))
+    monkeypatch.setattr(scraper.requests, "post", post)
+
+    with pytest.raises(scraper.GraphQLExecutionError):
+        scraper.get_product_api("123", "full")
+
+    assert post.call_count == 1
+
+
 def test_current_object_shapes_are_normalized_for_the_frontend():
     assert scraper._manufacturer_text({"addresses": ["Company", "Budapest"]}) == "Company, Budapest"
     assert scraper._allergens_text([
@@ -139,6 +198,76 @@ def test_contract_preflight_aborts_and_persists_failure(monkeypatch):
     assert saved[-1]["completed"] is False
     assert saved[-1]["failed_count"] == 1
     assert saved[-1]["failure_reason"] == "schema drift"
+
+
+def test_execution_error_preflight_does_not_abort_the_job(monkeypatch):
+    saved = []
+    monkeypatch.setattr(scraper.db, "init_db", lambda: None)
+    monkeypatch.setattr(scraper.db, "product_exists", lambda _: False)
+    monkeypatch.setattr(scraper.db, "save_run_state", lambda state: saved.append(dict(state)))
+    monkeypatch.setattr(
+        scraper,
+        "get_product_api",
+        Mock(side_effect=scraper.GraphQLExecutionError("resolver failed")),
+    )
+    monkeypatch.setattr(
+        scraper,
+        "process_product",
+        lambda *_args, **_kwargs: scraper.ProductResult.UNAVAILABLE,
+    )
+    monkeypatch.setattr(scraper.stats_manager, "rebuild_all_cache", lambda: None)
+    monkeypatch.setattr(scraper, "_notify_alert_service", lambda: None)
+
+    state = scraper.run_scraper(specific_items=["123"], threads=1)
+
+    assert state["completed"] is True
+    assert state["failed_count"] == 0
+
+
+def test_transient_preflight_exhaustion_pauses_before_worker_fanout(monkeypatch):
+    saved = []
+    process_product = Mock(return_value=scraper.ProductResult.SUCCESS)
+    monkeypatch.setattr(scraper.db, "init_db", lambda: None)
+    monkeypatch.setattr(scraper.db, "product_exists", lambda _: False)
+    monkeypatch.setattr(scraper.db, "save_run_state", lambda state: saved.append(dict(state)))
+    monkeypatch.setattr(
+        scraper,
+        "get_product_api",
+        Mock(side_effect=scraper.RetryableUpstreamError("HTTP 503", status_code=503)),
+    )
+    monkeypatch.setattr(scraper, "process_product", process_product)
+
+    state = scraper.run_scraper(specific_items=["123", "456"], threads=2)
+
+    assert state["completed"] is False
+    assert state["retryable"] is True
+    assert state["failed_count"] == 1
+    assert process_product.call_count == 0
+    assert saved[-1]["failure_reason"] == "HTTP 503"
+
+
+def test_preflight_checks_both_query_variants_used_by_a_pass(monkeypatch):
+    calls = []
+    monkeypatch.setattr(scraper.db, "init_db", lambda: None)
+    monkeypatch.setattr(scraper.db, "product_exists", lambda tpnc: tpnc == "456")
+    monkeypatch.setattr(scraper.db, "save_run_state", lambda _state: None)
+    monkeypatch.setattr(
+        scraper,
+        "get_product_api",
+        lambda tpnc, query_type: calls.append((tpnc, query_type)) or {"data": {"product": {}}},
+    )
+    monkeypatch.setattr(
+        scraper,
+        "process_product",
+        lambda *_args, **_kwargs: scraper.ProductResult.UNAVAILABLE,
+    )
+    monkeypatch.setattr(scraper.stats_manager, "rebuild_all_cache", lambda: None)
+    monkeypatch.setattr(scraper, "_notify_alert_service", lambda: None)
+
+    state = scraper.run_scraper(specific_items=["123", "456"], threads=1)
+
+    assert state["completed"] is True
+    assert calls == [("123", "full"), ("456", "price")]
 
 
 def test_unavailable_products_are_classified_without_completing_with_failures(monkeypatch):
