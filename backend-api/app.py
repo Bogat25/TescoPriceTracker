@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from mongo import database_manager as db
@@ -11,6 +11,7 @@ import uvicorn
 
 from logging_setup import setup_logging, correlation_middleware
 from routers.internal_catalog import router as internal_catalog_router
+from auth import current_user, optional_current_user
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -349,17 +350,17 @@ def get_cold_recommendations(
 
 @app.get("/api/v1/recommendations/personalized")
 def get_personalized_recommendations(
-    user_id: str = Query(alias="userId"),
     limit: int = Query(default=100, ge=1, le=200),
+    user: dict = Depends(current_user),
 ):
     """Personalized recommendations for an authenticated user.
 
-    userId is REQUIRED — returns 400 if missing. The URL path itself is the
-    signal in logs that the frontend successfully obtained a userId.
+    Identity is derived from the verified Bearer token, never from query data.
     Falls back to cold-start internally only if the user has no alerts or
     Qdrant has no vectors for their products.
     """
-    logger.info("personalized: userId=%r limit=%d", user_id, limit)
+    user_id = user["sub"]
+    logger.info("personalized recommendation requested; limit=%d", limit)
     coll = db.get_db()
     result = get_recommendations(coll, user_id=user_id, limit=limit)
     logger.info("personalized: type=%s personalized_count=%d count=%d",
@@ -371,15 +372,24 @@ def get_personalized_recommendations(
 def get_product_recommendations(
     user_id: str = Query(default=None, alias="userId"),
     limit: int = Query(default=100, ge=1, le=200),
+    user: dict | None = Depends(optional_current_user),
 ):
     """Legacy unified endpoint — prefer /cold or /personalized instead.
 
     Kept for backwards compatibility with the browser extension and any
     external consumers. Internally routes to the same logic.
     """
-    logger.info("recommendations (legacy): userId=%r limit=%d", user_id, limit)
+    if user_id:
+        if user is None:
+            raise HTTPException(status_code=401, detail="authentication required for personalization")
+        if user_id != user["sub"]:
+            raise HTTPException(status_code=403, detail="userId does not match authenticated user")
+        resolved_user_id = user["sub"]
+    else:
+        resolved_user_id = None
+    logger.info("legacy recommendation requested; personalized=%s limit=%d", bool(resolved_user_id), limit)
     coll = db.get_db()
-    result = get_recommendations(coll, user_id=user_id or None, limit=limit)
+    result = get_recommendations(coll, user_id=resolved_user_id, limit=limit)
     logger.info("recommendations (legacy): type=%s personalized_count=%d count=%d",
                 result.get("type"), result.get("personalized_count", 0), result.get("count", 0))
     return result
@@ -387,7 +397,7 @@ def get_product_recommendations(
 
 @app.get("/api/v1/recommendations/debug")
 def debug_recommendations(
-    user_id: str = Query(default=None, alias="userId"),
+    user: dict = Depends(current_user),
 ):
     """Pipeline diagnostic — returns every intermediate step result.
 
@@ -404,10 +414,7 @@ def debug_recommendations(
     )
     steps: dict = {}
 
-    steps["received_user_id"] = user_id
-
-    if not user_id:
-        return {"error": "no userId provided — pass ?userId=<sub>", "steps": steps}
+    user_id = user["sub"]
 
     # Step 1 — alert details
     alert_details = get_user_alert_details(user_id)

@@ -68,7 +68,17 @@ async def trigger(
             logger.warning("no cached email for userId=%s — skipping %d items", uid, len(items))
             skipped += len(items)
             continue
-        by_user_email[email] = items
+        # Multiple Keycloak subjects can legitimately share one mailbox. Merge
+        # their alerts into one digest instead of letting the last user win.
+        by_user_email.setdefault(email, []).extend(items)
+
+    for items in by_user_email.values():
+        items.sort(
+            key=lambda item: (
+                item.get("productName") or "",
+                item.get("productId") or "",
+            )
+        )
 
     emails_sent = await notifier.send_digests(by_user_email)
 

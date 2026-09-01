@@ -260,9 +260,9 @@ export class ProductsService {
     );
   }
 
-  /** Personalized recommendations — requires a real userId (Keycloak sub). */
-  getPersonalizedRecommendations(userId: string, limit = 100): Observable<RecommendationResponse> {
-    const params = new HttpParams().set('limit', limit).set('userId', userId);
+  /** Personalized recommendations — identity comes from the Bearer token. */
+  getPersonalizedRecommendations(limit = 100): Observable<RecommendationResponse> {
+    const params = new HttpParams().set('limit', limit);
     return this.http.get<RecommendationResponse>(
       `${this.config.tescoApiBaseUrl}/recommendations/personalized`,
       { params },

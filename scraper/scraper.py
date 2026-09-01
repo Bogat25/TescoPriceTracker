@@ -56,6 +56,10 @@ class GraphQLExecutionError(RuntimeError):
     """A product-scoped GraphQL execution failure, not a query-contract fault."""
 
 
+class SitemapFetchError(RuntimeError):
+    """The upstream catalogue could not be discovered completely."""
+
+
 _GRAPHQL_CONTRACT_CODES = {
     "GRAPHQL_PARSE_FAILED",
     "GRAPHQL_PARSE_ERROR",
@@ -283,14 +287,19 @@ def fetch_sitemap_index(url):
         root = etree.fromstring(response.content)
         namespaces = {'ns': 'http://www.sitemaps.org/schemas/sitemap/0.9'}
         locs = root.xpath('//ns:loc', namespaces=namespaces)
-        return [loc.text for loc in locs]
+        urls = [loc.text for loc in locs if loc.text]
+        if not urls:
+            raise SitemapFetchError("sitemap index contained no sitemap URLs")
+        return urls
+    except SitemapFetchError:
+        raise
     except (requests.RequestException, etree.XMLSyntaxError, OSError) as e:
         logger.error(
             "Error fetching sitemap index: %s",
             e,
             extra={"Action": "sitemap.index_failed", "Category": "upstream"},
         )
-        return []
+        raise SitemapFetchError(f"failed to fetch sitemap index: {e}") from e
 
 
 def fetch_product_urls_from_sitemap(url):
@@ -305,7 +314,11 @@ def fetch_product_urls_from_sitemap(url):
             match = re.search(r'/products/(\d+)', loc.text)
             if match:
                 product_ids.append(match.group(1))
+        if not product_ids:
+            raise SitemapFetchError(f"product sitemap {url} contained no product IDs")
         return product_ids
+    except SitemapFetchError:
+        raise
     except (requests.RequestException, etree.XMLSyntaxError, OSError) as e:
         logger.error(
             "Error fetching sitemap %s: %s",
@@ -313,7 +326,7 @@ def fetch_product_urls_from_sitemap(url):
             e,
             extra={"Action": "sitemap.fetch_failed", "Category": "upstream"},
         )
-        return []
+        raise SitemapFetchError(f"failed to fetch product sitemap {url}: {e}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -858,22 +871,19 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
                 logger.exception("Unhandled error processing %s: %s", tpnc, exc)
                 failure_name = type(exc).__name__
 
-        try:
-            with lock:
-                state['status_counts'][result.value] = \
-                    state['status_counts'].get(result.value, 0) + 1
-                if result is not ProductResult.FAILED:
-                    state['processed_count'] = state.get('processed_count', 0) + 1
-                else:
-                    state['failed_items'][str(tpnc)] = failure_name or "request_failed"
-                    state['errors'][str(tpnc)] = state['errors'].get(str(tpnc), 0) + 1
-                state['failed_count'] = state['status_counts'].get(ProductResult.FAILED.value, 0)
-                state['heartbeat_at'] = datetime.now().isoformat()
-                # Keep mutation and persistence ordered. Saving outside the lock
-                # allowed an older snapshot to overwrite newer progress.
-                db.save_run_state(state)
-        except Exception:
-            logger.exception("Failed to persist run state for %s", tpnc)
+        with lock:
+            state['status_counts'][result.value] = \
+                state['status_counts'].get(result.value, 0) + 1
+            if result is not ProductResult.FAILED:
+                state['processed_count'] = state.get('processed_count', 0) + 1
+            else:
+                state['failed_items'][str(tpnc)] = failure_name or "request_failed"
+                state['errors'][str(tpnc)] = state['errors'].get(str(tpnc), 0) + 1
+            state['failed_count'] = state['status_counts'].get(ProductResult.FAILED.value, 0)
+            state['heartbeat_at'] = datetime.now().isoformat()
+            # Keep mutation and persistence ordered. Saving outside the lock
+            # allowed an older snapshot to overwrite newer progress.
+            db.save_run_state(state)
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
     futures = []
@@ -889,6 +899,10 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         _, not_done = concurrent.futures.wait(futures, timeout=1.0)
         while not_done:
             _, not_done = concurrent.futures.wait(futures, timeout=1.0)
+        # ThreadPoolExecutor does not raise worker exceptions unless the
+        # futures are inspected. A failed run-state write must fail the pass.
+        for future in futures:
+            future.result()
 
     except KeyboardInterrupt:
         logger.warning("Scraping interrupted — progress saved.")

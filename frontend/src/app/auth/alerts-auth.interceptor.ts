@@ -5,7 +5,7 @@ import { AuthTokenService } from '../services/auth-token.service';
 import { AuthService } from '../services/auth.service';
 
 /**
- * Attaches a Bearer token to /api/alerts/* requests.
+ * Attaches a Bearer token to endpoints that consume the signed-in identity.
  *
  * On 401 we DO NOT auto-redirect to login. Two cases produce a 401:
  *   (a) No session — the gateway's /token call would have already failed (also
@@ -22,7 +22,11 @@ import { AuthService } from '../services/auth.service';
  * gets re-checked on the next interaction.
  */
 export const alertsAuthInterceptor: HttpInterceptorFn = (request, next) => {
-  if (!request.url.includes('/api/alerts')) {
+  const requiresIdentity =
+    request.url.includes('/api/alerts') ||
+    request.url.includes('/recommendations/personalized') ||
+    request.url.includes('/recommendations/debug');
+  if (!requiresIdentity) {
     return next(request);
   }
 

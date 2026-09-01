@@ -218,6 +218,10 @@ services:
       QDRANT_COLLECTION: ${QDRANT_COLLECTION:-products}
       QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
       INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
+      GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
+      KC_JWKS_URL: ${KC_JWKS_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/certs}
+      KC_ISSUER: ${ALERT_KC_ISSUER:-https://auth.gavaller.com/realms/backend-ecosystem}
+      KC_CLIENT_ID: ${ALERT_KC_CLIENT_ID:-gateway-client}
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:

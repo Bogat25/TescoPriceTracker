@@ -46,6 +46,9 @@ def _subject(items: list[dict]) -> str:
 
 
 async def _send_one(email: str, items: list[dict]) -> bool:
+    if not settings.RESEND_API_KEY or not settings.RESEND_FROM:
+        logger.error("Resend delivery is disabled: sender credentials are incomplete")
+        return False
     _configure()
 
     params: dict = {

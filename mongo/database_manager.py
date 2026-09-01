@@ -1,5 +1,5 @@
 from datetime import datetime
-from pymongo import MongoClient
+from pymongo import ASCENDING, DESCENDING, MongoClient, UpdateOne
 from pymongo import errors as mongo_errors
 import logging
 
@@ -30,6 +30,10 @@ _client = None
 _db = None
 _collection = None
 
+
+class DatabaseOperationError(RuntimeError):
+    """Raised when MongoDB could not durably complete a required operation."""
+
 def get_db():
     global _client, _db, _collection
     if _client is None:
@@ -53,7 +57,24 @@ def init_db():
     coll.create_index("aisle_name")
     coll.create_index("shelf_name")
     coll.create_index("brand_name")
+    coll.create_index(
+        [("browse_sort.has_price", DESCENDING), ("browse_sort.effective_price", ASCENDING), ("name", ASCENDING)],
+        name="browse_price_asc",
+    )
+    coll.create_index(
+        [("browse_sort.has_price", DESCENDING), ("browse_sort.effective_price", DESCENDING), ("name", ASCENDING)],
+        name="browse_price_desc",
+    )
+    coll.create_index(
+        [("browse_sort.has_discount", DESCENDING), ("browse_sort.discount_ratio", ASCENDING), ("name", ASCENDING)],
+        name="browse_discount_asc",
+    )
+    coll.create_index(
+        [("browse_sort.has_discount", DESCENDING), ("browse_sort.discount_ratio", DESCENDING), ("name", ASCENDING)],
+        name="browse_discount_desc",
+    )
     _db['runs'].create_index("_id")
+    backfill_browse_sort_fields(coll)
     print("MongoDB indexes verified/created.")
 
 def load_product_data(tpnc):
@@ -61,16 +82,19 @@ def load_product_data(tpnc):
         coll = get_db()
         return coll.find_one({"_id": str(tpnc)})
     except mongo_errors.PyMongoError as e:
-        logger.error(f"Error loading product {tpnc}: {e}")
-        return None
+        logger.exception("Error loading product %s", tpnc)
+        raise DatabaseOperationError(f"failed to load product {tpnc}") from e
 
 def save_product_data(tpnc, data):
     try:
         coll = get_db()
         data['_id'] = str(tpnc)
-        coll.replace_one({"_id": str(tpnc)}, data, upsert=True)
+        result = coll.replace_one({"_id": str(tpnc)}, data, upsert=True)
+        if not result.acknowledged:
+            raise DatabaseOperationError(f"unacknowledged save for product {tpnc}")
     except mongo_errors.PyMongoError as e:
-        logger.error(f"Error saving product {tpnc}: {e}")
+        logger.exception("Error saving product %s", tpnc)
+        raise DatabaseOperationError(f"failed to save product {tpnc}") from e
 
 def product_exists(tpnc):
     coll = get_db()
@@ -119,6 +143,10 @@ def insert_daily_prices(tpnc, price_updates, metadata=None):
     if is_new_day:
         today_entry = {"date": today_str, "normal": None, "discount": None, "clubcard": None}
         history.append(today_entry)
+    else:
+        # A second scrape on the same day is a replacement snapshot. Clear
+        # promotions that disappeared upstream instead of retaining stale data.
+        today_entry.update({"normal": None, "discount": None, "clubcard": None})
 
     for category, fields in price_updates:
         today_entry[category] = dict(fields)
@@ -134,6 +162,7 @@ def insert_daily_prices(tpnc, price_updates, metadata=None):
             data["needs_revector"] = True
 
     data["last_scraped_price"] = datetime.now().isoformat()
+    data["browse_sort"] = _build_browse_sort_fields(data)
     save_product_data(tpnc, data)
 
     return {category: is_new_day for category, _ in price_updates}
@@ -252,6 +281,61 @@ def _extract_price_details(doc: dict) -> dict:
     return result
 
 
+def _build_browse_sort_fields(doc: dict) -> dict:
+    """Denormalize current prices so catalogue sorting remains index-backed."""
+    details = _extract_price_details(doc)
+    candidates = [
+        details.get("last_scraped_price"),
+        details.get("discount_price"),
+        details.get("clubcard_price"),
+    ]
+    numeric = [float(value) for value in candidates if isinstance(value, (int, float))]
+    normal = details.get("last_scraped_price")
+    discount = details.get("discount_price")
+    has_discount = (
+        isinstance(normal, (int, float))
+        and normal > 0
+        and isinstance(discount, (int, float))
+        and discount < normal
+    )
+    ratio = float((normal - discount) / normal) if has_discount else 0.0
+    return {
+        "version": 1,
+        "has_price": bool(numeric),
+        "effective_price": min(numeric) if numeric else None,
+        "has_discount": has_discount,
+        "discount_ratio": ratio,
+        "details": details,
+    }
+
+
+def backfill_browse_sort_fields(coll=None, batch_size: int = 500) -> int:
+    """One-time, idempotent migration for documents created before v1 fields."""
+    if coll is None:
+        coll = get_db()
+    cursor = coll.find(
+        {"browse_sort.version": {"$ne": 1}},
+        {"_id": 1, "price_history": 1},
+    )
+    operations = []
+    updated = 0
+    for doc in cursor:
+        operations.append(UpdateOne(
+            {"_id": doc["_id"]},
+            {"$set": {"browse_sort": _build_browse_sort_fields(doc)}},
+        ))
+        if len(operations) >= batch_size:
+            result = coll.bulk_write(operations, ordered=False)
+            updated += result.modified_count
+            operations.clear()
+    if operations:
+        result = coll.bulk_write(operations, ordered=False)
+        updated += result.modified_count
+    if updated:
+        logger.info("Backfilled indexed browse fields for %d products", updated)
+    return updated
+
+
 def browse_products(skip=0, limit=100, sort_by="name", sort_dir="asc"):
     """Return lightweight product summaries for the catalogue view.
 
@@ -278,53 +362,38 @@ def browse_products(skip=0, limit=100, sort_by="name", sort_dir="asc"):
         "department_name": 1,
         "overall_rating": 1,
         "number_of_reviews": 1,
-        "price_history": 1,
+        "browse_sort": 1,
     }
 
-    # For name/price sorts MongoDB can do it natively (fast)
+    # Every supported ordering is executed and paginated by MongoDB. Current
+    # prices are denormalized during ingestion, so no request loads the catalog.
     if sort_by == "name":
-        mongo_sort = ("name", 1 if sort_dir == "asc" else -1)
-        cursor = coll.find({}, projection).sort(*mongo_sort).skip(skip).limit(limit)
-        results = []
-        for doc in cursor:
-            tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
-            doc.pop("_id", None)
-            doc["tpnc"] = tpnc
-            price_info = _extract_price_details(doc)
-            doc.update(price_info)
-            doc.pop("price_history", None)
-            results.append(doc)
-        return {"results": results, "total": total, "skip": skip, "limit": limit}
+        mongo_sort = [("name", ASCENDING if sort_dir == "asc" else DESCENDING)]
+    elif sort_by == "price":
+        direction = ASCENDING if sort_dir == "asc" else DESCENDING
+        mongo_sort = [
+            ("browse_sort.has_price", DESCENDING),
+            ("browse_sort.effective_price", direction),
+            ("name", ASCENDING),
+        ]
+    else:
+        direction = ASCENDING if sort_dir == "asc" else DESCENDING
+        mongo_sort = [
+            ("browse_sort.has_discount", DESCENDING),
+            ("browse_sort.discount_ratio", direction),
+            ("name", ASCENDING),
+        ]
 
-    # For price / discount sort: fetch all (up to a reasonable cap), extract prices, then sort in Python
-    # Cache the full set for the discount sort since it changes infrequently
-    cursor = coll.find({}, projection).sort("name", 1)
-    all_docs = []
+    cursor = coll.find({}, projection).sort(mongo_sort).skip(skip).limit(limit)
+    results = []
     for doc in cursor:
         tpnc = str(doc.get("tpnc") or doc.get("_id") or "")
         doc.pop("_id", None)
         doc["tpnc"] = tpnc
-        price_info = _extract_price_details(doc)
-        doc.update(price_info)
-        doc.pop("price_history", None)
-        all_docs.append(doc)
-
-    def _sort_key(d):
-        if sort_by == "price":
-            candidates = [d.get("last_scraped_price"), d.get("discount_price"), d.get("clubcard_price")]
-            nums = [v for v in candidates if isinstance(v, (int, float))]
-            return min(nums) if nums else float("inf")
-        if sort_by == "discount":
-            normal = d.get("last_scraped_price")
-            disc   = d.get("discount_price")
-            if isinstance(normal, (int, float)) and isinstance(disc, (int, float)) and normal > 0:
-                return (normal - disc) / normal
-            return 0.0
-        return (d.get("name") or "").lower()
-
-    reverse = (sort_dir == "desc") if sort_by != "discount" else (sort_dir != "asc")
-    all_docs.sort(key=_sort_key, reverse=reverse)
-    return {"results": all_docs[skip: skip + limit], "total": total, "skip": skip, "limit": limit}
+        browse_sort = doc.pop("browse_sort", {}) or {}
+        doc.update(browse_sort.get("details", {}))
+        results.append(doc)
+    return {"results": results, "total": total, "skip": skip, "limit": limit}
 
 
 def search_products(query, skip: int = 0, limit: int = 50):
@@ -442,20 +511,23 @@ def get_cached_stat(key: str):
         doc = coll.find_one({"_id": key})
         return doc["data"] if doc else None
     except mongo_errors.PyMongoError as e:
-        logger.error(f"Error reading cache key {key}: {e}")
-        return None
+        logger.exception("Error reading cache key %s", key)
+        raise DatabaseOperationError(f"failed to read cache key {key}") from e
 
 
 def set_cached_stat(key: str, data) -> None:
     try:
         coll = get_stats_collection()
-        coll.replace_one(
+        result = coll.replace_one(
             {"_id": key},
             {"_id": key, "data": data, "computed_at": datetime.now().isoformat()},
             upsert=True,
         )
+        if not result.acknowledged:
+            raise DatabaseOperationError(f"unacknowledged cache write for {key}")
     except mongo_errors.PyMongoError as e:
-        logger.error(f"Error writing cache key {key}: {e}")
+        logger.exception("Error writing cache key %s", key)
+        raise DatabaseOperationError(f"failed to write cache key {key}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -468,17 +540,20 @@ def load_run_state():
         today_iso = datetime.now().date().isoformat()
         return coll.find_one({"_id": today_iso})
     except mongo_errors.PyMongoError as e:
-        logger.warning(f"Failed to read run_state from mongo: {e}")
-        return None
+        logger.exception("Failed to read run_state from MongoDB")
+        raise DatabaseOperationError("failed to read run state") from e
 
 def save_run_state(state: dict):
     try:
         coll = get_runs_collection()
         state_id = state.get('date', datetime.now().date().isoformat())
         state['_id'] = state_id
-        coll.replace_one({"_id": state_id}, state, upsert=True)
+        result = coll.replace_one({"_id": state_id}, state, upsert=True)
+        if not result.acknowledged:
+            raise DatabaseOperationError("unacknowledged run-state write")
     except mongo_errors.PyMongoError as e:
-        logger.error(f"Failed to write run_state to mongo: {e}")
+        logger.exception("Failed to write run_state to MongoDB")
+        raise DatabaseOperationError("failed to write run state") from e
 
 
 # ---------------------------------------------------------------------------

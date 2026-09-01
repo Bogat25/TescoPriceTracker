@@ -109,7 +109,7 @@ export class Search implements OnInit {
         const userId = this.auth.userId();
         if (userId) {
           // Signed-in path — visible as /recommendations/personalized in logs
-          return this.products.getPersonalizedRecommendations(userId, 100);
+          return this.products.getPersonalizedRecommendations(100);
         } else {
           // Anonymous path — visible as /recommendations/cold in logs
           return this.products.getColdRecommendations(100);
