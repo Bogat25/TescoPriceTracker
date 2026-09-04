@@ -42,6 +42,8 @@ Field reference
    Category      Optional bucket e.g. "job", "http"
    RequestId     Optional per-request UUID
    CorrelationId Optional cross-service trace ID (set by middleware/per-job)
+   HttpStatus    Optional upstream or response HTTP status
+   ErrorCode     Optional stable machine-readable failure classification
    Context       Object holding any extra kwargs supplied at the call site
 
 Usage
@@ -134,7 +136,8 @@ def _rename_to_serilog_compact(_logger, _method, event_dict):
         event_dict["@x"] = exception
 
     reserved = {"@t", "@l", "@m", "@mt", "Service", "Category", "Action",
-                "RequestId", "CorrelationId", "AnonId", "Context", "@x",
+                "RequestId", "CorrelationId", "AnonId", "HttpStatus",
+                "ErrorCode", "Context", "@x",
                 "exception", "exc_info", "_record", "_from_structlog"}
     extras = {k: event_dict.pop(k) for k in list(event_dict.keys()) if k not in reserved}
     if extras:

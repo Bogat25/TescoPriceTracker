@@ -1,3 +1,5 @@
+import socket
+import threading
 from unittest.mock import Mock
 
 import pytest
@@ -37,7 +39,7 @@ def test_full_query_uses_current_tesco_contract_fields():
 
 def test_graphql_400_is_fatal_and_not_retried(monkeypatch):
     post = Mock(return_value=FakeResponse(400, [{"errors": [{"message": "bad field"}]}]))
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
 
     with pytest.raises(scraper.GraphQLContractError):
         scraper.get_product_api("123", "full")
@@ -50,7 +52,7 @@ def test_retryable_500_is_retried(monkeypatch):
         FakeResponse(500, {}),
         FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
     ])
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", lambda _: None)
     monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
@@ -71,7 +73,7 @@ def test_rate_limit_waits_at_least_the_servers_retry_after(monkeypatch):
         FakeResponse(429, {}, headers={"Retry-After": "45"}),
         FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
     ])
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", slept.append)
     monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
@@ -88,7 +90,7 @@ def test_retry_after_is_capped(monkeypatch):
         FakeResponse(429, {}, headers={"Retry-After": "99999"}),
         FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
     ])
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", slept.append)
     monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
@@ -105,7 +107,7 @@ def test_backoff_still_grows_without_a_retry_after_header(monkeypatch):
         FakeResponse(500, {}),
         FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
     ])
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", slept.append)
     monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
@@ -116,7 +118,7 @@ def test_backoff_still_grows_without_a_retry_after_header(monkeypatch):
 
 def test_exhausted_upstream_retries_raise_to_the_run_controller(monkeypatch):
     post = Mock(return_value=FakeResponse(503, {}))
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
@@ -135,7 +137,7 @@ def test_graphql_embedded_rate_limit_is_retried(monkeypatch):
         }]}]),
         FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
     ])
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", slept.append)
     monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
@@ -152,7 +154,7 @@ def test_graphql_embedded_validation_error_is_job_fatal(monkeypatch):
         "message": "Cannot query field 'removedField' on type 'Product'",
         "extensions": {"code": "GRAPHQL_VALIDATION_FAILED"},
     }]}]))
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
 
     with pytest.raises(scraper.GraphQLContractError):
         scraper.get_product_api("123", "full")
@@ -165,12 +167,57 @@ def test_unknown_graphql_execution_error_is_product_scoped(monkeypatch):
         "data": {"product": None},
         "errors": [{"message": "Resolver failed", "path": ["product"]}],
     }]))
-    monkeypatch.setattr(scraper.requests, "post", post)
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
 
     with pytest.raises(scraper.GraphQLExecutionError):
         scraper.get_product_api("123", "full")
 
     assert post.call_count == 1
+
+
+def test_http_session_is_reused_within_a_worker_thread(monkeypatch):
+    created = []
+
+    class FakeSession:
+        pass
+
+    def make_session():
+        session = FakeSession()
+        created.append(session)
+        return session
+
+    monkeypatch.setattr(scraper, "_http_session_local", threading.local())
+    monkeypatch.setattr(scraper.requests, "Session", make_session)
+
+    first = scraper._get_http_session()
+    second = scraper._get_http_session()
+
+    assert first is second
+    assert created == [first]
+
+
+def test_dns_failures_have_a_stable_structured_cause():
+    dns_error = socket.gaierror(-3, "Temporary failure in name resolution")
+    connection_error = scraper.requests.ConnectionError("request failed")
+    connection_error.__cause__ = dns_error
+
+    status, error_code = scraper._request_failure_fields(connection_error)
+
+    assert status == 0
+    assert error_code == "dns_resolution_failed"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [(429, "upstream_rate_limited"), (503, "upstream_http_5xx")],
+)
+def test_retryable_status_has_a_stable_structured_cause(status_code, expected):
+    exc = scraper.RetryableUpstreamError("retry", status_code=status_code)
+
+    status, error_code = scraper._request_failure_fields(exc)
+
+    assert status == status_code
+    assert error_code == expected
 
 
 def test_current_object_shapes_are_normalized_for_the_frontend():

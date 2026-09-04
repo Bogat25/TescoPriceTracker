@@ -96,7 +96,12 @@ def test_stdlib_parameterized_log_preserves_stable_template(logging_setup):
         "API request failed for %s after %s attempts",
         "123456",
         5,
-        extra={"Action": "graphql.retry_exhausted", "Category": "upstream"},
+        extra={
+            "Action": "graphql.retry_exhausted",
+            "Category": "upstream",
+            "HttpStatus": 503,
+            "ErrorCode": "upstream_http_5xx",
+        },
     )
     payload = _last_json(buf)
 
@@ -104,6 +109,8 @@ def test_stdlib_parameterized_log_preserves_stable_template(logging_setup):
     assert payload["@mt"] == "API request failed for %s after %s attempts"
     assert payload["Action"] == "graphql.retry_exhausted"
     assert payload["Category"] == "upstream"
+    assert payload["HttpStatus"] == 503
+    assert payload["ErrorCode"] == "upstream_http_5xx"
 
 
 def test_stdlib_exception_is_emitted_as_serilog_exception(logging_setup):

@@ -7,6 +7,7 @@ import logging
 import argparse
 import concurrent.futures
 import threading
+import socket
 from contextvars import copy_context
 from enum import Enum
 from datetime import datetime, timezone
@@ -33,6 +34,12 @@ class ProductResult(str, Enum):
 # Longest we will honour a Retry-After for. Beyond this the product is left for
 # the next run rather than stalling the whole pass on one rate-limited item.
 RETRY_AFTER_CAP_SECONDS = 120
+
+# After all per-request attempts fail, stop every worker briefly before another
+# product is allowed to hit the same upstream. This is especially important for
+# DNS outages: without a shared cooldown both workers immediately move on and
+# turn one resolver incident into a stream of failed products.
+UPSTREAM_FAILURE_COOLDOWN_SECONDS = 30
 
 
 class GraphQLContractError(RuntimeError):
@@ -102,6 +109,81 @@ _GRAPHQL_RETRYABLE_MESSAGES = (
 # the worker that received a 429 is honouring the server's Retry-After.
 _rate_limit_lock = threading.Lock()
 _rate_limit_until = 0.0
+_http_session_local = threading.local()
+
+
+def _get_http_session():
+    """Return one persistent requests session per worker thread.
+
+    ``requests.post`` creates and closes a temporary Session for every call.
+    A catalogue pass makes thousands of calls, so that pattern repeatedly pays
+    for DNS resolution and TLS setup. Thread-local sessions keep connection
+    reuse safe without sharing mutable Session state between workers.
+    """
+    session = getattr(_http_session_local, "session", None)
+    if session is None:
+        session = requests.Session()
+        _http_session_local.session = session
+    return session
+
+
+def _post_tesco_request(*args, **kwargs):
+    """Small seam around Session.post so request behavior stays testable."""
+    return _get_http_session().post(*args, **kwargs)
+
+
+def _exception_chain(exc):
+    """Yield nested transport exceptions without looping over cyclic causes."""
+    pending = [exc]
+    seen = set()
+    while pending:
+        current = pending.pop()
+        if not isinstance(current, BaseException) or id(current) in seen:
+            continue
+        seen.add(id(current))
+        yield current
+        for nested in (
+            getattr(current, "__cause__", None),
+            getattr(current, "__context__", None),
+            getattr(current, "reason", None),
+        ):
+            if isinstance(nested, BaseException):
+                pending.append(nested)
+        pending.extend(arg for arg in current.args if isinstance(arg, BaseException))
+
+
+def _request_failure_fields(exc):
+    """Return structured status and cause fields for upstream diagnostics."""
+    status_code = getattr(exc, "status_code", None)
+    response = getattr(exc, "response", None)
+    if status_code is None and response is not None:
+        status_code = getattr(response, "status_code", None)
+    try:
+        status_code = int(status_code) if status_code is not None else 0
+    except (TypeError, ValueError):
+        status_code = 0
+
+    chain = tuple(_exception_chain(exc))
+    rendered = " ".join(str(item).lower() for item in chain)
+    if (any(isinstance(item, socket.gaierror) for item in chain)
+            or "name resolution" in rendered
+            or "failed to resolve" in rendered):
+        error_code = "dns_resolution_failed"
+    elif any(isinstance(item, requests.Timeout) for item in chain):
+        error_code = "upstream_timeout"
+    elif status_code == 429:
+        error_code = "upstream_rate_limited"
+    elif status_code >= 500:
+        error_code = "upstream_http_5xx"
+    elif isinstance(exc, RetryableUpstreamError):
+        error_code = "upstream_graphql_retryable"
+    elif any(isinstance(item, requests.ConnectionError) for item in chain):
+        error_code = "upstream_connection_failed"
+    elif isinstance(exc, ValueError):
+        error_code = "upstream_invalid_json"
+    else:
+        error_code = "upstream_request_failed"
+    return status_code, error_code
 
 
 def _graphql_error_details(errors):
@@ -354,7 +436,12 @@ def get_product_api(tpnc, query_type="full"):
     for attempt in range(max_retries):
         try:
             _wait_for_shared_rate_limit()
-            response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=30)
+            response = _post_tesco_request(
+                API_URL,
+                headers=HEADERS,
+                json=payload,
+                timeout=30,
+            )
             if response.status_code in (401, 403):
                 raise UpstreamConfigurationError(
                     f"Tesco API rejected configured credentials (HTTP {response.status_code})"
@@ -395,6 +482,7 @@ def get_product_api(tpnc, query_type="full"):
             )
             return None
         except (requests.RequestException, ValueError) as e:
+            status_code, error_code = _request_failure_fields(e)
             if attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
                 # A rate limit is only cleared by waiting as long as the server
@@ -409,9 +497,19 @@ def get_product_api(tpnc, query_type="full"):
                     max_retries,
                     sleep_time,
                     e,
-                    extra={"Action": "graphql.retry", "Category": "upstream"},
+                    extra={
+                        "Action": "graphql.retry",
+                        "Category": "upstream",
+                        "HttpStatus": status_code,
+                        "ErrorCode": error_code,
+                    },
                 )
-                if getattr(e, "status_code", None) == 429:
+                # Coordinate backoff for failures that affect the upstream as a
+                # whole. Otherwise the second worker can burn its own attempts
+                # while the first worker is already waiting for recovery.
+                if isinstance(e, (RetryableUpstreamError,
+                                  requests.ConnectionError,
+                                  requests.Timeout)):
                     deadline = _set_shared_rate_limit(sleep_time)
                     try:
                         time.sleep(sleep_time)
@@ -420,15 +518,29 @@ def get_product_api(tpnc, query_type="full"):
                 else:
                     time.sleep(sleep_time)
             else:
-                logger.error(
+                # Leave a short circuit-breaker window after final exhaustion
+                # so the next queued product does not fail for the same outage.
+                cooldown = max(
+                    UPSTREAM_FAILURE_COOLDOWN_SECONDS,
+                    getattr(e, "retry_after", None) or 0,
+                )
+                deadline = _set_shared_rate_limit(cooldown)
+                try:
+                    time.sleep(cooldown)
+                finally:
+                    _clear_shared_rate_limit(deadline)
+                logger.exception(
                     "API request failed for %s after %s attempts: %s",
                     tpnc,
                     max_retries,
                     e,
-                    extra={"Action": "graphql.retry_exhausted", "Category": "upstream"},
+                    extra={
+                        "Action": "graphql.retry_exhausted",
+                        "Category": "upstream",
+                        "HttpStatus": status_code,
+                        "ErrorCode": error_code,
+                    },
                 )
-                if "Max retries exceeded" in str(e):
-                    time.sleep(3)
                 raise
 
 
@@ -866,6 +978,11 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
                     exc,
                     extra={"Action": "graphql.execution_failed", "Category": "upstream"},
                 )
+                failure_name = type(exc).__name__
+            except (requests.RequestException, ValueError) as exc:
+                # get_product_api already emitted the authoritative structured
+                # error with its exception, HTTP status and transport cause.
+                # Logging it again here doubled every Grafana error count.
                 failure_name = type(exc).__name__
             except Exception as exc:
                 logger.exception("Unhandled error processing %s: %s", tpnc, exc)
