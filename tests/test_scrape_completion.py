@@ -66,7 +66,11 @@ def test_failed_publication_is_resumed_by_the_next_already_current_pass(store, m
     assert scraper.is_run_finished(store.load())
     assert rebuild.call_count == 2
     notify.assert_called_once_with(run_key=f"daily:{date.today().isoformat()}")
-    assert len(_completion_events(caplog)) == 1
+    outcomes = [
+        r.Action for r in caplog.records
+        if getattr(r, "Action", None) in {"scrape.completed", "scrape.finalization_failed", "scrape.published"}
+    ]
+    assert outcomes == ["scrape.completed", "scrape.finalization_failed", "scrape.published"]
 
 
 def test_already_current_day_publishes_and_logs_completion_once(store, monkeypatch, caplog):

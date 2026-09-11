@@ -1232,6 +1232,11 @@ def _complete_run(state, reason):
         )
     if state['finalized']:
         db.save_run_state(state)
+        logger.info(
+            "Statistics and price-drop alerts published for %s.",
+            state['date'],
+            extra={"Action": "scrape.published", "Category": "job"},
+        )
     return state
 
 
