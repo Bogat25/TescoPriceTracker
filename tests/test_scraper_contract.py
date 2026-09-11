@@ -1,5 +1,7 @@
 import socket
 import threading
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -83,20 +85,76 @@ def test_rate_limit_waits_at_least_the_servers_retry_after(monkeypatch):
     assert slept and slept[0] >= 45
 
 
-def test_retry_after_is_capped(monkeypatch):
-    """One hostile Retry-After must not stall the whole run."""
+def test_retry_after_keeps_the_servers_full_delay():
+    """Shortening a long penalty only moved the retries inside it."""
+    http_date = (datetime.now(timezone.utc) + timedelta(minutes=20)).strftime(
+        "%a, %d %b %Y %H:%M:%S GMT"
+    )
+
+    assert scraper._parse_retry_after("900") == 900
+    assert 1100 < scraper._parse_retry_after(http_date) <= 1200
+    assert scraper._parse_retry_after("99999") == scraper.RETRY_AFTER_MAX_SECONDS
+    for invalid in ("", "0", "-5", "nan", "inf", "soon"):
+        assert scraper._parse_retry_after(invalid) is None
+
+
+def test_long_retry_after_defers_the_pass_without_spending_attempts(monkeypatch):
+    """A penalty longer than a pass may wait pauses every worker for all of it."""
     slept = []
-    post = Mock(side_effect=[
-        FakeResponse(429, {}, headers={"Retry-After": "99999"}),
-        FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
-    ])
+    post = Mock(return_value=FakeResponse(429, {}, headers={"Retry-After": "900"}))
+    monkeypatch.setattr(scraper, "_rate_limit_until", 0.0)
     monkeypatch.setattr(scraper, "_post_tesco_request", post)
     monkeypatch.setattr(scraper.time, "sleep", slept.append)
-    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
 
-    scraper.get_product_api("123", "full")
+    with pytest.raises(scraper.UpstreamDeferredError) as raised:
+        scraper.get_product_api("123", "full")
 
-    assert slept[0] == scraper.RETRY_AFTER_CAP_SECONDS
+    assert raised.value.retry_after == 900
+    assert post.call_count == 1
+    assert slept == []
+    assert scraper._rate_limit_until - scraper.time.monotonic() > 800
+
+
+def test_waiting_worker_honours_a_deadline_extended_while_it_slept(monkeypatch):
+    clock = SimpleNamespace(now=0.0, sleeps=[])
+
+    def sleep(delay):
+        clock.sleeps.append(delay)
+        if len(clock.sleeps) == 1:
+            scraper._rate_limit_until = 20.0  # another worker hit a fresh 429
+        clock.now += delay
+
+    monkeypatch.setattr(scraper, "_rate_limit_until", 10.0)
+    monkeypatch.setattr(scraper, "time", SimpleNamespace(monotonic=lambda: clock.now, sleep=sleep))
+
+    scraper._wait_for_shared_rate_limit()
+
+    assert clock.now == 20.0
+    assert clock.sleeps == [10.0, 10.0]
+
+
+def test_worker_defers_rather_than_blocking_through_a_long_shared_deadline(monkeypatch):
+    slept = []
+    monkeypatch.setattr(scraper, "_rate_limit_until", scraper.time.monotonic() + 3600)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+
+    with pytest.raises(scraper.UpstreamDeferredError):
+        scraper._wait_for_shared_rate_limit()
+
+    assert slept == []
+
+
+def test_pass_heartbeat_advances_only_while_workers_wait_on_upstream(monkeypatch):
+    saved = []
+    monkeypatch.setattr(scraper.db, "save_run_state", lambda state: saved.append(dict(state)))
+    monkeypatch.setattr(scraper, "_rate_limit_until", 0.0)
+
+    scraper._record_upstream_wait({}, threading.Lock())
+    assert saved == []
+
+    monkeypatch.setattr(scraper, "_rate_limit_until", scraper.time.monotonic() + 60)
+    scraper._record_upstream_wait({}, threading.Lock())
+    assert "heartbeat_at" in saved[-1]
 
 
 def test_backoff_still_grows_without_a_retry_after_header(monkeypatch):
@@ -333,3 +391,46 @@ def test_unavailable_products_are_classified_without_completing_with_failures(mo
     assert state["processed_count"] == 2
     assert state["failed_count"] == 0
     assert state["status_counts"]["unavailable"] == 2
+
+
+def test_long_rate_limit_ends_the_pass_and_records_when_to_resume(monkeypatch):
+    saved = []
+    process_product = Mock(side_effect=scraper.UpstreamDeferredError(900, status_code=429))
+    monkeypatch.setattr(scraper, "_rate_limit_until", 0.0)
+    monkeypatch.setattr(scraper.db, "init_db", lambda: None)
+    monkeypatch.setattr(scraper.db, "product_exists", lambda _: False)
+    monkeypatch.setattr(scraper.db, "save_run_state", lambda state: saved.append(dict(state)))
+    monkeypatch.setattr(scraper, "get_product_api", lambda *_: {"data": {"product": {"id": "probe"}}})
+    monkeypatch.setattr(scraper, "process_product", process_product)
+    before = datetime.now(timezone.utc)
+
+    state = scraper.run_scraper(specific_items=["1", "2", "3"], threads=1)
+
+    assert process_product.call_count == 1
+    assert state["completed"] is False
+    assert state["retryable"] is True
+    assert state["failed_count"] == 0
+    assert state["status_counts"]["deferred"] == 3
+    assert datetime.fromisoformat(state["upstream_blocked_until"]) >= before + timedelta(seconds=900)
+    assert saved[-1]["upstream_blocked_until"] == state["upstream_blocked_until"]
+
+
+def test_rate_limit_deferral_during_preflight_skips_the_worker_fanout(monkeypatch):
+    saved = []
+    process_product = Mock(return_value=scraper.ProductResult.SUCCESS)
+    monkeypatch.setattr(scraper.db, "init_db", lambda: None)
+    monkeypatch.setattr(scraper.db, "product_exists", lambda _: False)
+    monkeypatch.setattr(scraper.db, "save_run_state", lambda state: saved.append(dict(state)))
+    monkeypatch.setattr(
+        scraper,
+        "get_product_api",
+        Mock(side_effect=scraper.UpstreamDeferredError(1200, status_code=429)),
+    )
+    monkeypatch.setattr(scraper, "process_product", process_product)
+
+    state = scraper.run_scraper(specific_items=["123", "456"], threads=2)
+
+    assert state["completed"] is False
+    assert state["retryable"] is True
+    assert process_product.call_count == 0
+    assert saved[-1]["upstream_blocked_until"] == state["upstream_blocked_until"]

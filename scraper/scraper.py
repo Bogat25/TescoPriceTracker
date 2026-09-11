@@ -8,9 +8,10 @@ import argparse
 import concurrent.futures
 import threading
 import socket
+import math
 from contextvars import copy_context
 from enum import Enum
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from lxml import etree  # type: ignore[import-untyped]
 from config import API_URL, HEADERS, SITEMAP_INDEX_URL, DEFAULT_THREADS
@@ -29,11 +30,25 @@ class ProductResult(str, Enum):
     SKIPPED = "skipped"
     UNAVAILABLE = "unavailable"
     FAILED = "failed"
+    # Not attempted because Tesco asked every client to pause. The next pass
+    # picks the product up; counting it apart from failures keeps one rate
+    # limit from reading as thousands of broken products.
+    DEFERRED = "deferred"
 
 
-# Longest we will honour a Retry-After for. Beyond this the product is left for
-# the next run rather than stalling the whole pass on one rate-limited item.
-RETRY_AFTER_CAP_SECONDS = 120
+# Tesco's Retry-After applies to all requests, not to one product. A wait up to
+# this long is honoured in-process by pausing every worker; a longer one ends
+# the pass so the scheduler resumes after it rather than retrying inside it.
+RATE_LIMIT_MAX_IN_PROCESS_WAIT_SECONDS = 600
+
+# Ceiling for a malformed or hostile Retry-After. Values above it still defer
+# the pass; they are never shortened into an earlier retry.
+RETRY_AFTER_MAX_SECONDS = 6 * 60 * 60
+
+# While every worker waits on the shared rate limit no product finishes, so the
+# pass refreshes its persisted heartbeat this often to stay distinguishable
+# from a hung pass.
+UPSTREAM_WAIT_HEARTBEAT_SECONDS = 60
 
 # After all per-request attempts fail, stop every worker briefly before another
 # product is allowed to hit the same upstream. This is especially important for
@@ -55,6 +70,19 @@ class RetryableUpstreamError(requests.RequestException):
 
     def __init__(self, message, retry_after=None, status_code=None):
         super().__init__(message)
+        self.retry_after = retry_after
+        self.status_code = status_code
+
+
+class UpstreamDeferredError(RuntimeError):
+    """Tesco asked for a longer pause than a pass may wait in-process.
+
+    Deliberately not a RequestException, so no retry loop treats it as one more
+    transient failure and spends attempts inside the penalty window.
+    """
+
+    def __init__(self, retry_after, status_code=None):
+        super().__init__(f"Upstream asked to wait {retry_after:.0f}s before further requests")
         self.retry_after = retry_after
         self.status_code = status_code
 
@@ -250,10 +278,20 @@ def _classify_graphql_errors(errors, operation_name):
 
 
 def _wait_for_shared_rate_limit():
-    with _rate_limit_lock:
-        deadline = _rate_limit_until
-    remaining = deadline - time.monotonic()
-    if remaining > 0:
+    """Block until the shared upstream deadline has passed.
+
+    The deadline is re-read after every sleep: another worker may extend it
+    meanwhile, and returning after one sleep sent a request inside the newer
+    cooldown.
+    """
+    while True:
+        with _rate_limit_lock:
+            deadline = _rate_limit_until
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        if remaining > RATE_LIMIT_MAX_IN_PROCESS_WAIT_SECONDS:
+            raise UpstreamDeferredError(remaining)
         time.sleep(remaining)
 
 
@@ -272,28 +310,44 @@ def _clear_shared_rate_limit(deadline):
             _rate_limit_until = 0.0
 
 
+def _record_upstream_wait(state, lock):
+    """Advance the pass heartbeat while the workers honour a shared rate limit.
+
+    No product finishes during a long Retry-After, so without this the health
+    check reads a pass that is correctly waiting as hung.
+    """
+    with _rate_limit_lock:
+        waiting = _rate_limit_until > time.monotonic()
+    if waiting:
+        with lock:
+            state['heartbeat_at'] = datetime.now().isoformat()
+            db.save_run_state(state)
+
+
 def _parse_retry_after(value):
     """Seconds from a Retry-After header, which may be a delay or an HTTP date.
 
-    Capped because Tesco occasionally returns a very long penalty: waiting it out
-    would stall the whole run, and the product is retried on the next pass anyway.
+    The full delay is kept, bounded only by a sanity ceiling. Shortening a long
+    penalty just moved the retries inside it; callers decide whether to wait it
+    out or defer the pass.
     """
     if not value:
         return None
     try:
-        return min(float(value), RETRY_AFTER_CAP_SECONDS)
+        delay = float(value)
     except (TypeError, ValueError):
-        pass
-    try:
-        retry_at = parsedate_to_datetime(value)
-    except (TypeError, ValueError):
+        try:
+            retry_at = parsedate_to_datetime(value)
+        except (TypeError, ValueError):
+            return None
+        if retry_at is None:
+            return None
+        if retry_at.tzinfo is None:
+            retry_at = retry_at.replace(tzinfo=timezone.utc)
+        delay = (retry_at - datetime.now(timezone.utc)).total_seconds()
+    if not math.isfinite(delay) or delay <= 0:
         return None
-    if retry_at is None:
-        return None
-    if retry_at.tzinfo is None:
-        retry_at = retry_at.replace(tzinfo=timezone.utc)
-    delay = (retry_at - datetime.now(timezone.utc)).total_seconds()
-    return min(max(delay, 0.0), RETRY_AFTER_CAP_SECONDS) if delay > 0 else None
+    return min(delay, RETRY_AFTER_MAX_SECONDS)
 
 
 def _manufacturer_text(value):
@@ -483,11 +537,29 @@ def get_product_api(tpnc, query_type="full"):
             return None
         except (requests.RequestException, ValueError) as e:
             status_code, error_code = _request_failure_fields(e)
+            retry_after = getattr(e, "retry_after", None)
+            if retry_after is not None and retry_after > RATE_LIMIT_MAX_IN_PROCESS_WAIT_SECONDS:
+                # Every further request would land inside this penalty and
+                # extend it. Stop all admissions for its full length and let
+                # the run controller end the pass.
+                _set_shared_rate_limit(retry_after)
+                logger.warning(
+                    "Tesco rate limit for %s asks to wait %.0fs; deferring the pass.",
+                    tpnc,
+                    retry_after,
+                    extra={
+                        "Action": "graphql.rate_limit_deferred",
+                        "Category": "upstream",
+                        "HttpStatus": status_code,
+                        "ErrorCode": error_code,
+                        "RetryAfterSeconds": retry_after,
+                    },
+                )
+                raise UpstreamDeferredError(retry_after, status_code=status_code) from e
             if attempt < max_retries - 1:
                 sleep_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
                 # A rate limit is only cleared by waiting as long as the server
                 # asked, so never back off for less than Retry-After.
-                retry_after = getattr(e, "retry_after", None)
                 if retry_after is not None:
                     sleep_time = max(sleep_time, retry_after)
                 logger.warning(
@@ -502,6 +574,9 @@ def get_product_api(tpnc, query_type="full"):
                         "Category": "upstream",
                         "HttpStatus": status_code,
                         "ErrorCode": error_code,
+                        # Logged even when absent so real penalty lengths can
+                        # be measured before tuning the in-process limit.
+                        "RetryAfterSeconds": retry_after,
                     },
                 )
                 # Coordinate backoff for failures that affect the upstream as a
@@ -520,10 +595,7 @@ def get_product_api(tpnc, query_type="full"):
             else:
                 # Leave a short circuit-breaker window after final exhaustion
                 # so the next queued product does not fail for the same outage.
-                cooldown = max(
-                    UPSTREAM_FAILURE_COOLDOWN_SECONDS,
-                    getattr(e, "retry_after", None) or 0,
-                )
+                cooldown = max(UPSTREAM_FAILURE_COOLDOWN_SECONDS, retry_after or 0)
                 deadline = _set_shared_rate_limit(cooldown)
                 try:
                     time.sleep(cooldown)
@@ -539,6 +611,7 @@ def get_product_api(tpnc, query_type="full"):
                         "Category": "upstream",
                         "HttpStatus": status_code,
                         "ErrorCode": error_code,
+                        "RetryAfterSeconds": retry_after,
                     },
                 )
                 raise
@@ -925,6 +998,26 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
                 exc,
                 extra={"Action": "graphql.preflight_execution_failed", "Category": "upstream"},
             )
+        except UpstreamDeferredError as exc:
+            # Fanning out now would only queue requests inside Tesco's penalty.
+            # The scheduler resumes the pass once it has passed.
+            state['failure_reason'] = str(exc)
+            state['upstream_blocked_until'] = (
+                datetime.now(timezone.utc) + timedelta(seconds=exc.retry_after)
+            ).isoformat()
+            state['finished_at'] = datetime.now().isoformat()
+            state['heartbeat_at'] = state['finished_at']
+            db.save_run_state(state)
+            logger.warning(
+                "Scrape deferred before worker fan-out: %s",
+                exc,
+                extra={
+                    "Action": "scrape.deferred",
+                    "Category": "job",
+                    "UpstreamBlockedUntil": state['upstream_blocked_until'],
+                },
+            )
+            return state
         except (requests.RequestException, ValueError) as exc:
             # Do not launch thousands of product requests when a representative
             # request has already exhausted its transient retries. Persist an
@@ -949,6 +1042,7 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     lock = threading.Lock()
     fatal_error = threading.Event()
     fatal_exception = []
+    upstream_deferred = threading.Event()
     total = len(all_items)
     # Pre-build index to avoid O(n²) .index() calls inside the loop
     item_index = {tpnc: i + 1 for i, tpnc in enumerate(all_items)}
@@ -956,9 +1050,14 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     def _task_wrapper(idx, tpnc):
         result = ProductResult.FAILED
         failure_name = None
+        deferred_for = None
+        attempted = False
         if fatal_error.is_set():
             failure_name = "aborted_after_fatal_error"
+        elif upstream_deferred.is_set():
+            result = ProductResult.DEFERRED
         else:
+            attempted = True
             try:
                 result = process_product(tpnc, force=force,
                                          progress_prefix=f"[{idx}/{total}] ")
@@ -971,6 +1070,12 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
                 failure_name = type(exc).__name__
                 fatal_exception.append(exc)
                 fatal_error.set()
+            except UpstreamDeferredError as exc:
+                # Tesco paused every client: stop admitting products and leave
+                # the rest of the queue to the pass that runs after the penalty.
+                result = ProductResult.DEFERRED
+                deferred_for = exc.retry_after
+                upstream_deferred.set()
             except GraphQLExecutionError as exc:
                 logger.error(
                     "Product-scoped GraphQL execution error for %s: %s",
@@ -991,16 +1096,28 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         with lock:
             state['status_counts'][result.value] = \
                 state['status_counts'].get(result.value, 0) + 1
-            if result is not ProductResult.FAILED:
-                state['processed_count'] = state.get('processed_count', 0) + 1
-            else:
+            if result is ProductResult.FAILED:
                 state['failed_items'][str(tpnc)] = failure_name or "request_failed"
                 state['errors'][str(tpnc)] = state['errors'].get(str(tpnc), 0) + 1
+            elif result is not ProductResult.DEFERRED:
+                state['processed_count'] = state.get('processed_count', 0) + 1
+            if deferred_for is not None:
+                # UTC for the scheduler, which must not resume the pass before
+                # Tesco accepts requests again.
+                blocked_until = (
+                    datetime.now(timezone.utc) + timedelta(seconds=deferred_for)
+                ).isoformat()
+                state['upstream_blocked_until'] = max(
+                    state.get('upstream_blocked_until', ''), blocked_until
+                )
             state['failed_count'] = state['status_counts'].get(ProductResult.FAILED.value, 0)
             state['heartbeat_at'] = datetime.now().isoformat()
             # Keep mutation and persistence ordered. Saving outside the lock
-            # allowed an older snapshot to overwrite newer progress.
-            db.save_run_state(state)
+            # allowed an older snapshot to overwrite newer progress. Products
+            # skipped after a fatal error or a deferral are persisted by the
+            # final save instead of rewriting the whole state once per item.
+            if attempted:
+                db.save_run_state(state)
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=threads)
     futures = []
@@ -1013,8 +1130,12 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
             task_context = copy_context()
             futures.append(executor.submit(task_context.run, _task_wrapper, idx, tpnc))
 
+        last_wait_heartbeat = time.monotonic()
         _, not_done = concurrent.futures.wait(futures, timeout=1.0)
         while not_done:
+            if time.monotonic() - last_wait_heartbeat >= UPSTREAM_WAIT_HEARTBEAT_SECONDS:
+                _record_upstream_wait(state, lock)
+                last_wait_heartbeat = time.monotonic()
             _, not_done = concurrent.futures.wait(futures, timeout=1.0)
         # ThreadPoolExecutor does not raise worker exceptions unless the
         # futures are inspected. A failed run-state write must fail the pass.
@@ -1053,7 +1174,12 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
         logger.error(
             "Daily scrape incomplete: %s/%s classified, %s failed — will resume on next run.",
             processed, len(all_items), failed,
-            extra={"Action": "scrape.incomplete", "Category": "job"},
+            extra={
+                "Action": "scrape.incomplete",
+                "Category": "job",
+                "DeferredCount": state['status_counts'].get(ProductResult.DEFERRED.value, 0),
+                "UpstreamBlockedUntil": state.get('upstream_blocked_until'),
+            },
         )
 
     return state

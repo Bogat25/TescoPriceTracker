@@ -83,6 +83,18 @@ def job():
         clear_context()
 
 
+def _upstream_blocked_until(state):
+    """Return when Tesco accepts requests again, in the scheduler timezone."""
+    value = state.get("upstream_blocked_until") if state else None
+    try:
+        blocked_until = datetime.fromisoformat(value) if value else None
+    except (TypeError, ValueError):
+        return None
+    if blocked_until is None or blocked_until.tzinfo is None:
+        return None
+    return blocked_until.astimezone(pytz.timezone(SCHEDULER_TIMEZONE))
+
+
 def calculate_next_retry(state, retries_scheduled, current_time):
     """Return ``(next_retry_at, count)`` or ``(None, count)`` when exhausted."""
     if state and state.get("completed"):
@@ -100,6 +112,10 @@ def calculate_next_retry(state, retries_scheduled, current_time):
         SCHEDULER_RETRY_MAX_SECONDS,
     )
     next_retry_at = current_time + timedelta(seconds=delay)
+    blocked_until = _upstream_blocked_until(state)
+    if blocked_until is not None and blocked_until > next_retry_at:
+        # A pass inside Tesco's penalty window would only extend it.
+        next_retry_at = blocked_until
     if (next_retry_at.date() != current_time.date()
             or next_retry_at.hour >= SCHEDULER_RETRY_CUTOFF_HOUR):
         return None, retries_scheduled

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 
@@ -76,3 +76,24 @@ def test_schedule_retry_persists_next_attempt(monkeypatch):
     assert count == 1
     assert saved[-1]["scheduler_retry_number"] == 1
     assert saved[-1]["next_retry_at"] == next_retry.isoformat()
+
+
+def test_retry_waits_until_the_upstream_rate_limit_ends(monkeypatch):
+    monkeypatch.setattr(scheduler, "SCHEDULER_RETRY_INITIAL_SECONDS", 60)
+    monkeypatch.setattr(scheduler, "SCHEDULER_RETRY_MAX_SECONDS", 60)
+    monkeypatch.setattr(scheduler, "SCHEDULER_MAX_RETRIES_PER_DAY", 6)
+    monkeypatch.setattr(scheduler, "SCHEDULER_RETRY_CUTOFF_HOUR", 23)
+    blocked_until = _now() + timedelta(hours=2)
+
+    next_retry, count = scheduler.calculate_next_retry(
+        {
+            "completed": False,
+            "retryable": True,
+            "upstream_blocked_until": blocked_until.astimezone(timezone.utc).isoformat(),
+        },
+        0,
+        _now(),
+    )
+
+    assert next_retry == blocked_until
+    assert count == 1
