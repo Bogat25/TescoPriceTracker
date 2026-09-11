@@ -53,6 +53,9 @@ SCHEDULER_MAX_RETRIES_PER_DAY = max(
 SCHEDULER_RETRY_CUTOFF_HOUR = min(
     23, max(0, int(os.getenv('SCHEDULER_RETRY_CUTOFF_HOUR', '23')))
 )
+# Touched by the scheduler loop on every iteration and read by the container
+# health check, which runs as a separate process.
+SCHEDULER_HEARTBEAT_FILE = os.getenv('SCHEDULER_HEARTBEAT_FILE', '/tmp/tesco-scheduler-heartbeat')
 
 # ---------------------------------------------------------------------------
 # Tesco API

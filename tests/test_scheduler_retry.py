@@ -97,3 +97,29 @@ def test_retry_waits_until_the_upstream_rate_limit_ends(monkeypatch):
 
     assert next_retry == blocked_until
     assert count == 1
+
+
+def test_completed_but_unpublished_run_is_retried(monkeypatch):
+    monkeypatch.setattr(scheduler, "SCHEDULER_RETRY_INITIAL_SECONDS", 60)
+    monkeypatch.setattr(scheduler, "SCHEDULER_MAX_RETRIES_PER_DAY", 6)
+    monkeypatch.setattr(scheduler, "SCHEDULER_RETRY_CUTOFF_HOUR", 23)
+
+    next_retry, count = scheduler.calculate_next_retry(
+        {"completed": True, "finalized": False, "retryable": True}, 0, _now()
+    )
+
+    assert next_retry == _now() + timedelta(seconds=60)
+    assert count == 1
+
+
+def test_restart_resumes_the_persisted_retry_plan():
+    next_retry = _now() + timedelta(minutes=30)
+
+    assert scheduler.restore_retry_schedule({
+        "completed": False,
+        "retryable": True,
+        "scheduler_retry_number": 2,
+        "next_retry_at": next_retry.isoformat(),
+    }) == (next_retry, 2)
+    assert scheduler.restore_retry_schedule({"completed": True}) == (None, 0)
+    assert scheduler.restore_retry_schedule(None) == (None, 0)

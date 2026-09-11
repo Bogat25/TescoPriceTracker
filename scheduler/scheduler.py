@@ -1,6 +1,7 @@
 import logging
 import time
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pycron
 import pytz
@@ -8,6 +9,7 @@ import pytz
 from config import (
     DEFAULT_THREADS,
     SCHEDULER_CRON,
+    SCHEDULER_HEARTBEAT_FILE,
     SCHEDULER_MAX_RETRIES_PER_DAY,
     SCHEDULER_RETRY_CUTOFF_HOUR,
     SCHEDULER_RETRY_INITIAL_SECONDS,
@@ -19,6 +21,7 @@ from mongo import database_manager as db
 from scraper.scraper import (
     GraphQLContractError,
     UpstreamConfigurationError,
+    is_run_finished,
     is_today_scrape_done,
     run_scraper,
 )
@@ -30,6 +33,14 @@ logger = logging.getLogger(__name__)
 
 def now_in_tz():
     return datetime.now(pytz.timezone(SCHEDULER_TIMEZONE))
+
+
+def touch_heartbeat():
+    """Record that the loop is alive for healthcheck.py, a separate process."""
+    try:
+        Path(SCHEDULER_HEARTBEAT_FILE).touch()
+    except OSError:
+        logger.warning("Could not update the scheduler heartbeat file.", exc_info=True)
 
 
 def job():
@@ -83,21 +94,26 @@ def job():
         clear_context()
 
 
-def _upstream_blocked_until(state):
-    """Return when Tesco accepts requests again, in the scheduler timezone."""
-    value = state.get("upstream_blocked_until") if state else None
+def _aware_timestamp(value):
+    """Parse a persisted ISO timestamp; naive or malformed values are ignored."""
     try:
-        blocked_until = datetime.fromisoformat(value) if value else None
+        parsed = datetime.fromisoformat(value) if value else None
     except (TypeError, ValueError):
         return None
-    if blocked_until is None or blocked_until.tzinfo is None:
+    return parsed if parsed is not None and parsed.tzinfo is not None else None
+
+
+def _upstream_blocked_until(state):
+    """Return when Tesco accepts requests again, in the scheduler timezone."""
+    blocked_until = _aware_timestamp(state.get("upstream_blocked_until") if state else None)
+    if blocked_until is None:
         return None
     return blocked_until.astimezone(pytz.timezone(SCHEDULER_TIMEZONE))
 
 
 def calculate_next_retry(state, retries_scheduled, current_time):
     """Return ``(next_retry_at, count)`` or ``(None, count)`` when exhausted."""
-    if state and state.get("completed"):
+    if state and is_run_finished(state):
         return None, 0
     if state and state.get("retryable") is False:
         return None, retries_scheduled
@@ -127,7 +143,7 @@ def schedule_retry(state, retries_scheduled, current_time):
         state, retries_scheduled, current_time
     )
     if next_retry_at is None:
-        if state and not state.get("completed"):
+        if state and not is_run_finished(state):
             logger.error(
                 "Incomplete scrape will not be retried again today.",
                 extra={"Action": "scrape.retry_exhausted", "Category": "job"},
@@ -148,13 +164,34 @@ def schedule_retry(state, retries_scheduled, current_time):
     return next_retry_at, retry_number
 
 
+def restore_retry_schedule(state):
+    """Return today's persisted ``(next_retry_at, count)`` after a restart.
+
+    A restart during backoff used to start a pass at once, inside any upstream
+    penalty, and reset the day's retry budget to zero.
+    """
+    if not state or is_run_finished(state):
+        return None, 0
+    return (
+        _aware_timestamp(state.get("next_retry_at")),
+        int(state.get("scheduler_retry_number") or 0),
+    )
+
+
 def run_scheduler():
     logger.info("Container started. Checking today's run state...")
-    retries_scheduled = 0
-    next_retry_at = None
+    touch_heartbeat()
     retry_date = now_in_tz().date()
+    next_retry_at, retries_scheduled = restore_retry_schedule(db.load_run_state())
 
-    if not is_today_scrape_done():
+    if next_retry_at is not None:
+        logger.info(
+            "Resuming persisted retry %s at %s.",
+            retries_scheduled,
+            next_retry_at.isoformat(),
+            extra={"Action": "scrape.retry_restored", "Category": "job"},
+        )
+    elif not is_today_scrape_done():
         logger.info("Today's run not found - running initial scrape...")
         state = job()
         next_retry_at, retries_scheduled = schedule_retry(
@@ -170,6 +207,7 @@ def run_scheduler():
     )
 
     while True:
+        touch_heartbeat()
         current_time = now_in_tz()
         if current_time.date() != retry_date:
             retry_date = current_time.date()

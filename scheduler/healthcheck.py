@@ -1,18 +1,24 @@
 """Container health check for the scrape scheduler.
 
-The scheduler has no HTTP server, so health is based on its durable Mongo run
-state. A completed run is healthy; an active run must keep advancing its
-heartbeat. A retryable incomplete run is also healthy while it is waiting for
-its persisted retry time, rather than appearing dead during expected backoff.
+The scheduler has no HTTP server. Its loop touches a heartbeat file on every
+iteration but blocks while a scrape pass runs, so during a pass the durable
+Mongo run state must keep advancing instead.
+
+Container health reports liveness only. Whether a day's scrape completed is
+reported by the Grafana alerts; judging it here marked the scheduler unhealthy
+every night before the daily cron and all evening after retries ran out.
 """
 
+import os
 from datetime import datetime, timedelta
 
+from config import SCHEDULER_HEARTBEAT_FILE
 from mongo import database_manager as db
 
 
+# Longer than catalogue discovery, which runs before a pass writes run state.
+MAX_LOOP_HEARTBEAT_AGE = timedelta(minutes=30)
 MAX_ACTIVE_HEARTBEAT_AGE = timedelta(minutes=15)
-MAX_RETRY_START_DELAY = timedelta(minutes=2)
 
 
 def _now_for(timestamp: datetime) -> datetime:
@@ -26,19 +32,21 @@ def _parse_timestamp(value):
         return None
 
 
-def is_state_healthy(state: dict) -> bool:
-    """Evaluate scheduler liveness from one persisted daily run state."""
-    if state.get("completed") is True:
-        return True
+def loop_heartbeat_at(path: str = SCHEDULER_HEARTBEAT_FILE):
+    try:
+        return datetime.fromtimestamp(os.path.getmtime(path))
+    except OSError:
+        return None
 
-    if state.get("finished_at"):
-        if state.get("retryable") is not True:
-            return False
-        next_retry = _parse_timestamp(state.get("next_retry_at"))
-        if next_retry is None:
-            return False
-        return _now_for(next_retry) <= next_retry + MAX_RETRY_START_DELAY
 
+def is_loop_alive(heartbeat) -> bool:
+    return heartbeat is not None and _now_for(heartbeat) - heartbeat <= MAX_LOOP_HEARTBEAT_AGE
+
+
+def is_pass_progressing(state) -> bool:
+    """True while an unfinished pass keeps advancing its persisted heartbeat."""
+    if not state or state.get("finished_at"):
+        return False
     heartbeat = _parse_timestamp(
         state.get("heartbeat_at") or state.get("started_at")
     )
@@ -47,11 +55,13 @@ def is_state_healthy(state: dict) -> bool:
     return _now_for(heartbeat) - heartbeat <= MAX_ACTIVE_HEARTBEAT_AGE
 
 
-def main() -> int:
-    state = db.load_run_state()
-    if not state:
-        return 1
-    return 0 if is_state_healthy(state) else 1
+def main(heartbeat_path: str = SCHEDULER_HEARTBEAT_FILE) -> int:
+    if is_loop_alive(loop_heartbeat_at(heartbeat_path)):
+        return 0
+    # Mongo is read only while the loop is blocked, so a brief database outage
+    # does not fail an idle scheduler. The latest state, not today's, keeps a
+    # pass that crosses midnight visible.
+    return 0 if is_pass_progressing(db.load_latest_run_state()) else 1
 
 
 if __name__ == "__main__":

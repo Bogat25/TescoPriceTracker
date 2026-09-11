@@ -35,6 +35,18 @@ async def trigger(
     if not payload.drops:
         return TriggerResponse(processed=0, triggered=0, emailsSent=0, skipped=0)
 
+    if payload.runKey and await alert_repo.is_trigger_run_completed(payload.runKey):
+        # The scraper resends a trigger when it could not record delivery;
+        # these digests already went out.
+        logger.info(
+            "Trigger %s already completed; not sending its digests again.",
+            payload.runKey,
+            extra={"Action": "alerts.trigger_duplicate", "Category": "job"},
+        )
+        return TriggerResponse(
+            processed=0, triggered=0, emailsSent=0, skipped=0, duplicate=True
+        )
+
     drop_map: dict[str, dict] = {
         d.productId: {
             "newPrice": d.newPrice,
@@ -82,9 +94,28 @@ async def trigger(
 
     emails_sent = await notifier.send_digests(by_user_email)
 
-    return TriggerResponse(
+    response = TriggerResponse(
         processed=len(payload.drops),
         triggered=len(triggered),
         emailsSent=emails_sent,
         skipped=skipped,
     )
+    if payload.runKey:
+        await alert_repo.mark_trigger_run_completed(
+            payload.runKey, response.model_dump(exclude={"duplicate"})
+        )
+    logger.info(
+        "Alert trigger processed %s drops: %s triggered, %s digests sent, %s skipped.",
+        response.processed,
+        response.triggered,
+        response.emailsSent,
+        response.skipped,
+        extra={
+            "Action": "alerts.trigger_processed",
+            "Category": "job",
+            "Triggered": response.triggered,
+            "EmailsSent": response.emailsSent,
+            "Skipped": response.skipped,
+        },
+    )
+    return response

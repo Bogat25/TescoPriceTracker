@@ -67,6 +67,9 @@ class PriceDrop(BaseModel):
 
 class TriggerPayload(BaseModel):
     drops: list[PriceDrop]
+    # One logical trigger, e.g. the scraper's business date. A scraper that could
+    # not record delivery resends it; the key stops those digests going out twice.
+    runKey: Optional[str] = Field(default=None, min_length=1, max_length=64)
 
 
 class TriggerResponse(BaseModel):
@@ -74,3 +77,4 @@ class TriggerResponse(BaseModel):
     triggered: int
     emailsSent: int
     skipped: int
+    duplicate: bool = False

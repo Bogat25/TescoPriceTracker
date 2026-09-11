@@ -543,6 +543,15 @@ def load_run_state():
         logger.exception("Failed to read run_state from MongoDB")
         raise DatabaseOperationError("failed to read run state") from e
 
+def load_latest_run_state():
+    """Most recent run state by date, so a pass that began yesterday stays visible."""
+    try:
+        coll = get_runs_collection()
+        return coll.find_one(sort=[("_id", DESCENDING)])
+    except mongo_errors.PyMongoError as e:
+        logger.exception("Failed to read the latest run_state from MongoDB")
+        raise DatabaseOperationError("failed to read run state") from e
+
 def save_run_state(state: dict):
     try:
         coll = get_runs_collection()

@@ -321,7 +321,7 @@ def test_execution_error_preflight_does_not_abort_the_job(monkeypatch):
         lambda *_args, **_kwargs: scraper.ProductResult.UNAVAILABLE,
     )
     monkeypatch.setattr(scraper.stats_manager, "rebuild_all_cache", lambda: None)
-    monkeypatch.setattr(scraper, "_notify_alert_service", lambda: None)
+    monkeypatch.setattr(scraper, "_notify_alert_service", lambda **_kwargs: True)
 
     state = scraper.run_scraper(specific_items=["123"], threads=1)
 
@@ -367,7 +367,7 @@ def test_preflight_checks_both_query_variants_used_by_a_pass(monkeypatch):
         lambda *_args, **_kwargs: scraper.ProductResult.UNAVAILABLE,
     )
     monkeypatch.setattr(scraper.stats_manager, "rebuild_all_cache", lambda: None)
-    monkeypatch.setattr(scraper, "_notify_alert_service", lambda: None)
+    monkeypatch.setattr(scraper, "_notify_alert_service", lambda **_kwargs: True)
 
     state = scraper.run_scraper(specific_items=["123", "456"], threads=1)
 
@@ -383,7 +383,7 @@ def test_unavailable_products_are_classified_without_completing_with_failures(mo
     monkeypatch.setattr(scraper, "get_product_api", lambda *_: {"data": {"product": {"id": "probe"}}})
     monkeypatch.setattr(scraper, "process_product", lambda *_args, **_kwargs: scraper.ProductResult.UNAVAILABLE)
     monkeypatch.setattr(scraper.stats_manager, "rebuild_all_cache", lambda: None)
-    monkeypatch.setattr(scraper, "_notify_alert_service", lambda: None)
+    monkeypatch.setattr(scraper, "_notify_alert_service", lambda **_kwargs: True)
 
     state = scraper.run_scraper(specific_items=["123", "456"], threads=1)
 

@@ -403,13 +403,23 @@ def needs_scraping(tpnc):
         return True
 
 
+def is_run_finished(state):
+    """True once a day's data is complete and its statistics and alerts are published.
+
+    A state written before finalization tracking has no ``finalized`` key. It
+    completed under the old flow, which published straight away, so it counts
+    as finalized rather than sending that day's alerts again.
+    """
+    return bool(state and state.get('completed', False) and state.get('finalized', True))
+
+
 def is_today_scrape_done():
     """Advisory check used by the scheduler loop only."""
     state = db.load_run_state()
     if not state:
         return False
     return (state.get('date') == datetime.now().date().isoformat()
-            and state.get('completed', False))
+            and is_run_finished(state))
 
 
 # ---------------------------------------------------------------------------
@@ -917,8 +927,16 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
 
     if not items_to_process:
         logger.info("All products are up-to-date. Nothing to do.")
-        db.save_run_state({
+        # Update today's state rather than replacing it: an earlier pass may
+        # have completed the data without publishing statistics and alerts,
+        # and its markers decide what is still owed.
+        state = db.load_run_state() or {
             'date': datetime.now().date().isoformat(),
+            'run_id': datetime.now().isoformat(),
+            'started_at': datetime.now().isoformat(),
+            'errors': {},
+        }
+        state.update({
             'total_items': len(all_items),
             'processed_count': len(all_items),
             'status_counts': {
@@ -928,10 +946,11 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
                 ProductResult.FAILED.value: 0,
             },
             'failed_items': {},
-            'completed': True,
-            'finished_at': datetime.now().isoformat(),
+            'failed_count': 0,
+            'retryable': True,
         })
-        return db.load_run_state()
+        state.pop('failure_reason', None)
+        return _complete_run(state, reason="already_current")
 
     # ---- Initialize advisory run-state ----
     state = {
@@ -1156,18 +1175,7 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     processed = state.get('processed_count', 0)
     failed = state.get('failed_count', 0)
     if processed >= len(all_items) and failed == 0:
-        state['completed'] = True
-        state['finished_at'] = datetime.now().isoformat()
-        db.save_run_state(state)
-        logger.info(
-            "Daily scrape completed: %s/%s items.",
-            processed,
-            len(all_items),
-            extra={"Action": "scrape.completed", "Category": "job"},
-        )
-        logger.info("Rebuilding stats cache...")
-        stats_manager.rebuild_all_cache()
-        _notify_alert_service()
+        _complete_run(state, reason="scraped")
     else:
         state['finished_at'] = datetime.now().isoformat()
         db.save_run_state(state)
@@ -1185,27 +1193,98 @@ def run_scraper(specific_items=None, force=False, threads=DEFAULT_THREADS):
     return state
 
 
-def _notify_alert_service():
-    """Notify the alert-service of today's price drops.
+def _complete_run(state, reason):
+    """Mark the day's data complete, then publish statistics and alerts once.
 
-    Failures are logged but never raised — the scraper run must succeed even if
-    the downstream alert service is unreachable.
+    Completion is persisted before publishing, so each publishing stage keeps
+    its own marker and an unfinished stage is resumed by the next pass. That
+    pass finds every product current; it used to record the day as done
+    without rebuilding statistics or sending that day's price-drop emails.
+    """
+    # Checked before completion is set: a state that completed before
+    # finalization tracking existed was already published by the old flow.
+    already_published = is_run_finished(state)
+    now = datetime.now().isoformat()
+    state['completed'] = True
+    state['finished_at'] = now
+    state['heartbeat_at'] = now
+    state['finalized'] = already_published
+    first_completion = not state.get('completion_logged_at')
+    if first_completion:
+        state['completion_logged_at'] = now
+    db.save_run_state(state)
+    if first_completion:
+        logger.info(
+            "Daily scrape completed: %s/%s items.",
+            state.get('processed_count', 0),
+            state.get('total_items', 0),
+            extra={"Action": "scrape.completed", "Category": "job", "Reason": reason},
+        )
+    if already_published:
+        return state
+
+    try:
+        state['finalized'] = _publish_run(state)
+    except Exception:
+        logger.exception(
+            "Publishing the completed scrape failed; the next pass resumes it.",
+            extra={"Action": "scrape.finalization_failed", "Category": "job"},
+        )
+    if state['finalized']:
+        db.save_run_state(state)
+    return state
+
+
+def _publish_run(state):
+    """Rebuild statistics and trigger price-drop alerts, recording each stage.
+
+    Returns False when the alert trigger was not accepted. A stage already
+    recorded is skipped, so a retry repeats only what is unfinished.
+    """
+    if not state.get('stats_rebuilt_at'):
+        logger.info("Rebuilding stats cache...")
+        stats_manager.rebuild_all_cache()
+        state['stats_rebuilt_at'] = datetime.now().isoformat()
+        db.save_run_state(state)
+    if not state.get('alerts_notified_at'):
+        if not _notify_alert_service(run_key=f"daily:{state['date']}"):
+            logger.error(
+                "Price-drop alerts were not delivered; the next pass retries them.",
+                extra={"Action": "scrape.finalization_failed", "Category": "job"},
+            )
+            return False
+        state['alerts_notified_at'] = datetime.now().isoformat()
+        db.save_run_state(state)
+    return True
+
+
+def _notify_alert_service(run_key):
+    """Send today's price drops to the alert-service.
+
+    Returns True once nothing is left to deliver: the trigger was accepted,
+    there were no drops, or delivery is disabled. Failures are returned rather
+    than raised so the caller can retry them; ``run_key`` lets the
+    alert-service ignore a repeat of a trigger it already completed.
     """
     url = os.environ.get("ALERT_SERVICE_TRIGGER_URL", "http://alert-service:8080/internal/trigger")
     token = os.environ.get("INTERNAL_TRIGGER_TOKEN", "")
     if not token:
         logger.info("INTERNAL_TRIGGER_TOKEN not set — skipping alert-service notification")
-        return
+        return True
 
     try:
         drops = db.get_today_price_drops()
     except Exception:
-        logger.exception("failed to compute today's price drops")
-        return
+        logger.warning(
+            "Failed to compute today's price drops.",
+            exc_info=True,
+            extra={"Action": "alerts.drops_failed", "Category": "job"},
+        )
+        return False
 
     if not drops:
         logger.info("No price drops to notify the alert-service about.")
-        return
+        return True
 
     # Forward our scrape-job correlation ID so alert-service's log lines
     # for this trigger share the same trace ID as ours.
@@ -1215,16 +1294,31 @@ def _notify_alert_service():
     try:
         r = requests.post(
             url,
-            json={"drops": drops},
+            json={"drops": drops, "runKey": run_key},
             headers=headers,
             timeout=30,
         )
-        if r.status_code == 200:
-            logger.info("Alert-service trigger ok: %s", r.json())
-        else:
-            logger.warning("Alert-service trigger non-200: %s %s", r.status_code, r.text[:500])
     except requests.RequestException:
-        logger.exception("Alert-service trigger failed")
+        logger.warning(
+            "Alert-service trigger failed.",
+            exc_info=True,
+            extra={"Action": "alerts.trigger_failed", "Category": "upstream"},
+        )
+        return False
+    if r.status_code != 200:
+        logger.warning(
+            "Alert-service trigger non-200: %s %s",
+            r.status_code,
+            r.text[:500],
+            extra={"Action": "alerts.trigger_failed", "Category": "upstream", "HttpStatus": r.status_code},
+        )
+        return False
+    logger.info(
+        "Alert-service trigger ok: %s",
+        r.json(),
+        extra={"Action": "alerts.trigger_accepted", "Category": "job"},
+    )
+    return True
 
 
 if __name__ == "__main__":

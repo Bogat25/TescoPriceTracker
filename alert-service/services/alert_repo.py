@@ -127,3 +127,23 @@ async def find_active_for_products(product_ids: list[str]) -> list[dict]:
     for r in results:
         flat.extend(r)
     return flat
+
+
+def _trigger_runs_coll():
+    return db()["trigger_runs"]
+
+
+async def is_trigger_run_completed(run_key: str) -> bool:
+    """True when a trigger with this key already finished sending its digests."""
+    doc = await _trigger_runs_coll().find_one(
+        {"_id": run_key, "status": "completed"}, {"_id": 1}
+    )
+    return doc is not None
+
+
+async def mark_trigger_run_completed(run_key: str, summary: dict) -> None:
+    await _trigger_runs_coll().update_one(
+        {"_id": run_key},
+        {"$set": {**summary, "status": "completed", "completedAt": datetime.now(timezone.utc)}},
+        upsert=True,
+    )
