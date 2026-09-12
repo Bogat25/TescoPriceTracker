@@ -45,6 +45,14 @@ RATE_LIMIT_MAX_IN_PROCESS_WAIT_SECONDS = 600
 # the pass; they are never shortened into an earlier retry.
 RETRY_AFTER_MAX_SECONDS = 6 * 60 * 60
 
+# Tesco rate limits without always sending Retry-After. The generic transport
+# ladder tops out at ~16s and spends all five attempts in about 30s, so an
+# unlabelled 429 burned the whole budget inside a penalty window that outlasts
+# it -- the same failure Retry-After already fixes when the header is present.
+# Assume a conservative window instead, so the pass waits the limit out rather
+# than failing the product and blocking completion for the rest of the day.
+RATE_LIMIT_DEFAULT_PENALTY_SECONDS = 60
+
 # While every worker waits on the shared rate limit no product finishes, so the
 # pass refreshes its persisted heartbeat this often to stay distinguishable
 # from a hung pass.
@@ -572,6 +580,10 @@ def get_product_api(tpnc, query_type="full"):
                 # asked, so never back off for less than Retry-After.
                 if retry_after is not None:
                     sleep_time = max(sleep_time, retry_after)
+                elif status_code == 429:
+                    # No header to honour, but this is still a rate limit: the
+                    # exponential ladder alone retries inside the window.
+                    sleep_time = max(sleep_time, RATE_LIMIT_DEFAULT_PENALTY_SECONDS)
                 logger.warning(
                     "API request failed for %s (Attempt %s/%s). Retrying in %.2fs. Error: %s",
                     tpnc,
@@ -606,6 +618,8 @@ def get_product_api(tpnc, query_type="full"):
                 # Leave a short circuit-breaker window after final exhaustion
                 # so the next queued product does not fail for the same outage.
                 cooldown = max(UPSTREAM_FAILURE_COOLDOWN_SECONDS, retry_after or 0)
+                if retry_after is None and status_code == 429:
+                    cooldown = max(cooldown, RATE_LIMIT_DEFAULT_PENALTY_SECONDS)
                 deadline = _set_shared_rate_limit(cooldown)
                 try:
                     time.sleep(cooldown)

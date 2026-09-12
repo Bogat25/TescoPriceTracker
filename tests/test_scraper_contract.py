@@ -174,6 +174,51 @@ def test_backoff_still_grows_without_a_retry_after_header(monkeypatch):
     assert slept == [2, 4]
 
 
+def test_unlabelled_rate_limit_waits_out_the_window(monkeypatch):
+    """A 429 that omits Retry-After is still a rate limit.
+
+    Tesco does not always send the header. Without it the request fell back to
+    the 2/4/8/16s ladder, which spends all five attempts in about 30s and so
+    retried inside a penalty window that outlasts it. The product then failed,
+    and one failed product is enough to keep the whole daily pass incomplete.
+    """
+    slept = []
+    monkeypatch.setattr(scraper, "_rate_limit_until", 0.0)
+    post = Mock(side_effect=[
+        FakeResponse(429, {}),
+        FakeResponse(200, [{"data": {"product": {"id": "123"}}}]),
+    ])
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    result = scraper.get_product_api("123", "full")
+
+    assert result["data"]["product"]["id"] == "123"
+    assert slept == [scraper.RATE_LIMIT_DEFAULT_PENALTY_SECONDS]
+
+
+def test_unlabelled_rate_limit_cooldown_outlasts_the_generic_one(monkeypatch):
+    """The post-exhaustion circuit breaker must also clear the 429 window.
+
+    UPSTREAM_FAILURE_COOLDOWN_SECONDS is sized for a transport blip, so leaving
+    it at 30s released the next queued product back into the same penalty.
+    """
+    slept = []
+    monkeypatch.setattr(scraper, "_rate_limit_until", 0.0)
+    post = Mock(return_value=FakeResponse(429, {}))
+    monkeypatch.setattr(scraper, "_post_tesco_request", post)
+    monkeypatch.setattr(scraper.time, "sleep", slept.append)
+    monkeypatch.setattr(scraper.random, "uniform", lambda *_: 0)
+
+    with pytest.raises(scraper.RetryableUpstreamError):
+        scraper.get_product_api("123", "full")
+
+    assert post.call_count == 5
+    assert slept[-1] >= scraper.RATE_LIMIT_DEFAULT_PENALTY_SECONDS
+    assert slept[-1] > scraper.UPSTREAM_FAILURE_COOLDOWN_SECONDS
+
+
 def test_exhausted_upstream_retries_raise_to_the_run_controller(monkeypatch):
     post = Mock(return_value=FakeResponse(503, {}))
     monkeypatch.setattr(scraper, "_post_tesco_request", post)
@@ -187,6 +232,12 @@ def test_exhausted_upstream_retries_raise_to_the_run_controller(monkeypatch):
 
 
 def test_graphql_embedded_rate_limit_is_retried(monkeypatch):
+    """A RATE_LIMITED body carries the same penalty as a transport-level 429.
+
+    Tesco reports this one inside a 200 with http.status 429 rather than on the
+    response itself, but it is the same limit, so it waits the same window
+    instead of retrying inside it on the 2s ladder.
+    """
     slept = []
     post = Mock(side_effect=[
         FakeResponse(200, [{"errors": [{
@@ -203,7 +254,7 @@ def test_graphql_embedded_rate_limit_is_retried(monkeypatch):
 
     assert result["data"]["product"]["id"] == "123"
     assert post.call_count == 2
-    assert slept == [2]
+    assert slept == [scraper.RATE_LIMIT_DEFAULT_PENALTY_SECONDS]
     assert scraper._rate_limit_until == 0.0
 
 
