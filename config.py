@@ -2,6 +2,8 @@ import os
 import sys
 import logging
 from dotenv import load_dotenv
+from mongo_auth import service_uri
+
 
 # Load environment variables from .env (simple, explicit)
 load_dotenv()
@@ -27,7 +29,7 @@ else:
 # ---------------------------------------------------------------------------
 # MongoDB setup
 # ---------------------------------------------------------------------------
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
+MONGO_URI = service_uri(os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
 MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', 'tesco_tracker')
 MONGO_COLLECTION = os.getenv('MONGO_COLLECTION', 'products')
 # ---------------------------------------------------------------------------

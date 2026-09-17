@@ -2,7 +2,9 @@
 
 import os
 
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+from mongo_auth import service_uri
+
+MONGO_URI = service_uri(os.environ.get("MONGO_URI", "mongodb://localhost:27017/"))
 MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "tesco_tracker")
 MONGO_COLLECTION = os.environ.get("MONGO_COLLECTION", "products")
 

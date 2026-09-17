@@ -2,8 +2,10 @@
 
 import os
 
+from mongo_auth import service_uri
 
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+
+MONGO_URI = service_uri(os.environ.get("MONGO_URI", "mongodb://localhost:27017/"))
 MONGO_ALERTS_DB_NAME = os.environ.get("MONGO_ALERTS_DB_NAME", "tesco_alerts")
 
 # Gateway-mediated Keycloak access.

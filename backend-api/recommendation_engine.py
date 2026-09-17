@@ -14,6 +14,7 @@ from pymongo import MongoClient
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
+from mongo_auth import service_uri
 from stores import semantic
 
 logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ QDRANT_HOST = os.environ.get("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
 QDRANT_COLLECTION = semantic.COLLECTION  # store-aware "offers"; Tesco points are "tesco:{tpnc}"
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY") or None
-MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
+MONGO_URI = service_uri(os.environ.get("MONGO_URI", "mongodb://localhost:27017/"))
 MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "tesco_tracker")
 MONGO_COLLECTION = os.environ.get("MONGO_COLLECTION", "products")
 MONGO_ALERTS_DB_NAME = os.environ.get("MONGO_ALERTS_DB_NAME", "tesco_alerts")

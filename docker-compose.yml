@@ -33,6 +33,39 @@ services:
       retries: 5
       start_period: 30s
 
+  # ── Least-privilege MongoDB accounts ─────────────────────────────────────────
+  # Runs once per deploy with the root account and creates (or updates) one
+  # account per service, so no application connects as root. Idempotent, and a
+  # service whose password is unset keeps its previous credentials.
+  mongo-users:
+    image: mongo:8
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: ${STACK_PREFIX}tesco-tracker-mongo-users
+    restart: "no"
+    environment:
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
+      MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
+      MONGO_API_USERNAME: ${MONGO_API_USERNAME:-svc_api}
+      MONGO_API_PASSWORD: ${MONGO_API_PASSWORD:-}
+      MONGO_SCRAPER_USERNAME: ${MONGO_SCRAPER_USERNAME:-svc_scraper}
+      MONGO_SCRAPER_PASSWORD: ${MONGO_SCRAPER_PASSWORD:-}
+      MONGO_ALERTS_USERNAME: ${MONGO_ALERTS_USERNAME:-svc_alerts}
+      MONGO_ALERTS_PASSWORD: ${MONGO_ALERTS_PASSWORD:-}
+    entrypoint: ["mongosh"]
+    command:
+      - "mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/admin"
+      - "--quiet"
+      - "--file"
+      - "/scripts/init-users.js"
+    configs:
+      - source: mongo_init_users
+        target: /scripts/init-users.js
+    networks:
+      - tesco-tracker-internal
+    depends_on:
+      mongo:
+        condition: service_healthy
+
   # Admin tool, off unless the stack is deployed with COMPOSE_PROFILES=admin-tools.
   # It reaches MongoDB with the root account, so it does not run day to day.
   mongo-express:
@@ -213,6 +246,8 @@ services:
     environment:
       SERVICE_NAME: backend-api
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_API_USERNAME:-svc_api}
+      MONGO_PASSWORD: ${MONGO_API_PASSWORD:-}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
@@ -239,6 +274,8 @@ services:
         aliases:
           - tesco-backend-api
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       qdrant:
@@ -290,6 +327,8 @@ services:
     environment:
       SERVICE_NAME: vectorizer
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_SCRAPER_USERNAME:-svc_scraper}
+      MONGO_PASSWORD: ${MONGO_SCRAPER_PASSWORD:-}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       QDRANT_HOST: qdrant
@@ -303,6 +342,8 @@ services:
     networks:
       - tesco-tracker-internal
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       qdrant:
@@ -331,6 +372,8 @@ services:
       SERVICE_NAME: scheduler
       API_KEY: ${API_KEY}
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_SCRAPER_USERNAME:-svc_scraper}
+      MONGO_PASSWORD: ${MONGO_SCRAPER_PASSWORD:-}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       # Outgoing request pacing (scraper.RequestPacer): a floor between
@@ -348,6 +391,8 @@ services:
     networks:
       - tesco-tracker-internal
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
     healthcheck:
@@ -373,6 +418,8 @@ services:
     environment:
       SERVICE_NAME: auchan-scheduler
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_SCRAPER_USERNAME:-svc_scraper}
+      MONGO_PASSWORD: ${MONGO_SCRAPER_PASSWORD:-}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       AUCHAN_SCHEDULER_CRON: ${AUCHAN_SCHEDULER_CRON:-30 6 * * *}
@@ -383,6 +430,8 @@ services:
     networks:
       - tesco-tracker-internal
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
     healthcheck:
@@ -408,6 +457,8 @@ services:
     environment:
       SERVICE_NAME: alert-service
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_ALERTS_USERNAME:-svc_alerts}
+      MONGO_PASSWORD: ${MONGO_ALERTS_PASSWORD:-}
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
@@ -438,6 +489,8 @@ services:
         aliases:
           - gavaller-backend-tesco-alert-service
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
     healthcheck:
@@ -462,6 +515,8 @@ services:
     environment:
       SERVICE_NAME: alert-keycloak-sync
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_ALERTS_USERNAME:-svc_alerts}
+      MONGO_PASSWORD: ${MONGO_ALERTS_PASSWORD:-}
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
       GATEWAY_INTERNAL_URL: ${GATEWAY_INTERNAL_URL:-http://gavaller-backend-gateway:8080}
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
@@ -478,6 +533,8 @@ services:
       tesco-tracker-internal: {}
       gavaller-backend-internal: {}
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
 
@@ -524,6 +581,8 @@ services:
     environment:
       SERVICE_NAME: recommendation-api
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_USER: ${MONGO_API_USERNAME:-svc_api}
+      MONGO_PASSWORD: ${MONGO_API_PASSWORD:-}
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       QDRANT_HOST: qdrant
@@ -538,6 +597,8 @@ services:
         aliases:
           - ${STACK_PREFIX}tesco-tracker-recommendation-api
     depends_on:
+      mongo-users:
+        condition: service_completed_successfully
       mongo:
         condition: service_healthy
       qdrant:
@@ -622,6 +683,10 @@ networks:
     name: tesco-internal
 
 # ── Volumes ───────────────────────────────────────────────────────────────────
+configs:
+  mongo_init_users:
+    file: ./mongo/init-users.js
+
 volumes:
   mongo-data:
     name: ${STACK_PREFIX}tesco-tracker-mongo-data
