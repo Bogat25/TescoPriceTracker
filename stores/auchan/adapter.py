@@ -34,6 +34,27 @@ def search(query: str, limit: int) -> dict:
     return {"results": [mapper.offer_from_doc(doc) for doc in docs], "total": len(docs)}
 
 
+def find_by_gtins(gtin_norms: list) -> list:
+    if not gtin_norms:
+        return []
+    cursor = repository.products().find({"gtin_norm": {"$in": list(gtin_norms)}}, _OFFER_PROJECTION)
+    return [mapper.offer_from_doc(doc) for doc in cursor]
+
+
+def iter_histories(gtin_norms: Optional[list] = None):
+    """Yield ``(ref, name, category, gtin_norm, rows)``; rows are ``(date, regular, promo, loyalty)``."""
+    query = {"gtin_norm": {"$in": list(gtin_norms)}} if gtin_norms is not None else {}
+    projection = {"name": 1, "category_path": 1, "gtin_norm": 1, "price_history": 1}
+    for doc in repository.products().find(query, projection, batch_size=500):
+        rows = sorted((
+            (entry["date"], entry.get("regular"), entry.get("promo"), entry.get("loyalty"))
+            for entry in doc.get("price_history") or []
+            if isinstance(entry, dict) and entry.get("date")
+        ), key=lambda row: row[0])
+        categories = doc.get("category_path") or [None]
+        yield f"{STORE_ID}:{doc['_id']}", doc.get("name"), categories[0], doc.get("gtin_norm"), rows
+
+
 def browse(limit: int, sort_by: str, sort_dir: str) -> dict:
     coll = repository.products()
     cursor = coll.find({}, _OFFER_PROJECTION).sort(browse_sort_spec(sort_by, sort_dir)).limit(limit)

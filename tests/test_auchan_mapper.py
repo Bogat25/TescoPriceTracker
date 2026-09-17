@@ -104,3 +104,13 @@ def test_browse_sort_fields_use_the_best_price():
     fields = repository.browse_sort_fields({"regular": 1000.0, "promo": None, "loyalty": 800.0})
     assert fields == {"version": 1, "has_price": True, "effective_price": 800.0,
                       "has_discount": True, "discount_ratio": pytest.approx(0.2)}
+
+
+@pytest.mark.parametrize("regular, unit_card, size, pct, expected", [
+    (699.0, 7987.0, 0.075, 14, 599.0),   # small pack: unit price x size is exact
+    (1299.0, 21.0, 44.0, 30, 909.0),     # 44 pieces: 21 Ft x 44 = 924, the percentage is exact
+    (6649.0, 1333.0, 3.0, 40, 3999.0),
+    (699.0, 998.0, 0.5, None, 499.0),    # no percentage: unit route
+])
+def test_card_price_uses_the_more_precise_route(regular, unit_card, size, pct, expected):
+    assert mapper._card_price(regular, unit_card, size, pct) == expected

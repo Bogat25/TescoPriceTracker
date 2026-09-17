@@ -9,6 +9,9 @@ from typing import Iterable, Optional
 from stores.ids import is_restricted_circulation, make_ref, normalize_gtin
 
 
+GROUP_PREFIX = "g:"
+
+
 def _number(value) -> Optional[float]:
     if isinstance(value, bool) or value is None:
         return None
@@ -73,6 +76,7 @@ def build_offer(
         "ref": make_ref(store_id, store_product_id),
         "store_product_id": str(store_product_id),
         "gtin": gtin_norm,
+        "group_id": group_id_for(gtin_norm),
         "is_weighed": is_weighed,
         "name": name,
         "brand": brand or None,
@@ -88,6 +92,23 @@ def build_offer(
         "flags": [flag for flag in flags if flag],
         "url": url or None,
     }
+
+
+def group_id_for(gtin_norm: Optional[str]) -> Optional[str]:
+    """Group key linking the same product across stores, or None if unlinkable."""
+    if not gtin_norm or is_restricted_circulation(gtin_norm):
+        return None
+    return f"{GROUP_PREFIX}{gtin_norm}"
+
+
+def parse_group_id(group_id: str) -> Optional[str]:
+    """Return the normalised GTIN of a group ID, or None if it is not one."""
+    if not isinstance(group_id, str) or not group_id.startswith(GROUP_PREFIX):
+        return None
+    gtin_norm = normalize_gtin(group_id[len(GROUP_PREFIX):])
+    if gtin_norm != group_id[len(GROUP_PREFIX):] or is_restricted_circulation(gtin_norm):
+        return None
+    return gtin_norm
 
 
 def history_row(date, price_set: dict, availability=None) -> dict:

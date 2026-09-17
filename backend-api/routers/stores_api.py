@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from stores import queries
+from stores import insights, queries
 from stores.browse import SORT_FIELDS
 from stores.ids import InvalidReference, parse_ref
 from stores.registry import DisabledStore, UnknownStore, registry
@@ -105,3 +105,63 @@ def get_offer_history(ref: str):
     if history is None:
         raise HTTPException(404, "offer not found")
     return {"ref": ref, "history": history}
+
+
+@router.get("/groups/{group_id}")
+def get_group(group_id: str, stores: str = Query(default="")):
+    row = queries.get_group(group_id, _resolve_stores(stores))
+    if row is None:
+        raise HTTPException(404, "product not found")
+    return row
+
+
+@router.get("/groups/{group_id}/history")
+def get_group_history(group_id: str, stores: str = Query(default="")):
+    history = queries.get_group_history(group_id, _resolve_stores(stores))
+    if history is None:
+        raise HTTPException(404, "product not found")
+    return history
+
+
+# -- statistics -------------------------------------------------------------------------
+
+@router.get("/insights")
+def get_insights(stores: str = Query(default="")):
+    """Per-store statistics (index, counts, tiers, channels, weekdays, volatility, inflation)."""
+    by_store = {}
+    for store_id in _resolve_stores(stores):
+        data = dict(insights.store_insights(store_id))
+        data.pop("top_discounts", None)
+        data.pop("price_drops", None)
+        by_store[store_id] = data
+    return {"stores": list(by_store), "by_store": by_store}
+
+
+def _merged_list(stores: str, field: str, sort_field: str, limit: int) -> dict:
+    items = []
+    store_ids = _resolve_stores(stores)
+    for store_id in store_ids:
+        items.extend(dict(item, store=store_id) for item in insights.store_insights(store_id)[field])
+    items.sort(key=lambda item: item[sort_field], reverse=True)
+    return {"stores": store_ids, "results": items[:limit]}
+
+
+@router.get("/insights/top-discounts")
+def get_top_discounts(stores: str = Query(default=""), limit: int = Query(default=100, ge=1, le=500)):
+    """Today's promotions across the selected stores, biggest discount first."""
+    return _merged_list(stores, "top_discounts", "pct_off", limit)
+
+
+@router.get("/insights/price-drops")
+def get_price_drops(stores: str = Query(default=""), limit: int = Query(default=100, ge=1, le=500)):
+    """Regular prices lower today than yesterday, biggest drop first."""
+    return _merged_list(stores, "price_drops", "drop_pct", limit)
+
+
+@router.get("/insights/compare")
+def get_comparison(stores: str = Query(default="")):
+    """Stores compared on the products they all sell (linked by barcode)."""
+    store_ids = _resolve_stores(stores)
+    if len(store_ids) < 2:
+        raise HTTPException(400, "comparison needs at least two enabled stores")
+    return insights.comparison(store_ids)

@@ -1263,6 +1263,9 @@ def _publish_run(state):
     if not state.get('stats_rebuilt_at'):
         logger.info("Rebuilding stats cache...")
         stats_manager.rebuild_all_cache()
+        # Store-neutral statistics; best effort, it logs its own failure.
+        from stores import insights
+        insights.rebuild_store("tesco")
         state['stats_rebuilt_at'] = datetime.now().isoformat()
         db.save_run_state(state)
     if not state.get('alerts_notified_at'):

@@ -58,6 +58,29 @@ class Queries:
     def get_history(self, ref):
         return [] if ref in self.offers else None
 
+    def get_group(self, group_id, store_ids):
+        self.calls.append(("group", group_id, store_ids))
+        return {"group_id": group_id, "offers": []} if group_id == "g:5998200557699" else None
+
+    def get_group_history(self, group_id, store_ids):
+        return {"group_id": group_id, "series": []} if group_id == "g:5998200557699" else None
+
+
+class Insights:
+    def __init__(self):
+        self.comparisons = []
+
+    def store_insights(self, store_id):
+        return {
+            "store": store_id, "product_counts": {"total": 1},
+            "top_discounts": [{"ref": f"{store_id}:1", "pct_off": 10.0 if store_id == "tesco" else 30.0}],
+            "price_drops": [{"ref": f"{store_id}:2", "drop_pct": 5.0}],
+        }
+
+    def comparison(self, store_ids):
+        self.comparisons.append(store_ids)
+        return {"stores": store_ids, "linked_products": 2}
+
 
 @pytest.fixture
 def api(monkeypatch):
@@ -66,6 +89,7 @@ def api(monkeypatch):
         fake_queries = Queries()
         monkeypatch.setattr(stores_api, "registry", registry)
         monkeypatch.setattr(stores_api, "queries", fake_queries)
+        monkeypatch.setattr(stores_api, "insights", Insights())
         app = FastAPI()
         app.include_router(stores_api.router)
         app.middleware("http")(stores_api.tesco_switch_middleware())
@@ -135,3 +159,35 @@ def test_legacy_tesco_endpoints_follow_the_tesco_switch(api):
     # Store-neutral routes and the OpenAPI document stay available.
     assert client.get("/api/v1/stores").status_code == 200
     assert client.get("/openapi.json").status_code == 200
+
+
+def test_group_routes(api):
+    client, fake = api([{"_id": "auchan", "enabled": False}])
+    assert client.get("/api/v1/groups/g:5998200557699").json()["group_id"] == "g:5998200557699"
+    assert fake.calls[-1] == ("group", "g:5998200557699", ["tesco"])
+    assert client.get("/api/v1/groups/g:5998200557699/history").json()["series"] == []
+    assert client.get("/api/v1/groups/g:1234567890").status_code == 404
+    assert client.get("/api/v1/groups/g:5998200557699", params={"stores": "auchan"}).status_code == 404
+
+
+def test_insights_per_store_without_lists(api):
+    client, _ = api()
+    body = client.get("/api/v1/insights").json()
+    assert body["stores"] == ["tesco", "auchan"]
+    assert body["by_store"]["auchan"] == {"store": "auchan", "product_counts": {"total": 1}}
+
+
+def test_insight_lists_are_merged_and_sorted(api):
+    client, _ = api()
+    body = client.get("/api/v1/insights/top-discounts", params={"limit": 1}).json()
+    assert body["results"] == [{"ref": "auchan:1", "pct_off": 30.0, "store": "auchan"}]
+    drops = client.get("/api/v1/insights/price-drops", params={"stores": "tesco"}).json()
+    assert [item["store"] for item in drops["results"]] == ["tesco"]
+
+
+def test_comparison_needs_two_enabled_stores(api):
+    client, _ = api()
+    assert client.get("/api/v1/insights/compare").json()["linked_products"] == 2
+    assert client.get("/api/v1/insights/compare", params={"stores": "tesco"}).status_code == 400
+    client, _ = api([{"_id": "tesco", "enabled": False}])
+    assert client.get("/api/v1/insights/compare").status_code == 400

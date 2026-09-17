@@ -1,9 +1,8 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–2 done and deployed (2026-09-17).** Plan revised the same
-day: the logged-in Auchan loyalty reader is dropped, and the store-aware
-frontend moves before alerts so users see Auchan sooner. Background:
-[store-spike.md](store-spike.md).
+Status: **Phases 0–2 done and deployed (2026-09-17). Phase 3 implemented
+(2026-09-17, not yet deployed).** The store-aware frontend comes before alerts
+so users see Auchan sooner. Background: [store-spike.md](store-spike.md).
 
 This plan turns the Tesco Price Tracker into a **store-neutral** price tracker.
 Tesco and Auchan are equal stores, and each can be switched off without a
@@ -20,18 +19,20 @@ its own.
 | 0 | Quick fixes, recommendation tests in CI | ✅ Done |
 | 1 | Store registry, switches, store-neutral API (read side) | ✅ Done |
 | 2 | Auchan crawl, `auchan-scheduler`, alert rules | ✅ Done |
-| 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | Next |
-| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | |
+| 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | ✅ Implemented |
+| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | Next |
 | 5 | Store-aware alerts and recommendations | |
 | 6 | Semantic and hybrid search across stores | |
 | 7 | Neutral name, hostname and routes; ecosystem renames | |
 | 8 | Security hardening | |
 | 9 | Tests (cross-cutting) and documentation | |
 
-**Removed:** the logged-in Auchan loyalty reader (old Phase 8). Anonymous
-responses already contain the card unit price (see §4.3), and the crawler
-stores card prices. The throwaway loyalty account is not needed; its
-credentials should never be added to any configuration.
+**Auchan card prices (open, decision D3):** anonymous responses contain the
+card unit price only for products flagged with a card offer (~380), and those
+prices match GVH Árfigyelő. Árfigyelő also shows card prices (mostly a flat
+30 % off) for products with no anonymous card data, most likely the ~1,250
+card offers listed in category 14288, which is empty for anonymous visitors.
+The logged-in reader is not built; see §2.2 D3.
 
 ---
 
@@ -48,7 +49,7 @@ credentials should never be added to any configuration.
 | Alerts | **The user picks stores per alert** (default: all enabled). Fires when any selected store meets the condition. Alerts on disabled stores are paused, not deleted |
 | Order | Stores first, then search. Semantic search is built store-aware from the start. Frontend before alerts (revised 2026-09-17) |
 | Storage | Separate collections per store; shared layers only join when a query needs it. The Tesco collection is not migrated |
-| Loyalty prices | A `loyalty` price channel for every store. Tesco: Clubcard price. Auchan: card unit price × pack size from the anonymous crawl |
+| Loyalty prices | A `loyalty` price channel for every store. Tesco: Clubcard price. Auchan: card price derived from the anonymous card unit price (flagged offers only; see D3) |
 | Store switches | Changed with `python -m stores.admin` in the `api` container; no HTTP endpoint, because the gateway forwards every `/api/v1/*` path |
 | Git | Commit directly on each repository's default branch; the owner's push releases |
 
@@ -58,6 +59,7 @@ credentials should never be added to any configuration.
 |---|---|---|
 | D1 | Neutral site name, public hostname, API route prefix (proposal: `/api/prices/*`) | Phase 7 (UI text can stay neutral earlier) |
 | D2 | Host CPU architecture for the embedding model image (compose defaults to `linux/amd64`; the recommendation blueprint and the ARM64 Qdrant build describe a Raspberry Pi 5) | Phase 6 |
+| D3 | Auchan card prices beyond the flagged offers: (a) accept partial coverage and label it, (b) take card prices for basic products from GVH Árfigyelő daily, or (c) build the logged-in reader (account terms to check first; prices may depend on the account's loyalty level) | Before comparing "best price" publicly |
 
 ---
 
@@ -74,8 +76,8 @@ credentials should never be added to any configuration.
                  │   per-store adapters → common `Offer` model │
                  └───────────────┬─────────────────────────────┘
                                  │
-          product_groups (Phase 3)  key = normalised GTIN
-          { _id: gtin_norm, members: [ {store, store_product_id} ], name, brand, updated_at }
+          product groups (Phase 3): group_id = "g:{gtin_norm}",
+          resolved through the indexed gtin_norm field of every store collection
                                  │
      API: stores · search · browse · offers · groups · compare · stats · alerts · recommendations
           ?stores=a,b   (default: all enabled stores; single store → no join)
@@ -96,7 +98,7 @@ In-store codes (EAN-13 starting with `2`, e.g. weighed products) are flagged
 
 ### 3.2 `Offer` model (implemented)
 
-`store`, `ref`, `store_product_id`, `gtin`, `is_weighed`, `name`, `brand`,
+`store`, `ref`, `store_product_id`, `gtin`, `group_id`, `is_weighed`, `name`, `brand`,
 `image_url`, `category_path[]`, `pack_size`, `pack_unit`, `availability`,
 `prices {regular, promo, loyalty, unit_price, unit}`, `effective_price`,
 `discount_ratio`, `price_date`, `flags[]`, `url`.
@@ -160,30 +162,45 @@ products searchable within minutes, legacy Tesco endpoints unchanged.
 
 ---
 
-## 5. Phase 3: linking and shared queries (next)
+## 5. Phase 3: linking and shared queries (implemented 2026-09-17)
 
-1. `product_groups` job after each store's run (and a one-off build): group
-   offers by `gtin_norm` across stores, excluding in-store codes; upsert
-   members, remove stale members; log `groups.linked`, `groups.single_store`.
-   Expected: ~6,000 linked Tesco–Auchan products (spike estimate 31% ± 5 of
-   Tesco).
-2. Merged rows: when several stores are requested, search and browse return
-   one row per group with every enabled store's offer inside, cheapest first;
-   unlinked offers stay single-store rows. Pagination happens after merging.
-3. `GET /api/v1/groups/{group_id}` (every enabled store's current offer) and
-   `GET /api/v1/groups/{group_id}/history` (aligned daily history per store).
-   `GET /api/v1/offers/{ref}` gains `group_id`.
-4. Statistics: existing `/stats/*` endpoints get a `stores` parameter (cache
-   key includes the store set). New cross-store statistics on linked groups:
-   share where each store is cheapest (regular price and best price), price
-   index of a fixed linked basket over time, average difference per category.
-5. Loyalty-price validation: compare Auchan card prices with the Auchan
-   `LOYALTY` prices in GVH Árfigyelő for overlapping barcodes. Document the
-   agreement rate; if it is poor, mark Auchan card prices as estimates in the
-   UI and exclude them from "cheapest" statistics.
-6. Tests: grouping (in-store codes never linked, stale members removed),
-   merged pagination, disabled store excluded from groups, statistics cache
-   key per store set.
+1. **Group key = normalised barcode.** Every offer carries
+   `group_id = "g:{gtin_norm}"` (none for in-store codes or missing barcodes).
+   Instead of a synchronised `product_groups` collection, groups are resolved
+   through the indexed `gtin_norm` field of each store collection: nothing to
+   keep in sync, never stale. Duplicate barcodes inside one store stay in the
+   same group.
+2. **Rows.** `/search` and `/browse` return rows for any store selection:
+   `{group_id, gtin, name, brand, image_url, best_price, cheapest_stores,
+   store_count, offers[]}`, offers cheapest first; display name and image
+   follow registry order so they do not flip with prices. Offers of a linked
+   product missing from another requested store's result window are filled in
+   by barcode. `total` counts offers (`total_counts_offers: true`).
+3. **Groups.** `GET /api/v1/groups/{group_id}?stores=` (row with every
+   selected store's offer) and `/groups/{group_id}/history?stores=` (a price
+   series per offer).
+4. **Statistics** under `/api/v1/insights` (the legacy Tesco `/stats/*`
+   endpoints stay unchanged until the frontend moves in Phase 4):
+   - `GET /insights?stores=`: per store price index, product counts, price
+     tiers, price channels (regular/promo/card), best shopping day, discounts
+     by weekday, volatility, global average, 30-day inflation. One pass per
+     store, cached per day, rebuilt after that store's scrape.
+   - `GET /insights/top-discounts` and `/insights/price-drops`: merged across
+     stores with `store` and `ref`.
+   - `GET /insights/compare?stores=` (two or more stores): linked products
+     priced in the last two days; cheapest counts by regular and by best
+     price, ties, average price index vs the cheapest store (overall and per
+     category of the first store), and a daily basket total over the last 60
+     days. Cached for an hour; dropped when a store's statistics are rebuilt.
+5. **Card-price validation** against GVH Árfigyelő (Auchan `LOYALTY`, 106
+   barcodes, 41 in the crawl): where Auchan sends a card unit price, 4 of 5
+   match exactly after choosing the more precise rounding route; the fifth
+   disagrees inside Árfigyelő itself. For 36 products Árfigyelő has a card
+   price (mostly 30 % off) that anonymous data does not show. Comparisons
+   therefore report regular and best prices separately; see D3.
+6. **Tests:** grouping (in-store codes and missing barcodes never grouped),
+   filling missing stores, row ordering, group lookups, per-store statistics,
+   comparison, cache expiry and rebuild.
 
 ---
 
@@ -202,7 +219,8 @@ text is written store-neutrally.
    price, availability, link to the store's own page) and one history chart
    with a line per store. Old `/products/{tpnc}` URLs keep working and
    redirect to the group page when the Tesco product is linked.
-4. Statistics page: store selector and the cross-store charts from Phase 3.
+4. Statistics page: store selector, the per-store charts from `/insights`
+   and the comparison from `/insights/compare`; retire `/stats/*` afterwards.
 5. Translations (`hu.json`, `en.json`) for store names and new labels.
 6. Tests: selector behaviour, hidden selector with one store, group row
    rendering, compare table, legacy URL redirect.
@@ -328,7 +346,7 @@ Documentation:
 | Milestone | Phases | Result |
 |---|---|---|
 | M0–M2 | 0–2 | ✅ Store layer and daily Auchan collection live (2026-09-17) |
-| M3 | 3 | Linked products, merged rows, compare and cross-store stats in the API |
+| M3 | 3 | ✅ Linked products, merged rows, compare and cross-store stats in the API (implemented) |
 | M4 | 4 | Users choose stores and compare prices on the site |
 | M5 | 5 | Store-aware alerts and recommendations |
 | M6 | 6 | Hybrid semantic search across stores, no laptop dependency |

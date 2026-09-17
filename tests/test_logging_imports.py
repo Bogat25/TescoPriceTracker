@@ -157,7 +157,7 @@ def test_entrypoint_import_block_resolves_under_container_conditions(
             "mongo.queries", "mongo.products_catalog_manager", "config",
         "recommendation_engine", "data_preparation",
         "scraper", "scraper.scraper",
-        "stores", "stores.registry", "stores.queries", "stores.browse", "stores.ids",
+        "stores", "stores.registry", "stores.queries", "stores.browse", "stores.ids", "stores.insights",
         "stores.auchan", "stores.auchan.crawler", "stores.auchan.repository", "stores.auchan.mapper",
         "starlette", "starlette.concurrency",
         "services", "services.keycloak_admin", "services.user_repo",

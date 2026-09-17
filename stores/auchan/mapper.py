@@ -34,6 +34,25 @@ def _gross(price: Optional[dict], key: str = "gross") -> Optional[float]:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
 
+def _card_price(regular, unit_loyalty: float, pack_size: float, discount_pct) -> float:
+    """Shelf card price from the card unit price, choosing the more precise route.
+
+    The unit price is rounded to whole forints, so multiplying it back by the
+    pack size is off by up to half a forint per unit: exact for a 75 g pack,
+    but 15 Ft off for 44 pieces (21 Ft x 44 = 924, shelf price 909). The whole
+    discount percentage is off by up to 0.5 % of the regular price instead.
+    Use whichever error bound is smaller.
+    """
+    by_unit = float(round(unit_loyalty * pack_size))
+    if not isinstance(regular, (int, float)) or not isinstance(discount_pct, (int, float)) or discount_pct <= 0:
+        return by_unit
+    unit_error = 0.5 * pack_size
+    percent_error = 0.005 * regular
+    if percent_error < unit_error:
+        return float(round(regular * (1 - discount_pct / 100)))
+    return by_unit
+
+
 def price_fields(variant: dict) -> dict:
     """Regular, promotional and loyalty-card price, with the unit price per kg/l/piece.
 
@@ -62,7 +81,7 @@ def price_fields(variant: dict) -> dict:
     if loose and unit_regular is not None:
         regular, promo, loyalty = unit_regular, unit_promo, unit_loyalty
     elif unit_loyalty is not None and isinstance(pack_size, (int, float)) and pack_size > 0:
-        loyalty = float(round(unit_loyalty * pack_size))
+        loyalty = _card_price(regular, unit_loyalty, pack_size, loyalty_unit_info.get("discountPercentage"))
     if promo is not None and regular is not None and promo >= regular:
         promo = None
     if loyalty is not None and regular is not None and loyalty >= regular:

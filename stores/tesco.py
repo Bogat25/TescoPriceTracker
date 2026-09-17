@@ -107,6 +107,41 @@ def search(query: str, limit: int) -> dict:
     return {"results": [offer_from_doc(doc) for doc in docs], "total": len(docs)}
 
 
+def find_by_gtins(gtin_norms: list) -> list:
+    if not gtin_norms:
+        return []
+    cursor = _collection().find({"gtin_norm": {"$in": list(gtin_norms)}}, _OFFER_PROJECTION)
+    return [offer_from_doc(doc) for doc in cursor]
+
+
+def _price(bucket) -> Optional[float]:
+    if isinstance(bucket, dict):
+        value = bucket.get("price")
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+    return None
+
+
+def iter_histories(gtin_norms: Optional[list] = None):
+    """Yield ``(ref, name, category, gtin_norm, rows)`` for statistics.
+
+    ``rows`` are ``(date, regular, promo, loyalty)`` tuples, oldest first; kept
+    as tuples because a pass reads every day of every product.
+    """
+    query = {"gtin_norm": {"$in": list(gtin_norms)}} if gtin_norms is not None else {}
+    projection = {"name": 1, "super_department_name": 1, "gtin_norm": 1, "price_history": 1}
+    for doc in _collection().find(query, projection, batch_size=500):
+        history = doc.get("price_history")
+        if not isinstance(history, list):
+            continue
+        rows = sorted((
+            (entry["date"], _price(entry.get("normal")), _price(entry.get("discount")), _price(entry.get("clubcard")))
+            for entry in history
+            if isinstance(entry, dict) and entry.get("date")
+        ), key=lambda row: row[0])
+        yield f"{STORE_ID}:{doc['_id']}", doc.get("name"), doc.get("super_department_name"), doc.get("gtin_norm"), rows
+
+
 def browse(limit: int, sort_by: str, sort_dir: str) -> dict:
     collection = _collection()
     cursor = collection.find({}, _OFFER_PROJECTION).sort(browse_sort_spec(sort_by, sort_dir)).limit(limit)

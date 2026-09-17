@@ -152,6 +152,8 @@ def run_crawl(
         extra={"Action": "scrape.completed", "Category": "job", "Store": mapper.STORE_ID,
                "SavedCount": state["saved_count"], "SkippedCount": state["skipped_count"]},
     )
+    from stores import insights  # imported here: insights reads every store adapter
+    insights.rebuild_store(mapper.STORE_ID)
     fetch_missing_details(client, DETAILS_PER_RUN)
     return state
 
