@@ -1,0 +1,798 @@
+{
+ "itemCount": 4,
+ "pageCount": 1,
+ "currentPage": 1,
+ "results": [
+  {
+   "id": 942428,
+   "categoryId": "6543",
+   "categoryName": "Növényi UHT italok, szója italok",
+   "brandName": "Mizo",
+   "selectedVariant": {
+    "id": 4479818,
+    "name": "Mizo protein vaníliás tejital 500 ml",
+    "brandName": "Mizo",
+    "sku": "981459",
+    "price": {
+     "net": 649.0,
+     "gross": 649.0,
+     "currency": "HUF",
+     "decimalPlaces": 0,
+     "netDiscounted": 649.0,
+     "grossDiscounted": 649.0,
+     "discountPercentage": 0,
+     "discountDisplayPercentage": 0,
+     "isDiscounted": false
+    },
+    "productId": 942428,
+    "addedName": "",
+    "selectValue": 4479818,
+    "status": "none",
+    "unit": "db",
+    "eanCode": "5998200485596",
+    "aided": false,
+    "cartInfo": {
+     "quantitySteps": 13.0,
+     "quantityStepSize": 1.0,
+     "availability": "available"
+    },
+    "packageInfo": {
+     "packageUnit": "LITER",
+     "packageSize": 0.5,
+     "unitPrice": {
+      "net": 1298.0,
+      "gross": 1298.0,
+      "currency": "HUF",
+      "decimalPlaces": 0,
+      "netDiscounted": 1298.0,
+      "grossDiscounted": 1298.0,
+      "discountPercentage": 0,
+      "discountDisplayPercentage": 0,
+      "isDiscounted": false
+     }
+    },
+    "loose": {
+     "loose": false,
+     "weightPerPiece": 0.546
+    },
+    "flags": [],
+    "media": {
+     "images": [
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34835618/01_159164108_front_1754308353.png",
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34835624/01_159164108_front_82093635.png"
+     ],
+     "videos": [],
+     "mainImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34835618/01_159164108_front_1754308353.png",
+     "listImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_list/product/34835618/01_159164108_front_1754308353.png"
+    },
+    "details": [
+     "description",
+     "ingredients",
+     "parameterList",
+     "nutrition"
+    ],
+    "isInVirtualStock": false,
+    "shoppingListsContain": [],
+    "offerType": "",
+    "isDataEraserNeeded": false,
+    "isLoyaltyPriceValid": false,
+    "isOfflinePromotion": false
+   },
+   "eancode": "5998200485596",
+   "usedItem": {
+    "canReturn": false,
+    "return": false
+   },
+   "reviewable": "login",
+   "reviewSum": {
+    "sumCount": 0,
+    "average": 0.0
+   },
+   "categories": [
+    {
+     "id": 14479,
+     "level": 0,
+     "name": "Friss élelmiszer",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/26089307/gyumolcs.jpg",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/26089304/Zo%CC%88ldse%CC%81g%20-%20gyu%CC%88mo%CC%88lcs.png",
+     "productCount": 2416,
+     "comparable": false,
+     "discountedCount": 395,
+     "childCount": 5,
+     "children": [],
+     "boutique": false,
+     "slug": "friss-elelmiszer"
+    },
+    {
+     "id": 5559,
+     "level": 1,
+     "name": "Tejtermék, tojás, sajt",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/28659296/tejterm%C3%A9k%2C%20toj%C3%A1s%2C%20sajt.webp",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/11516395/Tejterme%CC%81k%2C%20toja%CC%81s%2C%20sajt.png",
+     "productCount": 1021,
+     "comparable": false,
+     "discountedCount": 148,
+     "childCount": 9,
+     "children": [],
+     "boutique": false,
+     "slug": "tejtermek-tojas-sajt",
+     "productContentId": [
+      4091
+     ]
+    },
+    {
+     "id": 6537,
+     "level": 2,
+     "name": "Tejek, tejitalok, növényi italok",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/28659311/tejek%2C%20tejitalok%2C%20n%C3%B6v%C3%A9nyi%20italok.webp",
+     "mobileImageUrl": "",
+     "productCount": 114,
+     "comparable": false,
+     "discountedCount": 5,
+     "childCount": 5,
+     "children": [],
+     "boutique": false,
+     "slug": "tejek-tejitalok-novenyi-italok",
+     "productContentId": [
+      4091
+     ]
+    },
+    {
+     "id": 6543,
+     "level": 3,
+     "name": "Növényi UHT italok, szója italok",
+     "imageUrl": "",
+     "thumbnailUrl": "",
+     "mobileImageUrl": "",
+     "productCount": 36,
+     "comparable": false,
+     "discountedCount": 1,
+     "childCount": 0,
+     "children": [],
+     "boutique": false,
+     "slug": "novenyi-uht-italok-szoja-italok",
+     "productContentId": [
+      4091
+     ]
+    }
+   ],
+   "inCategories": [
+    6543,
+    15710
+   ],
+   "isNewProduct": false,
+   "stockInfos": [],
+   "adultsOnly": false,
+   "shipmentDays": 1,
+   "ageConfirmed": false,
+   "isNonFood": false,
+   "type": "kombinalt",
+   "isDataEraserNeeded": false,
+   "documents": [],
+   "highlightedParameters": [],
+   "creditStatus": 0,
+   "creditTypes": [],
+   "isHighlighted": false,
+   "isLockerDimension": true,
+   "isColdParcel": true
+  },
+  {
+   "id": 632009,
+   "categoryId": "6311",
+   "categoryName": "Szeletelt és lapka sajtok",
+   "brandName": "Leerdammer",
+   "selectedVariant": {
+    "id": 4169399,
+    "name": "Leerdammer Finesse Protein szeletelt félzsíros félkemény sajt 80 g",
+    "brandName": "Leerdammer",
+    "sku": "768483",
+    "price": {
+     "net": 969.0,
+     "gross": 969.0,
+     "currency": "HUF",
+     "decimalPlaces": 0,
+     "netDiscounted": 629.0,
+     "grossDiscounted": 629.0,
+     "discountPercentage": 35,
+     "discountDisplayPercentage": 35,
+     "discountValidFrom": "2026-09-10T00:00:00+02:00",
+     "discountValidTo": "2026-09-23T23:59:59+02:00",
+     "isDiscounted": true
+    },
+    "productId": 632009,
+    "addedName": "",
+    "selectValue": 4169399,
+    "status": "none",
+    "unit": "db",
+    "eanCode": "8721800400181",
+    "aided": false,
+    "cartInfo": {
+     "quantitySteps": 21.0,
+     "quantityStepSize": 1.0,
+     "availability": "available"
+    },
+    "packageInfo": {
+     "packageUnit": "KG",
+     "packageSize": 0.08,
+     "unitPrice": {
+      "net": 12113.0,
+      "gross": 12113.0,
+      "currency": "HUF",
+      "decimalPlaces": 0,
+      "netDiscounted": 7863.0,
+      "grossDiscounted": 7863.0,
+      "discountPercentage": 35,
+      "discountDisplayPercentage": 35,
+      "discountValidFrom": "2026-09-10T00:00:00+02:00",
+      "discountValidTo": "2026-09-23T23:59:59+02:00",
+      "isDiscounted": true
+     }
+    },
+    "loose": {
+     "loose": false,
+     "weightPerPiece": 0.08
+    },
+    "flags": [
+     {
+      "id": 21,
+      "flag": "flag_discount",
+      "name": "Kiemelt ajánlat",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/25139894/pig.svg",
+      "groupBackgroundColor": "#e10019ff"
+     },
+     {
+      "id": 18,
+      "flag": "1399",
+      "name": "Hűtött termék",
+      "iconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag/25193708/flag_hutott_termek.svg",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/25139963/flag.svg",
+      "groupBackgroundColor": "#5972d2ff"
+     }
+    ],
+    "media": {
+     "images": [
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34043163/01_158093673_front_021727584.png",
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34043172/01_158093673_front_021727584.png",
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34043181/01_158093673_front_1700041234.png",
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34043184/01_158093673_front_6150747.png"
+     ],
+     "videos": [],
+     "mainImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34043172/01_158093673_front_021727584.png",
+     "listImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_list/product/34043172/01_158093673_front_021727584.png"
+    },
+    "details": [
+     "description",
+     "ingredients",
+     "parameterList",
+     "nutrition"
+    ],
+    "isInVirtualStock": false,
+    "shoppingListsContain": [],
+    "offerType": "discount",
+    "isDataEraserNeeded": false,
+    "isLoyaltyPriceValid": false,
+    "isOfflinePromotion": false
+   },
+   "eancode": "8721800400181",
+   "usedItem": {
+    "canReturn": false,
+    "return": false
+   },
+   "reviewable": "login",
+   "reviewSum": {
+    "sumCount": 0,
+    "average": 0.0
+   },
+   "categories": [
+    {
+     "id": 14479,
+     "level": 0,
+     "name": "Friss élelmiszer",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/26089307/gyumolcs.jpg",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/26089304/Zo%CC%88ldse%CC%81g%20-%20gyu%CC%88mo%CC%88lcs.png",
+     "productCount": 2416,
+     "comparable": false,
+     "discountedCount": 395,
+     "childCount": 5,
+     "children": [],
+     "boutique": false,
+     "slug": "friss-elelmiszer"
+    },
+    {
+     "id": 5559,
+     "level": 1,
+     "name": "Tejtermék, tojás, sajt",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/28659296/tejterm%C3%A9k%2C%20toj%C3%A1s%2C%20sajt.webp",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/11516395/Tejterme%CC%81k%2C%20toja%CC%81s%2C%20sajt.png",
+     "productCount": 1021,
+     "comparable": false,
+     "discountedCount": 148,
+     "childCount": 9,
+     "children": [],
+     "boutique": false,
+     "slug": "tejtermek-tojas-sajt",
+     "productContentId": [
+      4091
+     ]
+    },
+    {
+     "id": 5680,
+     "level": 2,
+     "name": "Csomagolt sajtok",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/28659314/csomagolt%20sajtok.webp",
+     "mobileImageUrl": "",
+     "productCount": 357,
+     "comparable": false,
+     "discountedCount": 55,
+     "childCount": 10,
+     "children": [],
+     "boutique": false,
+     "slug": "csomagolt-sajtok",
+     "productContentId": [
+      4091
+     ]
+    },
+    {
+     "id": 6311,
+     "level": 3,
+     "name": "Szeletelt és lapka sajtok",
+     "imageUrl": "",
+     "thumbnailUrl": "",
+     "mobileImageUrl": "",
+     "productCount": 61,
+     "comparable": false,
+     "discountedCount": 15,
+     "childCount": 0,
+     "children": [],
+     "boutique": false,
+     "slug": "szeletelt-es-lapka-sajtok",
+     "productContentId": [
+      4091
+     ]
+    }
+   ],
+   "inCategories": [
+    6311,
+    15713
+   ],
+   "isNewProduct": false,
+   "stockInfos": [],
+   "adultsOnly": false,
+   "shipmentDays": 0,
+   "ageConfirmed": false,
+   "isNonFood": false,
+   "type": "food",
+   "isDataEraserNeeded": false,
+   "documents": [],
+   "highlightedParameters": [],
+   "creditStatus": 0,
+   "creditTypes": [],
+   "isHighlighted": false,
+   "isLockerDimension": false,
+   "isColdParcel": true
+  },
+  {
+   "id": 469034,
+   "categoryId": "6250",
+   "categoryName": "Friss, kenhető és ömlesztett sajtok",
+   "brandName": "Auchan",
+   "selectedVariant": {
+    "id": 4006406,
+    "name": "Auchan Kedvenc Gazdától az asztalig füstölt fokhagymás gomolya sajt Ft/kg",
+    "brandName": "Auchan",
+    "sku": "339033",
+    "price": {
+     "net": 2250.0,
+     "gross": 2250.0,
+     "currency": "HUF",
+     "decimalPlaces": 0,
+     "netDiscounted": 2250.0,
+     "grossDiscounted": 2250.0,
+     "discountPercentage": 0,
+     "discountDisplayPercentage": 0,
+     "isDiscounted": false
+    },
+    "productId": 469034,
+    "addedName": "",
+    "selectValue": 4006406,
+    "status": "none",
+    "unit": "kg",
+    "eanCode": "2186550000009",
+    "aided": false,
+    "cartInfo": {
+     "quantitySteps": 8.0,
+     "quantityStepSize": 0.3,
+     "availability": "available"
+    },
+    "packageInfo": {
+     "packageUnit": "KG",
+     "packageSize": 1.0,
+     "unitPrice": {
+      "net": 7499.0,
+      "gross": 7499.0,
+      "currency": "HUF",
+      "decimalPlaces": 0,
+      "netDiscounted": 7499.0,
+      "grossDiscounted": 7499.0,
+      "discountPercentage": 0,
+      "discountDisplayPercentage": 0,
+      "isDiscounted": false
+     }
+    },
+    "loose": {
+     "loose": true,
+     "weightPerPiece": 0.15
+    },
+    "flags": [
+     {
+      "id": 16,
+      "flag": "1397",
+      "name": "Gazdától-asztalig",
+      "iconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag/8307533/0.png",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/25140035/logo.svg",
+      "groupBackgroundColor": "#ff0019ff"
+     },
+     {
+      "id": 18,
+      "flag": "1399",
+      "name": "Hűtött termék",
+      "iconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag/25193708/flag_hutott_termek.svg",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/25139963/flag.svg",
+      "groupBackgroundColor": "#5972d2ff"
+     }
+    ],
+    "media": {
+     "images": [
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/19907579/01_151246794_front_1681820412.png",
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/19907585/01_151246794_front_1689765892.png",
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/19907588/02_151246794_front_1681820412.png"
+     ],
+     "videos": [],
+     "mainImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/19907579/01_151246794_front_1681820412.png",
+     "listImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_list/product/19907579/01_151246794_front_1681820412.png"
+    },
+    "details": [
+     "description",
+     "ingredients",
+     "parameterList",
+     "nutrition",
+     "allergens"
+    ],
+    "isInVirtualStock": false,
+    "shoppingListsContain": [],
+    "offerType": "",
+    "isDataEraserNeeded": false,
+    "isLoyaltyPriceValid": false,
+    "isOfflinePromotion": false
+   },
+   "eancode": "2186550000009",
+   "usedItem": {
+    "canReturn": false,
+    "return": false
+   },
+   "reviewable": "login",
+   "reviewSum": {
+    "sumCount": 0,
+    "average": 0.0
+   },
+   "categories": [
+    {
+     "id": 14479,
+     "level": 0,
+     "name": "Friss élelmiszer",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/26089307/gyumolcs.jpg",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/26089304/Zo%CC%88ldse%CC%81g%20-%20gyu%CC%88mo%CC%88lcs.png",
+     "productCount": 2416,
+     "comparable": false,
+     "discountedCount": 395,
+     "childCount": 5,
+     "children": [],
+     "boutique": false,
+     "slug": "friss-elelmiszer"
+    },
+    {
+     "id": 5559,
+     "level": 1,
+     "name": "Tejtermék, tojás, sajt",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/28659296/tejterm%C3%A9k%2C%20toj%C3%A1s%2C%20sajt.webp",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/11516395/Tejterme%CC%81k%2C%20toja%CC%81s%2C%20sajt.png",
+     "productCount": 1021,
+     "comparable": false,
+     "discountedCount": 148,
+     "childCount": 9,
+     "children": [],
+     "boutique": false,
+     "slug": "tejtermek-tojas-sajt",
+     "productContentId": [
+      4091
+     ]
+    },
+    {
+     "id": 5680,
+     "level": 2,
+     "name": "Csomagolt sajtok",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/28659314/csomagolt%20sajtok.webp",
+     "mobileImageUrl": "",
+     "productCount": 357,
+     "comparable": false,
+     "discountedCount": 55,
+     "childCount": 10,
+     "children": [],
+     "boutique": false,
+     "slug": "csomagolt-sajtok",
+     "productContentId": [
+      4091
+     ]
+    },
+    {
+     "id": 6250,
+     "level": 3,
+     "name": "Friss, kenhető és ömlesztett sajtok",
+     "imageUrl": "",
+     "thumbnailUrl": "",
+     "mobileImageUrl": "",
+     "productCount": 92,
+     "comparable": false,
+     "discountedCount": 15,
+     "childCount": 0,
+     "children": [],
+     "boutique": false,
+     "slug": "friss-kenheto-es-omlesztett-sajtok",
+     "productContentId": [
+      4091
+     ]
+    }
+   ],
+   "inCategories": [
+    6250
+   ],
+   "isNewProduct": false,
+   "stockInfos": [],
+   "adultsOnly": false,
+   "shipmentDays": 0,
+   "ageConfirmed": false,
+   "isNonFood": false,
+   "type": "food",
+   "isDataEraserNeeded": false,
+   "documents": [],
+   "highlightedParameters": [],
+   "creditStatus": 0,
+   "creditTypes": [],
+   "isHighlighted": false,
+   "isLockerDimension": false,
+   "isColdParcel": true
+  },
+  {
+   "id": 658866,
+   "categoryId": "15410",
+   "categoryName": "Fehér",
+   "brandName": "Sol Montis",
+   "selectedVariant": {
+    "id": 4196256,
+    "name": "Auchan Kedvenc Szöszke Kata fehér bib 5 l",
+    "brandName": "Sol Montis",
+    "sku": "800853",
+    "price": {
+     "net": 4899.0,
+     "gross": 4899.0,
+     "currency": "HUF",
+     "decimalPlaces": 0,
+     "netDiscounted": 4899.0,
+     "grossDiscounted": 4899.0,
+     "discountPercentage": 0,
+     "discountDisplayPercentage": 0,
+     "isDiscounted": false
+    },
+    "loyaltyPrice": {
+     "net": 4899.0,
+     "gross": 4899.0,
+     "currency": "HUF",
+     "decimalPlaces": 0,
+     "netDiscounted": 3919.0,
+     "grossDiscounted": 3919.0,
+     "discountPercentage": 20,
+     "discountDisplayPercentage": 20,
+     "discountValidFrom": "2026-09-10T00:00:00+02:00",
+     "discountValidTo": "2026-09-23T23:59:59+02:00",
+     "isDiscounted": true
+    },
+    "productId": 658866,
+    "addedName": "",
+    "selectValue": 4196256,
+    "status": "none",
+    "unit": "db",
+    "eanCode": "5999880746502",
+    "aided": false,
+    "cartInfo": {
+     "quantitySteps": 14.0,
+     "quantityStepSize": 1.0,
+     "availability": "available"
+    },
+    "packageInfo": {
+     "packageUnit": "LITER",
+     "packageSize": 5.0,
+     "unitPrice": {
+      "net": 980.0,
+      "gross": 980.0,
+      "currency": "HUF",
+      "decimalPlaces": 0,
+      "netDiscounted": 980.0,
+      "grossDiscounted": 980.0,
+      "discountPercentage": 0,
+      "discountDisplayPercentage": 0,
+      "isDiscounted": false
+     },
+     "loyaltyUnitPrice": {
+      "net": 980.0,
+      "gross": 980.0,
+      "currency": "HUF",
+      "decimalPlaces": 0,
+      "netDiscounted": 784.0,
+      "grossDiscounted": 784.0,
+      "discountPercentage": 20,
+      "discountDisplayPercentage": 20,
+      "discountValidFrom": "2026-09-10T00:00:00+02:00",
+      "discountValidTo": "2026-09-23T23:59:59+02:00",
+      "isDiscounted": true
+     }
+    },
+    "loose": {
+     "loose": false,
+     "weightPerPiece": 5.0
+    },
+    "flags": [
+     {
+      "id": 79,
+      "flag": "flag_loyalty_price",
+      "name": "Bizalomkártyás",
+      "iconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag/34300530/credit-card%20%281%29.svg",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/34300776/credit-card.svg",
+      "groupBackgroundColor": "#16b9a0ff"
+     },
+     {
+      "id": 37,
+      "flag": "1381",
+      "name": "Auchan Kedvenc",
+      "iconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag/25193255/Auchan_Kedvenc_flag_feher.svg",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/25140035/logo.svg",
+      "groupBackgroundColor": "#ff0019ff"
+     },
+     {
+      "id": 13,
+      "flag": "1394",
+      "name": "Magyar termék",
+      "groupIconUrl": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/flag_group/25139963/flag.svg",
+      "groupBackgroundColor": "#5972d2ff"
+     }
+    ],
+    "media": {
+     "images": [
+      "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34065600/01_158119214_front_31123944.png"
+     ],
+     "videos": [],
+     "mainImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_medium/product/34065600/01_158119214_front_31123944.png",
+     "listImage": "https://ahuazurewebblob0-d2geauehc9ekc7ey.z01.azurefd.net/auchan/cache/product_list/product/34065600/01_158119214_front_31123944.png"
+    },
+    "details": [
+     "description",
+     "parameterList"
+    ],
+    "isInVirtualStock": false,
+    "shoppingListsContain": [],
+    "offerType": "",
+    "isDataEraserNeeded": false,
+    "isLoyaltyPriceValid": false,
+    "isOfflinePromotion": false
+   },
+   "eancode": "5999880746502",
+   "usedItem": {
+    "canReturn": false,
+    "return": false
+   },
+   "reviewable": "login",
+   "reviewSum": {
+    "sumCount": 0,
+    "average": 0.0
+   },
+   "categories": [
+    {
+     "id": 14740,
+     "level": 0,
+     "name": "Italok",
+     "imageUrl": "",
+     "thumbnailUrl": "",
+     "mobileImageUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_mobile/category/26089382/Bor%20e%CC%81s%20egye%CC%81b%20alkoholos%20italok.png",
+     "productCount": 2723,
+     "comparable": false,
+     "discountedCount": 225,
+     "childCount": 6,
+     "children": [],
+     "boutique": false,
+     "slug": "italok"
+    },
+    {
+     "id": 15398,
+     "level": 1,
+     "name": "Bor",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/34525031/Kategoria_2503_56x56_bor.jpg",
+     "mobileImageUrl": "",
+     "productCount": 439,
+     "comparable": false,
+     "discountedCount": 89,
+     "childCount": 2,
+     "children": [],
+     "boutique": false,
+     "slug": "bor",
+     "productContentId": [
+      2971
+     ]
+    },
+    {
+     "id": 15404,
+     "level": 2,
+     "name": "Hazai borok",
+     "imageUrl": "",
+     "thumbnailUrl": "https://ahuazurewebblob0.blob.core.windows.net/auchan/cache/category_thumbnail/category/34525025/Kategoria_2503_56x56_bor_magyar3.jpg",
+     "mobileImageUrl": "",
+     "productCount": 409,
+     "comparable": false,
+     "discountedCount": 87,
+     "childCount": 4,
+     "children": [],
+     "boutique": false,
+     "slug": "hazai-borok",
+     "productContentId": [
+      2971
+     ]
+    },
+    {
+     "id": 15410,
+     "level": 3,
+     "name": "Fehér",
+     "imageUrl": "",
+     "thumbnailUrl": "",
+     "mobileImageUrl": "",
+     "productCount": 197,
+     "comparable": false,
+     "discountedCount": 38,
+     "childCount": 0,
+     "children": [],
+     "boutique": false,
+     "slug": "feher",
+     "productContentId": [
+      2971
+     ]
+    }
+   ],
+   "inCategories": [
+    6615,
+    15410
+   ],
+   "isNewProduct": false,
+   "stockInfos": [],
+   "adultsOnly": false,
+   "shipmentDays": 1,
+   "ageConfirmed": false,
+   "isNonFood": false,
+   "type": "kombinalt",
+   "isDataEraserNeeded": false,
+   "documents": [],
+   "highlightedParameters": [],
+   "creditStatus": 0,
+   "creditTypes": [],
+   "isHighlighted": false,
+   "isLockerDimension": false,
+   "isColdParcel": false
+  }
+ ]
+}

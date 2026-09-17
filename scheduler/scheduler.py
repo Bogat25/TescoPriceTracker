@@ -25,10 +25,32 @@ from scraper.scraper import (
     is_today_scrape_done,
     run_scraper,
 )
+from stores.registry import registry
 
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+STORE_ID = "tesco"
+
+
+class _DisabledNotice:
+    """Log once per day that scraping is switched off, so staleness alerts can tell."""
+
+    def __init__(self):
+        self._logged_for = None
+
+    def scrape_allowed(self, current_date) -> bool:
+        if registry.scrape_enabled(STORE_ID):
+            self._logged_for = None
+            return True
+        if self._logged_for != current_date:
+            self._logged_for = current_date
+            logger.info(
+                "Tesco scraping is switched off in the store registry; skipping.",
+                extra={"Action": "scrape.disabled", "Category": "job", "Store": STORE_ID},
+            )
+        return False
 
 
 def now_in_tz():
@@ -181,10 +203,14 @@ def restore_retry_schedule(state):
 def run_scheduler():
     logger.info("Container started. Checking today's run state...")
     touch_heartbeat()
+    registry.seed()
+    disabled_notice = _DisabledNotice()
     retry_date = now_in_tz().date()
     next_retry_at, retries_scheduled = restore_retry_schedule(db.load_run_state())
 
-    if next_retry_at is not None:
+    if not disabled_notice.scrape_allowed(retry_date):
+        next_retry_at = None
+    elif next_retry_at is not None:
         logger.info(
             "Resuming persisted retry %s at %s.",
             retries_scheduled,
@@ -213,6 +239,11 @@ def run_scheduler():
             retry_date = current_time.date()
             retries_scheduled = 0
             next_retry_at = None
+
+        if not disabled_notice.scrape_allowed(current_time.date()):
+            next_retry_at = None
+            time.sleep(60)
+            continue
 
         if next_retry_at is not None and current_time >= next_retry_at:
             state = job()

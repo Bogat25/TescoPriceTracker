@@ -1,6 +1,5 @@
 """Unit tests for the data preparation / string construction logic."""
 
-import pytest
 import sys
 import os
 

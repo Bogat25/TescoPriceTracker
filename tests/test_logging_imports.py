@@ -45,6 +45,8 @@ ENTRYPOINTS = [
     ("alert-service/jobs/keycloak_sync.py", "/app/alert-service",        "jobs/keycloak_sync.py"),
     ("recomendation-system/app.py",         "/app/recomendation-system", "app.py"),
     ("scheduler/scheduler.py",              "/app/scheduler",            "scheduler.py"),
+    ("scheduler/auchan_scheduler.py",       "/app/scheduler",            "auchan_scheduler.py"),
+    ("scheduler/auchan_healthcheck.py",     "/app/scheduler",            "/app/scheduler/auchan_healthcheck.py"),
 ]
 
 
@@ -155,6 +157,9 @@ def test_entrypoint_import_block_resolves_under_container_conditions(
             "mongo.queries", "mongo.products_catalog_manager", "config",
         "recommendation_engine", "data_preparation",
         "scraper", "scraper.scraper",
+        "stores", "stores.registry", "stores.queries", "stores.browse", "stores.ids",
+        "stores.auchan", "stores.auchan.crawler", "stores.auchan.repository", "stores.auchan.mapper",
+        "starlette", "starlette.concurrency",
         "services", "services.keycloak_admin", "services.user_repo",
         "auth", "routers", "routers.alerts", "routers.health",
         "routers.internal", "models", "db",

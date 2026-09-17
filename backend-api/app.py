@@ -11,15 +11,20 @@ import uvicorn
 
 from logging_setup import setup_logging, correlation_middleware
 from routers.internal_catalog import router as internal_catalog_router
+from routers.stores_api import router as stores_router, tesco_switch_middleware
 from auth import current_user, optional_current_user
+from stores.auchan import repository as auchan_repository
+from stores.registry import registry
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
 app.include_router(internal_catalog_router)
+app.include_router(stores_router)
 
-# Bind correlation IDs early so every later middleware/handler logs with them.
+app.middleware("http")(tesco_switch_middleware())
+# Registered last so it runs first: every later middleware/handler logs with the IDs.
 app.middleware("http")(correlation_middleware())
 
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
@@ -36,6 +41,8 @@ app.add_middleware(
 @app.on_event("startup")
 def startup_event():
     db.init_db()
+    registry.seed()
+    auchan_repository.ensure_indexes()
 
 @app.get("/health")
 @app.get("/api/v1/health")

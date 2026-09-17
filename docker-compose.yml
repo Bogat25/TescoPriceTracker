@@ -277,6 +277,39 @@ services:
       retries: 3
       start_period: 5m
 
+  # ── Auchan crawl scheduler ───────────────────────────────────────────────────
+  # Collects the auchan.hu grocery catalogue once a day. Can be switched off
+  # without a redeploy: python -m stores.admin set auchan scrape_enabled=false
+  auchan-scheduler:
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: ${STACK_PREFIX}tesco-tracker-auchan-scheduler
+    labels:
+    - vector.enable=true
+    restart: unless-stopped
+    working_dir: /app/scheduler
+    command: python auchan_scheduler.py
+    environment:
+      SERVICE_NAME: auchan-scheduler
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
+      MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
+      AUCHAN_SCHEDULER_CRON: ${AUCHAN_SCHEDULER_CRON:-30 6 * * *}
+      PYTHONPATH: /app
+      TZ: Europe/Budapest
+    networks:
+      - tesco-tracker-internal
+    depends_on:
+      mongo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "/app/scheduler/auchan_healthcheck.py"]
+      interval: 2m
+      timeout: 15s
+      retries: 3
+      start_period: 2m
+
   # -- Alert service -------------------------------------------------------
   alert-service:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}

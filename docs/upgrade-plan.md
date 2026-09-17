@@ -1,6 +1,7 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **DRAFT, NOT STARTED.** Rewritten 2026-09-17 after the store spike
+Status: **Phases 0–2 implemented** on `master` (2026-09-17, not yet
+deployed). Rewritten 2026-09-17 after the store spike
 ([store-spike.md](store-spike.md)).
 
 This plan turns the Tesco Price Tracker into a **store-neutral** price tracker.
@@ -31,7 +32,7 @@ its own.
 | # | Question | Needed before |
 |---|---|---|
 | D1 | Neutral site name, public hostname, API route prefix (proposal: `/api/prices/*`) | Phase 6 (code can use neutral internal names earlier) |
-| D2 | Host CPU architecture for the embedding model image (compose defaults to `linux/amd64`; the repo also has a Pi 5 ARM64 Qdrant build) | Phase 5 |
+| D2 | Host CPU architecture for the embedding model image (compose defaults to `linux/amd64`; the recommendation blueprint and the ARM64 Qdrant build describe a Raspberry Pi 5 production host; confirm which is current) | Phase 5 |
 | D3 | Bizalomkártya programme terms allow the account's use | Phase 8 |
 
 ---
@@ -110,11 +111,14 @@ the site stays store-neutral.
 Goal: the API works through the store registry and the `Offer` model with
 Tesco as the only store. Users see no difference.
 
-1. `stores` collection, seeded idempotently at startup (Tesco `enabled: true`,
-   Auchan `enabled: false, scrape_enabled: false`). Registry module with TTL
-   cache, shared by `backend-api`, `alert-service`, `scheduler`.
-2. Internal admin endpoint to toggle switches, behind the existing internal
-   token and **not** routed through the public gateway.
+1. `stores` collection, seeded idempotently at startup (both stores enabled,
+   as decided for launch). Registry module with TTL cache and fail-open reads,
+   shared by `backend-api` and the schedulers (`alert-service` in Phase 4).
+2. Switches are changed with a CLI inside the `api` container
+   (`python -m stores.admin set auchan enabled=false`), not an HTTP endpoint:
+   the public gateway forwards every `/api/v1/*` path. The Tesco-only legacy
+   endpoints (`/products`, `/stats`, `/recommendations`, `/{tpnc}.json`)
+   answer 404 while Tesco is disabled.
 3. `stores/` package with a `StoreMapper` interface (document → `Offer`,
    history → common shape). `TescoMapper` wraps the existing fields.
 4. Normalised `gtin_norm` field + index on Tesco `products`: backfill script
@@ -295,9 +299,18 @@ Steps:
 
 ## 11. Phase 8: Auchan loyalty prices (optional, behind `loyalty_enabled`)
 
-Facts: the product variant carries `loyaltyPrice`, `loyaltyUnitPrice`,
-`loyaltyPricePerKg`, shown when `isLoyaltyPriceValid`; anonymous responses omit
-them. The `Bizalomkártyás` flag marks affected products (380–613 at a time).
+**Update 2026-09-17: probably not needed.** Anonymous list responses include
+`packageInfo.loyaltyUnitPrice` (the discounted card unit price) for every
+loyalty-flagged product (380/380 in the 2026-09-17 crawl). Card price = unit
+price × pack size (loose items: the per-kg price), which reproduces shelf
+prices exactly (Kaiser 699 → 599 Ft). The Phase 2 crawler already fills the
+`loyalty` channel this way. Remaining work: validate a sample against the
+Auchan `LOYALTY` prices reported to GVH Árfigyelő. Only if that fails, or the
+field disappears, build the logged-in reader below.
+
+Original facts: the product variant carries `loyaltyPrice`, `loyaltyUnitPrice`,
+`loyaltyPricePerKg`, shown when `isLoyaltyPriceValid`. The `Bizalomkártyás`
+flag marks affected products (380–613 at a time).
 
 1. Check the programme terms (D3).
 2. Account credentials and tokens are stored only in Infisical through

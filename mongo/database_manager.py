@@ -4,6 +4,7 @@ from pymongo import errors as mongo_errors
 import logging
 
 from config import MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION
+from stores.ids import normalize_gtin
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,13 @@ def get_db():
         _collection = _db[MONGO_COLLECTION]
     return _collection
 
+def get_database():
+    """The tracker database, for collections other than the Tesco products."""
+    get_db()
+    assert _db is not None
+    return _db
+
+
 def get_runs_collection():
     get_db()
     assert _db is not None
@@ -73,8 +81,10 @@ def init_db():
         [("browse_sort.has_discount", DESCENDING), ("browse_sort.discount_ratio", DESCENDING), ("name", ASCENDING)],
         name="browse_discount_desc",
     )
+    coll.create_index("gtin_norm", sparse=True)
     _db['runs'].create_index("_id")
     backfill_browse_sort_fields(coll)
+    backfill_gtin_norm(coll)
     print("MongoDB indexes verified/created.")
 
 def load_product_data(tpnc):
@@ -160,6 +170,10 @@ def insert_daily_prices(tpnc, price_updates, metadata=None):
         data.update(metadata)
         if embedding_changed and "vector_embedding" in data:
             data["needs_revector"] = True
+
+    gtin_norm = normalize_gtin(data.get("gtin"))
+    if gtin_norm:
+        data["gtin_norm"] = gtin_norm
 
     data["last_scraped_price"] = datetime.now().isoformat()
     data["browse_sort"] = _build_browse_sort_fields(data)
@@ -333,6 +347,31 @@ def backfill_browse_sort_fields(coll=None, batch_size: int = 500) -> int:
         updated += result.modified_count
     if updated:
         logger.info("Backfilled indexed browse fields for %d products", updated)
+    return updated
+
+
+def backfill_gtin_norm(coll=None, batch_size: int = 500) -> int:
+    """Idempotently add the cross-store barcode key to products saved before it."""
+    if coll is None:
+        coll = get_db()
+    cursor = coll.find(
+        {"gtin": {"$exists": True}, "gtin_norm": {"$exists": False}},
+        {"_id": 1, "gtin": 1},
+    )
+    operations = []
+    updated = 0
+    for doc in cursor:
+        gtin_norm = normalize_gtin(doc.get("gtin"))
+        if not gtin_norm:
+            continue
+        operations.append(UpdateOne({"_id": doc["_id"]}, {"$set": {"gtin_norm": gtin_norm}}))
+        if len(operations) >= batch_size:
+            updated += coll.bulk_write(operations, ordered=False).modified_count
+            operations.clear()
+    if operations:
+        updated += coll.bulk_write(operations, ordered=False).modified_count
+    if updated:
+        logger.info("Backfilled normalised GTINs for %d products", updated)
     return updated
 
 
