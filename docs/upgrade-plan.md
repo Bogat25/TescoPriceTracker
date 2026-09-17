@@ -1,7 +1,7 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–6 done and deployed (2026-09-17). Phases 7–8 implemented
-(2026-09-17), waiting for a push and the MongoDB account secrets.**
+Status: **Phases 0–8 done and deployed (2026-09-17). Phase 9 (tests and
+documentation) is what remains.**
 Background: [store-spike.md](store-spike.md). Security model:
 [security.md](security.md). Search: [semantic-search.md](semantic-search.md).
 
@@ -24,8 +24,8 @@ its own.
 | 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | ✅ Done |
 | 5 | Store-aware alerts and recommendations | ✅ Done |
 | 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | ✅ Done |
-| 7 | Neutral name and routes | ✅ Implemented |
-| 8 | Security hardening | ✅ Implemented |
+| 7 | Neutral name and routes | ✅ Done |
+| 8 | Security hardening | ✅ Done |
 | 9 | Tests (cross-cutting) and documentation | |
 
 **Auchan card prices (decided, D3 = accept and label):** anonymous responses contain the
@@ -398,6 +398,11 @@ Deployment order for the MongoDB accounts: push, rebuild the controller image
 (the registry is baked in), generate the three secrets, then reconcile the
 stack. Until the secrets exist the services stay on the previous credentials.
 
+Done on 2026-09-17: the three secrets exist and every service runs on its own
+account. The first attempt failed because the account creator was a separate
+image that could not start, and every service waiting for it stayed down
+(gateway 502). The accounts are now created from the application image itself.
+
 ---
 
 ## 11. Phase 9: tests and documentation
@@ -443,7 +448,7 @@ Documentation:
 | M4 | 4 | ✅ Users choose stores and compare prices on the site |
 | M5 | 5 | ✅ Store-aware alerts and recommendations |
 | M6 | 6 | ✅ Hybrid semantic search across stores, no laptop dependency (implemented) |
-| M7 | 7 | Neutral name and routes live; old routes still work |
+| M7 | 7 | ✅ Neutral name and routes live; old routes still work |
 | M8 | 8–9 | Hardened, tested, documented; ready for the thesis |
 
 Deploy note: Portainer pulls images from GHCR. When an image changes, a
