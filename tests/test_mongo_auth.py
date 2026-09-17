@@ -1,7 +1,10 @@
 """Per-service MongoDB credentials: the URI they build, and the compose wiring."""
 
 import logging
+import os
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 import yaml
@@ -81,6 +84,24 @@ def test_the_account_creator_runs_once_from_the_application_image():
     # travels inside the image instead of a bind-mounted config.
     assert "configs" not in compose and "configs" not in creator
     assert "tescopricetracker" in creator["image"]
+
+
+def test_the_account_creator_starts_from_the_image_working_directory():
+    environment = os.environ.copy()
+    environment.pop("MONGO_URI", None)
+    result = subprocess.run(
+        [sys.executable, "-m", "mongo.init_users"],
+        cwd=ROOT,
+        env=environment,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    # No URI intentionally makes the job stop here. Reaching this error proves
+    # all imports resolve under the same /app layout used by the image.
+    assert result.returncode == 1
+    assert "MONGO_URI is not set" in result.stdout
 
 
 class FakeAdmin:

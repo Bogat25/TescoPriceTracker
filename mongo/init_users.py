@@ -18,11 +18,16 @@ Rights follow what each service actually does:
 
 import logging
 import os
+from pathlib import Path
 import sys
 
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
+# The application image keeps a self-contained logging bootstrap in each
+# service directory.  This one-shot module runs from /app, so make one of
+# those copies importable before loading it.
+sys.path.append(str(Path(__file__).resolve().parent.parent / "backend-api"))
 from logging_setup import setup_logging
 
 logger = logging.getLogger(__name__)
