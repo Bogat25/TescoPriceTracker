@@ -70,6 +70,14 @@ def test_hybrid_fuses_text_and_meaning_per_store(stores):
     assert stores["nearest_calls"] == [(("tesco",), {}), (("auchan",), {})]
 
 
+def test_a_small_page_still_gets_a_full_candidate_pool(stores, monkeypatch):
+    windows = []
+    monkeypatch.setattr(queries, "_semantic_offers",
+                        lambda store_id, vector, window, min_score: windows.append(window) or [])
+    queries.search(["tesco"], "zab", 0, 5, "hybrid")
+    assert windows == [queries.CANDIDATES_MIN]
+
+
 def test_semantic_mode_skips_the_text_index(stores):
     page = queries.search(["tesco"], "reggeli gabona", 0, 10, "semantic")
     assert refs(page) == [["tesco:2"], ["tesco:1"]]

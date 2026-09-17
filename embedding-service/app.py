@@ -35,8 +35,10 @@ PREFIXES = {"query": "query: ", "passage": "passage: "}
 
 _state: dict = {"model": None, "dimension": None}
 # One encode at a time: torch already uses THREADS cores per call, and parallel
-# calls would only fight over them. Queries are short, so they wait at most one batch.
+# calls would only fight over them. The lock is taken per chunk, not per request,
+# so a search waits for one chunk (~100 ms) instead of a whole indexing batch.
 _encode_lock = threading.Lock()
+CHUNK = 16
 
 
 def load_model():
@@ -93,9 +95,13 @@ def encode(texts: list, mode: str) -> list:
     if model is None:
         raise HTTPException(503, "model is loading")
     prefixed = [PREFIXES[mode] + " ".join(text.split())[:MAX_CHARS] for text in texts]
-    with _encode_lock:
-        vectors = model.encode(prefixed, batch_size=32, normalize_embeddings=True, convert_to_numpy=True)
-    return vectors.tolist()
+    vectors: list = []
+    for start in range(0, len(prefixed), CHUNK):
+        with _encode_lock:
+            chunk = model.encode(prefixed[start:start + CHUNK], batch_size=CHUNK,
+                                 normalize_embeddings=True, convert_to_numpy=True)
+        vectors.extend(chunk.tolist())
+    return vectors
 
 
 @app.post("/embed", response_model=EmbedResponse)

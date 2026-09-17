@@ -104,6 +104,7 @@ def _fill_missing_stores(groups: list, store_ids: list) -> None:
 SEARCH_MODES = ("hybrid", "semantic", "text")
 RRF_K = 60            # Reciprocal Rank Fusion constant (Cormack et al., 2009)
 CANDIDATES_MAX = 200  # per store and per retriever; the text index also stops at 200
+CANDIDATES_MIN = 60   # fusion needs a pool to work with, even for a five-result page
 
 
 def _page(ranked_offers: list, total: int, store_ids: list, skip: int, limit: int, mode: str) -> dict:
@@ -167,7 +168,8 @@ def search(store_ids: list, query: str, skip: int, limit: int, mode: str = "text
     if mode != "text" and not _is_code(query):
         try:
             threshold = semantic.MIN_SCORE if min_score is None else min_score
-            return _semantic_search(store_ids, query, skip, limit, mode, min(window, CANDIDATES_MAX), threshold)
+            candidates = min(max(window, CANDIDATES_MIN), CANDIDATES_MAX)
+            return _semantic_search(store_ids, query, skip, limit, mode, candidates, threshold)
         except semantic.SemanticUnavailable as exc:
             logger.warning(
                 "Semantic search unavailable, answering with text search: %s", exc,
