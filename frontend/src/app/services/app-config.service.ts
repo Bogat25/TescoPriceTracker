@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 
 /** Shape of the global injected by /runtime-config.js at page load. */
 interface RuntimeConfig {
+  /** Store-neutral route; ``tescoApiBaseUrl`` is the pre-Phase-7 name of the same value. */
+  apiBaseUrl?: string;
   tescoApiBaseUrl?: string;
   authBaseUrl?: string;
   authLoginUrl?: string;
@@ -18,7 +20,7 @@ declare global {
   }
 }
 
-const DEFAULT_TESCO_BASE = '/api/tesco';
+const DEFAULT_API_BASE = '/api/prices';
 const DEFAULT_AUTH_BASE = '/auth';
 const DEFAULT_AUTH_LOGIN = '/auth/login';
 const DEFAULT_AUTH_LOGOUT = '/auth/logout';
@@ -36,10 +38,10 @@ const DEFAULT_AUTH_TOKEN = '/auth/token';
  */
 @Injectable({ providedIn: 'root' })
 export class AppConfigService {
-  /** Base URL for product endpoints. Trailing slashes are stripped. */
-  readonly tescoApiBaseUrl: string = this.normalize(
-    window.__APP_CONFIG__?.tescoApiBaseUrl,
-    DEFAULT_TESCO_BASE,
+  /** Base URL for catalogue endpoints. Trailing slashes are stripped. */
+  readonly apiBaseUrl: string = this.normalize(
+    window.__APP_CONFIG__?.apiBaseUrl ?? window.__APP_CONFIG__?.tescoApiBaseUrl,
+    DEFAULT_API_BASE,
   );
 
   /** Base URL for authentication (Keycloak). Trailing slashes are stripped. */

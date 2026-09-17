@@ -14,9 +14,27 @@ server {
     # communication. It handles OIDC sessions, rate limiting, logging, and
     # reverse-proxies to downstream services.
 
-    # ── Tesco API proxy via Gateway.API ─────────────────────────────────────
-    # /api/tesco/<path>  →  ${TESCO_API_UPSTREAM}/api/tesco/<path>
-    # Gateway.API rewrites to the correct downstream path internally.
+    # ── Catalogue API proxy via Gateway.API ─────────────────────────────────
+    # /api/prices/<path>  →  ${TESCO_API_UPSTREAM}/api/prices/<path>
+    # /api/tesco/<path> is the pre-Phase-7 route, kept for the browser
+    # extension and any bookmarked link. Gateway.API rewrites both to the
+    # correct downstream path internally.
+    location /api/prices/ {
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $prices_upstream ${TESCO_API_UPSTREAM};
+        # NOTE: proxy_pass must NOT have a path suffix when using a variable.
+        proxy_pass $prices_upstream;
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Cookie $http_cookie;
+        proxy_set_header Authorization $http_authorization;
+        proxy_read_timeout 30s;
+    }
+
     location /api/tesco/ {
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $tesco_upstream ${TESCO_API_UPSTREAM};

@@ -130,7 +130,7 @@ export class PlatformStatsService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
   private stores = inject(StoresService);
-  private get base() { return this.config.tescoApiBaseUrl + '/insights'; }
+  private get base() { return this.config.apiBaseUrl + '/insights'; }
   private cache = new Map<string, Observable<StoreInsights>>();
 
   private storeId(store?: string): Observable<string> {

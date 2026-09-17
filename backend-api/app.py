@@ -20,7 +20,7 @@ from stores.registry import registry
 setup_logging()
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Tesco Price Tracker API", version="2.0", default_response_class=JSONResponse)
+app = FastAPI(title="Price Tracker API", version="2.0", default_response_class=JSONResponse)
 app.include_router(internal_catalog_router)
 app.include_router(stores_router)
 

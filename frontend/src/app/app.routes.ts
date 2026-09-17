@@ -14,33 +14,33 @@ export const routes: Routes = [
   {
     path: '',
     component: Home,
-    title: 'Tesco Price Tracker — Price History, Analytics and Alerts',
+    title: 'Price Tracker — Prices, History and Alerts from Several Stores',
     data: {
-      description: 'Track Tesco Hungary product prices, compare price history and promotions, explore shopping analytics, and create free price-drop alerts.',
+      description: 'Compare grocery prices across Hungarian stores, follow price history and promotions, explore shopping analytics, and create free price-drop alerts.',
     },
   },
   {
     path: 'search',
     component: Search,
-    title: 'Search Tesco Products — Tesco Price Tracker',
+    title: 'Search Products — Price Tracker',
     data: {
-      description: 'Search tracked Tesco Hungary products and open detailed price histories, promotions and price analytics.',
+      description: 'Search tracked products from several Hungarian stores and open detailed price histories, promotions and price analytics.',
     },
   },
   {
     path: 'products',
     component: ProductsList,
-    title: 'Tesco Product Prices and History — Tesco Price Tracker',
+    title: 'Product Prices and History — Price Tracker',
     data: {
-      description: 'Browse tracked Tesco Hungary products with current prices, discounts, categories, ratings and historical price data.',
+      description: 'Browse tracked products with each store\u2019s current price, discounts, categories and historical price data.',
     },
   },
   {
     path: 'products/:tpnc',
     component: ProductDetail,
-    title: 'Tesco Product Price History — Tesco Price Tracker',
+    title: 'Product Price History — Price Tracker',
     data: {
-      description: 'View this Tesco product’s current price, price history, promotions, trends and shopping analytics.',
+      description: 'View this product\u2019s price in every store, its price history, promotions, trends and shopping analytics.',
     },
   },
   {
@@ -63,30 +63,30 @@ export const routes: Routes = [
     path: 'alerts',
     component: Alerts,
     canActivate: [authGuard],
-    title: 'My Price Alerts — Tesco Price Tracker',
+    title: 'My Price Alerts — Price Tracker',
     data: { robots: 'noindex, nofollow' },
   },
   {
     path: 'statistics',
     component: Statistics,
-    title: 'Tesco Price Statistics and Trends — Tesco Price Tracker',
+    title: 'Price Statistics and Trends — Price Tracker',
     data: {
-      description: 'Explore Tesco Hungary price trends, inflation, discounts, volatility and historical shopping statistics.',
+      description: 'Explore price trends, inflation, discounts, volatility and historical shopping statistics across stores.',
     },
   },
   {
     path: 'user-settings',
     component: UserSettings,
     canActivate: [authGuard],
-    title: 'Account Settings — Tesco Price Tracker',
+    title: 'Account Settings — Price Tracker',
     data: { robots: 'noindex, nofollow' },
   },
   {
     path: 'privacy',
     component: PrivacyPolicy,
-    title: 'Privacy Policy — Tesco Price Tracker',
+    title: 'Privacy Policy — Price Tracker',
     data: {
-      description: 'Read how Tesco Price Tracker handles account, usage, price-alert and browser extension data.',
+      description: 'Read how Price Tracker handles account, usage, price-alert and browser extension data.',
     },
   },
   { path: '**', redirectTo: '' },

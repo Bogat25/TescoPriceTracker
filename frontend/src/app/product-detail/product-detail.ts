@@ -270,8 +270,8 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
           ? ` The latest tracked price is ${product.currentPrice.toLocaleString('hu-HU')} Ft.`
           : '';
         this.seo.update({
-          title: `${productName} Price History — Tesco Price Tracker`,
-          description: `Track ${productName} at Tesco Hungary. View its price history, promotions and trends.${price}`,
+          title: `${productName} Price History — Price Tracker`,
+          description: `Track ${productName} and compare its price between stores, with price history, promotions and trends.${price}`,
           path: `/products/${encodeURIComponent(tpnc)}`,
         });
         this.loading.set(false);
@@ -295,8 +295,8 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
       error: (err) => {
         this.error.set(err?.error?.error || 'Failed to load product.');
         this.seo.update({
-          title: 'Product Not Found — Tesco Price Tracker',
-          description: 'The requested Tesco product could not be found.',
+          title: 'Product Not Found — Price Tracker',
+          description: 'The requested product could not be found.',
           path: `/products/${encodeURIComponent(tpnc)}`,
           robots: 'noindex, nofollow',
         });

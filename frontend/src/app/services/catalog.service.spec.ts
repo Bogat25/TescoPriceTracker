@@ -69,31 +69,31 @@ describe('CatalogService', () => {
     const http = TestBed.inject(HttpTestingController);
 
     service.search('tej', 'auchan', 50, 50).subscribe();
-    const search = http.expectOne((req) => req.url === '/api/tesco/search');
+    const search = http.expectOne((req) => req.url === '/api/prices/search');
     expect(search.request.params.get('q')).toBe('tej');
     expect(search.request.params.get('stores')).toBe('auchan');
     expect(search.request.params.get('skip')).toBe('50');
     expect(search.request.params.get('mode')).toBe('hybrid');
 
     service.search('tej', '', 0, 6, 'text').subscribe();
-    expect(http.expectOne((req) => req.url === '/api/tesco/search').request.params.get('mode')).toBe('text');
+    expect(http.expectOne((req) => req.url === '/api/prices/search').request.params.get('mode')).toBe('text');
 
     service.similar('g:54026193', 'tesco', 8).subscribe();
-    const groupSimilar = http.expectOne((req) => req.url === '/api/tesco/groups/g%3A54026193/similar');
+    const groupSimilar = http.expectOne((req) => req.url === '/api/prices/groups/g%3A54026193/similar');
     expect(groupSimilar.request.params.get('limit')).toBe('8');
     service.similar('auchan:678170', '').subscribe();
-    http.expectOne((req) => req.url === '/api/tesco/offers/auchan%3A678170/similar');
+    http.expectOne((req) => req.url === '/api/prices/offers/auchan%3A678170/similar');
 
     service.browse('', 0, 50, 'price', 'desc').subscribe();
-    const browse = http.expectOne((req) => req.url === '/api/tesco/browse');
+    const browse = http.expectOne((req) => req.url === '/api/prices/browse');
     expect(browse.request.params.has('stores')).toBe(false);
     expect(browse.request.params.get('sort_by')).toBe('price');
     expect(browse.request.params.get('sort_dir')).toBe('desc');
 
     service.group('g:54026193', '').subscribe();
-    http.expectOne('/api/tesco/groups/g%3A54026193');
+    http.expectOne('/api/prices/groups/g%3A54026193');
     service.offerHistory('auchan:678170').subscribe();
-    http.expectOne('/api/tesco/offers/auchan%3A678170/history');
+    http.expectOne('/api/prices/offers/auchan%3A678170/history');
     http.verify();
   });
 });

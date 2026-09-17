@@ -56,7 +56,7 @@ export class Home implements OnInit {
 
   ngOnInit(): void {
     this.http
-      .get<{ status: string }>(this.config.tescoApiBaseUrl + '/health')
+      .get<{ status: string }>(this.config.apiBaseUrl + '/health')
       .pipe(catchError(() => of(null)))
       .subscribe((h) => {
         this.healthOk.set(h?.status === 'ok');

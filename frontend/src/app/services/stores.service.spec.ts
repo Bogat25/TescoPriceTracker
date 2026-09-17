@@ -18,7 +18,7 @@ function setup(stored?: string[]) {
   const service = TestBed.inject(StoresService);
   const http = TestBed.inject(HttpTestingController);
   service.load().subscribe();
-  http.expectOne('/api/tesco/stores').flush(STORES);
+  http.expectOne('/api/prices/stores').flush(STORES);
   return { service, http };
 }
 
@@ -63,7 +63,7 @@ describe('StoresService', () => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     const service = TestBed.inject(StoresService);
     service.load().subscribe();
-    TestBed.inject(HttpTestingController).expectOne('/api/tesco/stores').flush({ stores: [STORES.stores[1]] });
+    TestBed.inject(HttpTestingController).expectOne('/api/prices/stores').flush({ stores: [STORES.stores[1]] });
     expect(service.showSelector()).toBe(false);
     expect(service.name('tesco')).toBe('Tesco');
     expect(service.name('unknown')).toBe('unknown');
@@ -72,6 +72,6 @@ describe('StoresService', () => {
   it('loads the store list once', () => {
     const { service, http } = setup();
     service.load().subscribe();
-    http.expectNone('/api/tesco/stores');
+    http.expectNone('/api/prices/stores');
   });
 });

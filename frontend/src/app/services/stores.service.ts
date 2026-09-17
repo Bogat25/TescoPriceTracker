@@ -68,7 +68,7 @@ export class StoresService {
   load(): Observable<StoreInfo[]> {
     if (!this.request$) {
       this.request$ = this.http
-        .get<{ stores: StoreInfo[] }>(`${this.config.tescoApiBaseUrl}/stores`)
+        .get<{ stores: StoreInfo[] }>(`${this.config.apiBaseUrl}/stores`)
         .pipe(
           map((res) => [...(res?.stores ?? [])].sort((a, b) => a.order - b.order)),
           catchError(() => of([] as StoreInfo[])),

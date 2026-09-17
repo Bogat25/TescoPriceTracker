@@ -6,7 +6,7 @@ import { filter } from 'rxjs/operators';
 
 const SITE_ORIGIN = 'https://price-tracker.gavaller.com';
 const DEFAULT_DESCRIPTION =
-  'Track Tesco Hungary product prices, compare price history and promotions, explore shopping analytics, and create free price-drop alerts.';
+  'Compare grocery prices across Hungarian stores, follow price history and promotions, explore shopping analytics, and create free price-drop alerts.';
 
 export interface SeoPage {
   title: string;
@@ -52,7 +52,7 @@ export class SeoService {
     while (current.firstChild) current = current.firstChild;
 
     this.update({
-      title: current.title ?? 'Tesco Price Tracker',
+      title: current.title ?? 'Price Tracker',
       description: current.data['description'] ?? DEFAULT_DESCRIPTION,
       path: this.router.url.split(/[?#]/, 1)[0],
       robots: current.data['robots'],

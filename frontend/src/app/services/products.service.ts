@@ -156,7 +156,7 @@ export function toSummary(p: ProductResponse): ProductSummary {
 export class ProductsService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
-  private get base() { return this.config.tescoApiBaseUrl + '/products'; }
+  private get base() { return this.config.apiBaseUrl + '/products'; }
 
   list(): Observable<unknown> {
     return this.http.get(this.base);
@@ -250,7 +250,7 @@ export class ProductsService {
   getColdRecommendations(limit = 100): Observable<RecommendationResponse> {
     const params = new HttpParams().set('limit', limit);
     return this.http.get<RecommendationResponse>(
-      `${this.config.tescoApiBaseUrl}/recommendations/cold`,
+      `${this.config.apiBaseUrl}/recommendations/cold`,
       { params },
     ).pipe(
       map(res => ({
@@ -264,7 +264,7 @@ export class ProductsService {
   getPersonalizedRecommendations(limit = 100): Observable<RecommendationResponse> {
     const params = new HttpParams().set('limit', limit);
     return this.http.get<RecommendationResponse>(
-      `${this.config.tescoApiBaseUrl}/recommendations/personalized`,
+      `${this.config.apiBaseUrl}/recommendations/personalized`,
       { params },
     ).pipe(
       map(res => ({
@@ -283,7 +283,7 @@ export class ProductsService {
       params = params.set('userId', userId);
     }
     return this.http.get<RecommendationResponse>(
-      `${this.config.tescoApiBaseUrl}/recommendations`,
+      `${this.config.apiBaseUrl}/recommendations`,
       { params },
     ).pipe(
       map(res => ({

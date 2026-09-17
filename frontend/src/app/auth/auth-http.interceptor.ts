@@ -8,7 +8,7 @@ export const authHttpInterceptor: HttpInterceptorFn = (request, next) => {
   const config = inject(AppConfigService);
 
   // If the request is going to our configured API/Gateway, ensure credentials are included
-  if (request.url.startsWith(config.tescoApiBaseUrl)) {
+  if (request.url.startsWith(config.apiBaseUrl)) {
     return next(request.clone({ withCredentials: true }));
   }
   

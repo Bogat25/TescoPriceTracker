@@ -27,7 +27,7 @@ describe('PlatformStatsService', () => {
   });
 
   function flushStores() {
-    http.expectOne('/api/tesco/stores').flush({
+    http.expectOne('/api/prices/stores').flush({
       stores: [
         { id: 'tesco', name: 'Tesco', order: 10, website: '' },
         { id: 'auchan', name: 'Auchan', order: 20, website: '' },
@@ -39,7 +39,7 @@ describe('PlatformStatsService', () => {
     let diff: unknown;
     service.categoryDiff('auchan').subscribe((d) => (diff = d));
     flushStores();
-    http.expectOne((req) => req.url === '/api/tesco/insights' && req.params.get('stores') === 'auchan')
+    http.expectOne((req) => req.url === '/api/prices/insights' && req.params.get('stores') === 'auchan')
       .flush({ by_store: { auchan: INSIGHTS } });
     expect(diff).toEqual({
       avg_normal: 1000, avg_discount: 800, avg_clubcard: 900,
@@ -49,7 +49,7 @@ describe('PlatformStatsService', () => {
 
     let volume: unknown;
     service.productVolume('auchan').subscribe((v) => (volume = v));
-    http.expectNone('/api/tesco/insights');
+    http.expectNone('/api/prices/insights');
     expect(volume).toEqual({ total: 3, active_today: 2, historical_only: 1 });
   });
 
@@ -57,7 +57,7 @@ describe('PlatformStatsService', () => {
     let groups: { pct_off: number; products: { tpnc: string }[] }[] = [];
     service.topDiscounts().subscribe((g) => (groups = g));
     flushStores();
-    http.expectOne((req) => req.url === '/api/tesco/insights/top-discounts' && req.params.get('stores') === 'tesco')
+    http.expectOne((req) => req.url === '/api/prices/insights/top-discounts' && req.params.get('stores') === 'tesco')
       .flush({ results: [
         { ref: 'tesco:1', name: 'A', regular: 100, promo: 50, pct_off: 50 },
         { ref: 'tesco:2', name: 'B', regular: 100, promo: 75, pct_off: 25 },

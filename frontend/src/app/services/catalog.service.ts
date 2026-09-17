@@ -107,7 +107,7 @@ export function bestPriceKind(prices: PriceSet): 'loyalty' | 'promo' | 'regular'
 export class CatalogService {
   private http = inject(HttpClient);
   private config = inject(AppConfigService);
-  private get base() { return this.config.tescoApiBaseUrl; }
+  private get base() { return this.config.apiBaseUrl; }
 
   private params(values: Record<string, string | number | undefined>): HttpParams {
     let params = new HttpParams();
