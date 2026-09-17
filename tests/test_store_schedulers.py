@@ -67,10 +67,17 @@ def test_auchan_retry_backoff_is_bounded(monkeypatch):
 
 def test_auchan_no_retry_for_finished_fatal_or_late_passes(monkeypatch):
     _retry_settings(monkeypatch)
-    assert auchan_scheduler.next_retry({"completed": True}, 0, _now()) == (None, 0)
+    published = {"completed": True, "alerts_notified_at": "2026-09-17T07:00:00"}
+    assert auchan_scheduler.next_retry(published, 0, _now()) == (None, 0)
     assert auchan_scheduler.next_retry({"completed": False, "retryable": False}, 0, _now()) == (None, 0)
     assert auchan_scheduler.next_retry({"completed": False}, 0, _now(hour=23)) == (None, 0)
     assert auchan_scheduler.next_retry(None, 0, _now()) == (None, 0)
+
+
+def test_auchan_completed_day_with_unsent_alerts_is_retried(monkeypatch):
+    _retry_settings(monkeypatch)
+    retry_at, count = auchan_scheduler.next_retry({"completed": True, "retryable": True}, 0, _now())
+    assert retry_at == _now() + timedelta(seconds=600) and count == 1
 
 
 def test_auchan_retry_waits_for_rate_limit_window(monkeypatch):

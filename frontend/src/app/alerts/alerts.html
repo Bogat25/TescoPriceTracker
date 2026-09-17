@@ -103,12 +103,15 @@
 
             <!-- Name + meta -->
             <div class="al-row-info">
-              <a [routerLink]="['/products', a.productId]" class="al-product-link">
+              <a [routerLink]="link(a)" class="al-product-link">
                 {{ productName(a) }}
               </a>
-              @if (productName(a) !== a.productId) {
-                <div class="al-product-id">TPNC: {{ a.productId }}</div>
-              }
+              <div class="al-product-id">
+                {{ 'alerts.stores' | translate }}: {{ storeNames(a) }}
+                @if (a.paused) {
+                  <span class="al-paused-badge" [title]="'alerts.paused.hint' | translate">{{ 'alerts.paused' | translate }}</span>
+                }
+              </div>
               <div class="al-row-desc">{{ formatAlertDescription(a) }}</div>
             </div>
 
@@ -150,15 +153,17 @@
                      (change)="toggle(a)"/>
             </label>
 
-            <!-- Open in Tesco store -->
-            <a [href]="tescoUrl(a.productId)" target="_blank" rel="noopener"
-               class="al-store-btn" title="Open in Tesco store">
+            <!-- Open the cheapest watched offer in its store -->
+            @if (storeUrl(a); as url) {
+            <a [href]="url" target="_blank" rel="noopener"
+               class="al-store-btn" [title]="'compare.open.store' | translate">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                 <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
               </svg>
             </a>
+            }
 
             <!-- Remove -->
             <button type="button" class="al-remove-btn" (click)="remove(a.id)" title="Remove alert">

@@ -1,0 +1,46 @@
+<section class="af-card">
+  <h2 class="af-title">{{ 'alertform.title' | translate }}</h2>
+  @if (auth.authenticated()) {
+    @if (isGroup() && offerStores().length > 1) {
+      <div class="af-stores" role="group" [attr.aria-label]="'alertform.stores' | translate">
+        <span class="af-label">{{ 'alertform.stores' | translate }}</span>
+        @for (store of offerStores(); track store) {
+          <button type="button" class="af-chip"
+                  [class.active]="chosen().includes(store)"
+                  [style.--accent]="accent(store)"
+                  [attr.aria-pressed]="chosen().includes(store)"
+                  (click)="toggleStore(store)">
+            <span class="af-dot"></span>{{ stores.name(store) }}
+          </button>
+        }
+      </div>
+    }
+    <div class="af-types">
+      <button type="button" [class.active]="type === 'TARGET_PRICE'" (click)="type = 'TARGET_PRICE'">{{ 'alertform.type.target' | translate }}</button>
+      <button type="button" [class.active]="type === 'PERCENTAGE_DROP'" (click)="type = 'PERCENTAGE_DROP'">{{ 'alertform.type.pct' | translate }}</button>
+    </div>
+    <div class="af-row">
+      @if (type === 'TARGET_PRICE') {
+        <input type="number" step="1" min="1" class="af-input" name="targetPrice"
+               [placeholder]="'alertform.placeholder.target' | translate" [(ngModel)]="value"/>
+      } @else {
+        <input type="number" step="1" min="1" max="100" class="af-input" name="dropPercentage"
+               [placeholder]="'alertform.placeholder.pct' | translate" [(ngModel)]="value"/>
+      }
+      <button type="button" class="af-save" (click)="save()" [disabled]="saving()">
+        @if (saving()) { <span class="loading loading-spinner loading-xs"></span> }
+        @else { {{ 'alertform.save' | translate }} }
+      </button>
+    </div>
+    @if (current() !== null) {
+      <p class="af-hint">{{ 'alertform.current' | translate }}: <span class="font-mono-prices">{{ current() }} Ft</span></p>
+    }
+    @if (message()) {
+      <p class="af-msg" [class.ok]="saved()">{{ message() }}</p>
+    }
+  } @else {
+    <p class="af-hint">
+      <button type="button" class="af-login" (click)="auth.login()">{{ 'alertform.login' | translate }}</button>
+    </p>
+  }
+</section>

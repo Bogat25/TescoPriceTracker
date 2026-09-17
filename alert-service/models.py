@@ -10,7 +10,12 @@ AlertType = Literal["TARGET_PRICE", "PERCENTAGE_DROP"]
 
 
 class CreateAlertRequest(BaseModel):
-    productId: str = Field(min_length=1)
+    # Either a bare Tesco tpnc (older clients, the browser extension) or a
+    # target: an offer reference (``auchan:678170``) or a group (``g:54026193``).
+    productId: Optional[str] = Field(default=None, min_length=1)
+    target: Optional[str] = Field(default=None, min_length=1)
+    # Stores a group alert watches; default every enabled store.
+    stores: Optional[list[str]] = Field(default=None, max_length=10)
     alertType: AlertType
     targetPrice: Optional[float] = None
     dropPercentage: Optional[float] = None
@@ -18,6 +23,8 @@ class CreateAlertRequest(BaseModel):
 
     @model_validator(mode="after")
     def _check_required_for_type(self):
+        if not (self.target or self.productId):
+            raise ValueError("productId or target is required")
         if self.alertType == "TARGET_PRICE":
             if self.targetPrice is None or self.targetPrice <= 0:
                 raise ValueError("targetPrice (>0) is required for TARGET_PRICE alerts")
@@ -33,6 +40,10 @@ class AlertOut(BaseModel):
     id: str
     userId: str
     productId: str
+    target: str
+    stores: list[str]
+    # True while every store the alert watches is switched off.
+    paused: bool = False
     alertType: AlertType
     targetPrice: Optional[float] = None
     dropPercentage: Optional[float] = None
@@ -54,7 +65,10 @@ class EmailPreference(BaseModel):
 
 
 class PriceDrop(BaseModel):
+    # Offer reference (``auchan:678170``); a bare tpnc is read as a Tesco offer.
     productId: str = Field(min_length=1)
+    store: Optional[str] = Field(default=None, max_length=32)
+    groupId: Optional[str] = Field(default=None, max_length=64)
     newPrice: float = Field(gt=0)
     oldPrice: Optional[float] = Field(default=None, gt=0)
     productName: Optional[str] = None

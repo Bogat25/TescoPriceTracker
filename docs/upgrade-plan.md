@@ -1,6 +1,6 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–3 done and deployed (2026-09-17). Phase 4 implemented
+Status: **Phases 0–3 done and deployed (2026-09-17). Phases 4–5 implemented
 (2026-09-17, not yet deployed).** The store-aware frontend comes before alerts
 so users see Auchan sooner. Background: [store-spike.md](store-spike.md).
 
@@ -21,8 +21,8 @@ its own.
 | 2 | Auchan crawl, `auchan-scheduler`, alert rules | ✅ Done |
 | 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | ✅ Done |
 | 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | ✅ Implemented |
-| 5 | Store-aware alerts and recommendations | Next |
-| 6 | Semantic and hybrid search across stores | |
+| 5 | Store-aware alerts and recommendations | ✅ Implemented |
+| 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | Next |
 | 7 | Neutral name, hostname and routes; ecosystem renames | |
 | 8 | Security hardening | |
 | 9 | Tests (cross-cutting) and documentation | |
@@ -245,27 +245,49 @@ home page texts still name Tesco (Phase 7).
 
 ---
 
-## 7. Phase 5: store-aware alerts and recommendations
+## 7. Phase 5: store-aware alerts and recommendations (implemented 2026-09-17)
 
-1. Alert model: `target` = `{kind: "offer", ref}` or `{kind: "group", group_id}`,
-   plus `stores: [...]` (default: all enabled at creation).
-2. Migration of existing alerts (idempotent script, dry run first):
-   `productId` → `target {kind: "offer", ref: "tesco:{productId}"}`,
-   `stores: ["tesco"]`. Keep `productId` until the old API is retired.
-3. Each store's scheduler triggers the alert service after its run with
-   `ref`, `store`, `gtin_norm`; the Auchan scheduler gains the publication step
-   the Tesco scraper already has (`runKey` = `{store}:{date}`).
-4. Evaluator matches offer alerts by `ref` and group alerts by group
-   membership, only for selected and enabled stores. Digest email names the
-   store and links to the group page.
-5. Frontend: store checkboxes when creating an alert; "paused" badge when every
-   selected store is disabled.
-6. Recommendations: candidates limited to requested/enabled stores,
-   de-duplicated by group; cold-start "best deals" merged across stores.
-7. Qdrant payload gains `store`, `ref`, `gtin_norm`; Auchan products are
-   vectorised (description and ingredients are already stored).
-8. Tests: migration dry run and idempotency, evaluator with store subsets and
-   disabled stores, digest grouping, recommendation de-duplication.
+1. **Alert model.** `target` is an offer ref (`auchan:678170`) or a group ID
+   (`g:5998…`), and `stores` lists the watched stores. An offer alert watches
+   its own store. A group alert watches the stores the user ticked (all enabled
+   stores when none are sent). `productId` stays the bare tpnc on Tesco alerts,
+   because the browser extension matches on it. Other alerts store the target
+   there. The API still accepts `{productId: tpnc}`.
+2. **Migration** runs at alert-service startup and is idempotent: alerts
+   without `target` get `tesco:{productId}` and `["tesco"]`
+   (`alerts.migrated` log). New index `target_enabled`.
+3. **Producers.** The Tesco scraper sends drops as `tesco:{tpnc}` with the
+   group ID (`runKey` stays `daily:{date}`). The Auchan crawl has a publish
+   stage: it rebuilds statistics, then sends today's drops (best of the regular,
+   promo and card prices vs the previous day, at most 7 days back) with
+   `runKey` = `auchan:{date}`. A day counts as finished only when the alerts are
+   delivered. Otherwise the next pass retries publishing without crawling
+   again.
+4. **Evaluator** matches drops by ref and by group, only for watched and
+   enabled stores. Alerts whose watched stores are all disabled show as
+   `paused`. The digest email has a Store column and neutral wording.
+5. **Frontend.** The comparison page has an alert form with store chips
+   (lowest price of the ticked stores is the base). The alerts page and the
+   home panel resolve names, prices and links for all three target kinds, and
+   show the watched stores and a "paused" badge.
+6. **Recommendations.** `GET /recommended/cold|personalized?stores=` returns
+   product rows. Personal picks still come from the Tesco vectors: group and
+   Auchan alerts count through the Tesco product with the same barcode. Each
+   pick shows the selected stores' prices, and the remaining slots are the
+   biggest discounts across the selected stores (de-duplicated by group).
+   The path is outside `/recommendations`, so it keeps working while Tesco is
+   disabled (then there are only deals). The old endpoints stay for the
+   extension.
+7. **Observability:** `auchan-publication-failed` rule (latest of
+   `scrape.finalization_failed` / `scrape.published`).
+8. **Tests:** target normalisation, store resolution, group alerts per store,
+   disabled and unwatched stores, legacy alerts, migration idempotency, the
+   Auchan drop feed and publish retry, recommendation rows per store
+   selection, alert-target mapping for the engine, and the alert form request
+   builder.
+
+Moved to Phase 6: Qdrant payload with `store`/`ref`/`gtin_norm` and Auchan
+vectors, so Auchan-only products can be recommended personally.
 
 ---
 
@@ -276,7 +298,10 @@ home page texts still name Tesco (Phase 7).
    {texts, mode: query|passage}` (service adds E5 prefixes), internal network
    and token only, same logging format. Image platform from D2.
 2. In-cluster vectorisation after each store run replaces the laptop worker
-   for normal operation; `worker.py` stays as a bulk backfill tool.
+   for normal operation; `worker.py` stays as a bulk backfill tool. Qdrant
+   payload gains `store`, `ref` and `gtin_norm`, and Auchan products are
+   vectorised, so personal recommendations can pick Auchan-only products
+   (Phase 5 maps Auchan and group alerts to Tesco vectors for now).
 3. `/search?mode=text|semantic|hybrid` (default `hybrid`): Mongo text results
    and Qdrant results (filtered by stores) fused with Reciprocal Rank Fusion,
    then merged by group. Text results are returned if the vector path fails.

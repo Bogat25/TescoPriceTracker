@@ -7,7 +7,14 @@ export type AlertType = 'TARGET_PRICE' | 'PERCENTAGE_DROP';
 export interface PriceAlert {
   id: string;
   userId: string;
+  /** Tesco alerts keep the bare tpnc here (the browser extension matches on it). */
   productId: string;
+  /** What is watched: an offer (``auchan:678170``) or a product in every store (``g:5998…``). */
+  target: string;
+  /** Stores the alert watches. */
+  stores: string[];
+  /** True while none of the watched stores is available. */
+  paused?: boolean;
   alertType: AlertType;
   targetPrice: number | null;
   dropPercentage: number | null;
@@ -16,9 +23,14 @@ export interface PriceAlert {
   createdAt: string;
 }
 
-export type CreateAlertRequest =
-  | { productId: string; alertType: 'TARGET_PRICE'; targetPrice: number }
-  | { productId: string; alertType: 'PERCENTAGE_DROP'; dropPercentage: number; basePriceAtCreation: number };
+/** ``target`` is an offer ref or a group ID; ``stores`` narrows a group alert (omitted = every store). */
+export type AlertTarget = { productId: string } | { target: string; stores?: string[] };
+
+export type CreateAlertRequest = AlertTarget &
+  (
+    | { alertType: 'TARGET_PRICE'; targetPrice: number }
+    | { alertType: 'PERCENTAGE_DROP'; dropPercentage: number; basePriceAtCreation: number }
+  );
 
 @Injectable({ providedIn: 'root' })
 export class AlertsService {

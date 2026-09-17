@@ -120,6 +120,14 @@ def search(query: str, limit: int) -> dict:
     return {"results": [offer_from_doc(doc) for doc in docs], "total": len(docs)}
 
 
+def find_by_ids(tpncs: list) -> list:
+    """Offers for these tpncs, in the given order."""
+    if not tpncs:
+        return []
+    docs = {str(doc["_id"]): doc for doc in _collection().find({"_id": {"$in": [str(t) for t in tpncs]}}, _OFFER_PROJECTION)}
+    return [offer_from_doc(docs[str(tpnc)]) for tpnc in tpncs if str(tpnc) in docs]
+
+
 def find_by_gtins(gtin_norms: list) -> list:
     if not gtin_norms:
         return []

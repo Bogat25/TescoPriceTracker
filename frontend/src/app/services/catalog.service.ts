@@ -66,6 +66,13 @@ export interface GroupHistory {
   series: { store: string; ref: string; history: HistoryRow[] }[];
 }
 
+export interface RecommendedRows {
+  type: 'cold_start' | 'personalized';
+  personalized_count: number;
+  results: ProductRow[];
+  stores: string[];
+}
+
 export type SortBy = 'name' | 'price' | 'discount';
 export type SortDir = 'asc' | 'desc';
 
@@ -123,6 +130,12 @@ export class CatalogService {
     return this.http.get<GroupHistory>(`${this.base}/groups/${encodeURIComponent(groupId)}/history`, {
       params: this.params({ stores }),
     });
+  }
+
+  /** Picks for the signed-in user (identity from the Bearer token), or today's best deals. */
+  recommended(stores: string, personalized: boolean, limit = 48): Observable<RecommendedRows> {
+    const path = personalized ? 'personalized' : 'cold';
+    return this.http.get<RecommendedRows>(`${this.base}/recommended/${path}`, { params: this.params({ stores, limit }) });
   }
 
   offer(ref: string): Observable<Offer> {

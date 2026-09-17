@@ -116,7 +116,7 @@
           @for (a of recentAlerts(); track a.id) {
             <li class="hm-alert-row">
               <div class="hm-alert-info">
-                <a [routerLink]="['/products', a.productId]" class="hm-alert-pid">{{ alertProductName(a.productId) }}</a>
+                <a [routerLink]="alertLink(a)" class="hm-alert-pid">{{ alertProductName(a) }}</a>
                 @if (a.alertType === 'TARGET_PRICE') {
                   <span class="hm-alert-badge hm-alert-badge--target">≤ {{ a.targetPrice | number:'1.0-0' }} Ft</span>
                 } @else {

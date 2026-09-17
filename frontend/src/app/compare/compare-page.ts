@@ -12,6 +12,7 @@ import {
 } from '../services/catalog.service';
 import { StoresService } from '../services/stores.service';
 import { StoreSelector } from '../shared/store-selector/store-selector';
+import { StoreAlertForm } from '../shared/store-alert-form/store-alert-form';
 import { TranslatePipe } from '../shared/translate.pipe';
 import { storeAccent } from '../shared/store-accent';
 
@@ -47,7 +48,7 @@ export function alignSeries(
 /** Product page for a barcode group (/p/:groupId) or a single store offer (/o/:ref). */
 @Component({
   selector: 'app-compare-page',
-  imports: [DecimalPipe, RouterLink, StoreSelector, TranslatePipe],
+  imports: [DecimalPipe, RouterLink, StoreSelector, StoreAlertForm, TranslatePipe],
   templateUrl: './compare-page.html',
   styleUrl: './compare-page.scss',
 })
@@ -68,6 +69,7 @@ export class ComparePage implements OnInit, OnDestroy {
   private chart?: Chart;
   private groupId: string | null = null;
   private ref: string | null = null;
+  readonly alertTarget = signal('');
 
   readonly primary = computed(() => this.row()?.offers[0] ?? null);
   readonly description = computed(() => this.texts().find((o) => o.description)?.description ?? null);
@@ -78,6 +80,7 @@ export class ComparePage implements OnInit, OnDestroy {
     this.route.paramMap.subscribe((params) => {
       this.groupId = params.get('groupId');
       this.ref = params.get('ref');
+      this.alertTarget.set(this.groupId ?? this.ref ?? '');
       this.load();
     });
   }

@@ -5,6 +5,7 @@ import logging
 
 from config import MONGO_URI, MONGO_DB_NAME, MONGO_COLLECTION
 from stores.ids import normalize_gtin
+from stores.offers import group_id_for
 
 logger = logging.getLogger(__name__)
 
@@ -624,7 +625,8 @@ def _effective_price(entry: dict | None):
 def get_today_price_drops() -> list:
     """Return products whose effective price today is lower than the prior day.
 
-    Each item: {productId, productName, oldPrice, newPrice}. Used by the scraper
+    Each item: {productId (offer reference), store, groupId, productName,
+    oldPrice, newPrice}. Used by the scraper
     to invoke the alert-service after a daily run completes.
     """
     coll = get_db()
@@ -633,7 +635,7 @@ def get_today_price_drops() -> list:
 
     cursor = coll.find(
         {"price_history.date": today_str},
-        {"_id": 1, "name": 1, "price_history": 1},
+        {"_id": 1, "name": 1, "price_history": 1, "gtin_norm": 1},
     )
 
     drops: list[dict] = []
@@ -657,7 +659,9 @@ def get_today_price_drops() -> list:
             continue
 
         drops.append({
-            "productId": str(doc["_id"]),
+            "productId": f"tesco:{doc['_id']}",
+            "store": "tesco",
+            "groupId": group_id_for(doc.get("gtin_norm")),
             "productName": doc.get("name"),
             "oldPrice": old_price,
             "newPrice": new_price,

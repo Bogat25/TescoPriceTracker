@@ -11,8 +11,9 @@ import uvicorn
 
 from logging_setup import setup_logging, correlation_middleware
 from routers.internal_catalog import router as internal_catalog_router
-from routers.stores_api import router as stores_router, tesco_switch_middleware
+from routers.stores_api import resolve_stores, router as stores_router, tesco_switch_middleware
 from auth import current_user, optional_current_user
+from stores import recommendations as store_recommendations
 from stores.auchan import repository as auchan_repository
 from stores.registry import registry
 
@@ -340,6 +341,37 @@ def stats_price_drops_today():
 # v1 Recommendations
 # ---------------------------------------------------------------------------
 
+@app.get("/api/v1/recommended/cold")
+def get_recommended_rows_cold(
+    stores: str = Query(default=""),
+    limit: int = Query(default=48, ge=1, le=100),
+):
+    """The biggest current discounts across the selected stores, as product rows."""
+    return store_recommendations.rows(resolve_stores(stores), limit)
+
+
+@app.get("/api/v1/recommended/personalized")
+def get_recommended_rows_personalized(
+    stores: str = Query(default=""),
+    limit: int = Query(default=48, ge=1, le=100),
+    user: dict = Depends(current_user),
+):
+    """Picks similar to the user's alerts, then discounts, for the selected stores.
+
+    Kept outside /recommendations so it still answers while Tesco is disabled;
+    without Tesco vectors the picks fall back to discounts.
+    """
+    store_ids = resolve_stores(stores)
+    personal_picks = None
+    if registry.is_enabled("tesco"):
+        def personal_picks():
+            return get_recommendations(db.get_db(), user_id=user["sub"], limit=limit)
+    result = store_recommendations.rows(store_ids, limit, personal_picks)
+    logger.info("store recommendations: type=%s personalized_count=%d count=%d",
+                result["type"], result["personalized_count"], len(result["results"]))
+    return result
+
+
 @app.get("/api/v1/recommendations/cold")
 def get_cold_recommendations(
     limit: int = Query(default=100, ge=1, le=200),
@@ -416,6 +448,7 @@ def debug_recommendations(
         resolve_product_categories,
         rank_top_categories,
         allocate_slots,
+        resolve_alert_products,
         _get_qdrant,
         QDRANT_COLLECTION,
     )
@@ -424,7 +457,7 @@ def debug_recommendations(
     user_id = user["sub"]
 
     # Step 1 — alert details
-    alert_details = get_user_alert_details(user_id)
+    alert_details = resolve_alert_products(get_user_alert_details(user_id), db.get_db())
     steps["alert_details_count"] = len(alert_details)
     steps["alert_details_sample"] = alert_details[:5]
 

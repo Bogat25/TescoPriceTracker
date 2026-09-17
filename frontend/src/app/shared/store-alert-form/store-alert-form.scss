@@ -1,0 +1,36 @@
+.af-card {
+  background: var(--surface-card); border: 1px solid var(--border-color); border-radius: 16px;
+  padding: 18px 20px; margin-bottom: 18px;
+}
+.af-title { font-size: 15px; font-weight: 700; color: var(--text-primary); margin-bottom: 10px; }
+.af-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-right: 4px; }
+
+.af-stores { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.af-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--border-color); background: var(--surface-card); color: var(--text-secondary);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  &:hover { background: var(--hover-bg); }
+  &.active { border-color: var(--accent); color: var(--text-primary); }
+}
+.af-dot { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--accent); }
+.af-chip.active .af-dot { background: var(--accent); }
+
+.af-types {
+  display: flex; gap: 4px; margin-bottom: 10px;
+  button { padding: 4px 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
+  button.active { background: var(--hover-bg); color: var(--text-primary); font-weight: 700; }
+}
+.af-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.af-input {
+  flex: 1 1 160px; min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-color);
+  background: var(--surface-card); color: var(--text-primary); font-size: 14px;
+}
+.af-save {
+  padding: 8px 16px; border-radius: 10px; border: none; background: var(--hex1, #2563eb); color: #fff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  &:disabled { opacity: .6; cursor: default; }
+}
+.af-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.af-msg { font-size: 13px; color: #dc2626; margin-top: 8px; &.ok { color: #16a34a; } }
+.af-login { background: none; border: none; padding: 0; color: var(--hex1, #2563eb); font-weight: 600; cursor: pointer; text-decoration: underline; }

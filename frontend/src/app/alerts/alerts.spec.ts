@@ -4,7 +4,8 @@ import { Subject, of } from 'rxjs';
 import { Alerts } from './alerts';
 import { AlertsService } from '../services/alerts.service';
 import { AuthService, GatewayUser } from '../services/auth.service';
-import { ProductsService } from '../services/products.service';
+import { AlertProductsService } from '../services/alert-products.service';
+import { StoresService } from '../services/stores.service';
 import { TranslationService } from '../services/translation.service';
 
 describe('Alerts authentication bootstrap', () => {
@@ -27,7 +28,8 @@ describe('Alerts authentication bootstrap', () => {
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: AlertsService, useValue: alertsApi },
-        { provide: ProductsService, useValue: {} },
+        { provide: AlertProductsService, useValue: { resolve: () => of(new Map()) } },
+        { provide: StoresService, useValue: { load: () => of([]), name: (id: string) => id } },
         { provide: TranslationService, useValue: {} },
       ],
     });

@@ -2,11 +2,10 @@ import { Component, OnInit, inject, signal, computed, HostListener } from '@angu
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
-import { ProductSummary, ProductsService } from '../services/products.service';
 import { AuthService } from '../services/auth.service';
 import { CatalogService, ProductRow, rowLink } from '../services/catalog.service';
 import { StoresService } from '../services/stores.service';
@@ -16,12 +15,11 @@ import { TranslatePipe } from '../shared/translate.pipe';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, RouterLink, StoreSelector, ProductRowCard, TranslatePipe],
+  imports: [CommonModule, FormsModule, StoreSelector, ProductRowCard, TranslatePipe],
   templateUrl: './search.html',
   styleUrl: './search.scss',
 })
 export class Search implements OnInit {
-  private products = inject(ProductsService);
   private catalog = inject(CatalogService);
   readonly stores = inject(StoresService);
   private auth = inject(AuthService);
@@ -40,7 +38,7 @@ export class Search implements OnInit {
   readonly showDropdown = signal(false);
 
   /** Recommendation state */
-  readonly recommendations    = signal<ProductSummary[]>([]);
+  readonly recommendations    = signal<ProductRow[]>([]);
   readonly recommendationType = signal<'cold_start' | 'personalized'>('cold_start');
   readonly loadingRecs        = signal(false);
 
@@ -116,19 +114,11 @@ export class Search implements OnInit {
     // Wait for auth to settle (checkSession replays cached result immediately
     // if already done, or waits for the in-flight /userinfo call to finish).
     this.auth.checkSession().pipe(
-      switchMap(() => {
-        const userId = this.auth.userId();
-        if (userId) {
-          // Signed-in path — visible as /recommendations/personalized in logs
-          return this.products.getPersonalizedRecommendations(100);
-        } else {
-          // Anonymous path — visible as /recommendations/cold in logs
-          return this.products.getColdRecommendations(100);
-        }
-      }),
+      switchMap(() => this.stores.load()),
+      switchMap(() => this.catalog.recommended(this.stores.storesParam(), !!this.auth.userId())),
     ).subscribe({
       next: (res) => {
-        this.recommendations.set(res.recommendations ?? []);
+        this.recommendations.set(res.results ?? []);
         this.recommendationType.set(res.type);
         this.loadingRecs.set(false);
       },
@@ -153,6 +143,7 @@ export class Search implements OnInit {
   /** Store chips changed: repeat the current search for the new selection. */
   onStoresChanged(): void {
     if (this._lastQuery) this._doSearch(this._lastQuery, 0);
+    else this._loadRecommendations();
   }
 
   closeDropdown(): void {

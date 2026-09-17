@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from auth import current_user
 from models import AlertListResponse, AlertOut, CreateAlertRequest, EmailPreference, ToggleAlertRequest
 from services import alert_repo
+import store_state
+import targets
 
 
 router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
@@ -18,7 +20,12 @@ router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
 @router.get("/", response_model=AlertListResponse)
 async def list_alerts(user: dict = Depends(current_user)) -> AlertListResponse:
     docs = await alert_repo.list_for_user(user["sub"])
-    return AlertListResponse(alerts=[AlertOut(**d) for d in docs])
+    enabled = await store_state.enabled_store_ids()
+    return AlertListResponse(alerts=[_out(d, enabled) for d in docs])
+
+
+def _out(doc: dict, enabled: set[str]) -> AlertOut:
+    return AlertOut(**doc, paused=not any(store in enabled for store in doc["stores"]))
 
 
 @router.post("", response_model=AlertOut, status_code=status.HTTP_201_CREATED, include_in_schema=False)
@@ -27,8 +34,18 @@ async def create_alert(
     body: CreateAlertRequest,
     user: dict = Depends(current_user),
 ) -> AlertOut:
-    doc = await alert_repo.create(user["sub"], body.model_dump())
-    return AlertOut(**doc)
+    enabled = await store_state.enabled_store_ids()
+    try:
+        target, product_id = targets.normalize(body.target or body.productId)
+        stores = targets.resolve_stores(target, body.stores, enabled)
+    except targets.InvalidTarget as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    if not any(store in enabled for store in stores):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "the selected stores are not available")
+    payload = body.model_dump(exclude={"target", "stores", "productId"})
+    payload.update(target=target, productId=product_id, stores=stores)
+    doc = await alert_repo.create(user["sub"], payload)
+    return _out(doc, enabled)
 
 
 # ── Literal-path routes FIRST ────────────────────────────────────────────────
@@ -73,4 +90,4 @@ async def toggle_alert(
     doc = await alert_repo.toggle(user["sub"], alert_id, body.enabled)
     if doc is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
-    return AlertOut(**doc)
+    return _out(doc, await store_state.enabled_store_ids())

@@ -38,7 +38,7 @@ def tesco_switch_middleware():
     return middleware
 
 
-def _resolve_stores(stores: str) -> list:
+def resolve_stores(stores: str) -> list:
     try:
         return registry.resolve(stores)
     except UnknownStore as exc:
@@ -69,7 +69,7 @@ def search(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
 ):
-    store_ids = _resolve_stores(stores)
+    store_ids = resolve_stores(stores)
     try:
         return queries.search(store_ids, q.strip(), skip, limit)
     except queries.WindowTooLarge as exc:
@@ -84,7 +84,7 @@ def browse(
     sort_by: str = Query(default="name", pattern="^(" + "|".join(SORT_FIELDS) + ")$"),
     sort_dir: str = Query(default="asc", pattern="^(asc|desc)$"),
 ):
-    store_ids = _resolve_stores(stores)
+    store_ids = resolve_stores(stores)
     try:
         return queries.browse(store_ids, skip, limit, sort_by, sort_dir)
     except queries.WindowTooLarge as exc:
@@ -109,7 +109,7 @@ def get_offer_history(ref: str):
 
 @router.get("/groups/{group_id}")
 def get_group(group_id: str, stores: str = Query(default="")):
-    row = queries.get_group(group_id, _resolve_stores(stores))
+    row = queries.get_group(group_id, resolve_stores(stores))
     if row is None:
         raise HTTPException(404, "product not found")
     return row
@@ -117,7 +117,7 @@ def get_group(group_id: str, stores: str = Query(default="")):
 
 @router.get("/groups/{group_id}/history")
 def get_group_history(group_id: str, stores: str = Query(default="")):
-    history = queries.get_group_history(group_id, _resolve_stores(stores))
+    history = queries.get_group_history(group_id, resolve_stores(stores))
     if history is None:
         raise HTTPException(404, "product not found")
     return history
@@ -129,7 +129,7 @@ def get_group_history(group_id: str, stores: str = Query(default="")):
 def get_insights(stores: str = Query(default="")):
     """Per-store statistics (index, counts, tiers, channels, weekdays, volatility, inflation)."""
     by_store = {}
-    for store_id in _resolve_stores(stores):
+    for store_id in resolve_stores(stores):
         data = dict(insights.store_insights(store_id))
         data.pop("top_discounts", None)
         data.pop("price_drops", None)
@@ -139,7 +139,7 @@ def get_insights(stores: str = Query(default="")):
 
 def _merged_list(stores: str, field: str, sort_field: str, limit: int) -> dict:
     items = []
-    store_ids = _resolve_stores(stores)
+    store_ids = resolve_stores(stores)
     for store_id in store_ids:
         items.extend(dict(item, store=store_id) for item in insights.store_insights(store_id)[field])
     items.sort(key=lambda item: item[sort_field], reverse=True)
@@ -161,7 +161,8 @@ def get_price_drops(stores: str = Query(default=""), limit: int = Query(default=
 @router.get("/insights/compare")
 def get_comparison(stores: str = Query(default="")):
     """Stores compared on the products they all sell (linked by barcode)."""
-    store_ids = _resolve_stores(stores)
+    store_ids = resolve_stores(stores)
     if len(store_ids) < 2:
         raise HTTPException(400, "comparison needs at least two enabled stores")
     return insights.comparison(store_ids)
+

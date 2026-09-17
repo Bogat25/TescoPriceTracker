@@ -8,7 +8,10 @@ from fastapi import APIRouter, Header, HTTPException, status
 
 from models import TriggerPayload, TriggerResponse
 from services import alert_repo, evaluator, notifier, user_repo
+from stores.offers import parse_group_id
 import settings
+import store_state
+import targets
 
 
 logger = logging.getLogger(__name__)
@@ -47,17 +50,32 @@ async def trigger(
             processed=0, triggered=0, emailsSent=0, skipped=0, duplicate=True
         )
 
-    drop_map: dict[str, dict] = {
-        d.productId: {
+    drops: list[dict] = []
+    for d in payload.drops:
+        try:
+            ref, _ = targets.normalize(d.productId)
+        except targets.InvalidTarget:
+            logger.warning("Ignoring a price drop with an invalid product reference: %s", d.productId)
+            continue
+        store = targets.store_of(ref)
+        if store is None:
+            continue  # a drop always belongs to one store listing
+        drops.append({
+            "ref": ref,
+            "store": store,
+            "groupId": d.groupId if d.groupId and parse_group_id(d.groupId) else None,
             "newPrice": d.newPrice,
             "oldPrice": d.oldPrice,
             "productName": d.productName,
-        }
-        for d in payload.drops
-    }
+        })
 
-    candidate_alerts = await alert_repo.find_active_for_products(list(drop_map.keys()))
-    triggered = evaluator.evaluate(candidate_alerts, drop_map)
+    watched = [drop["ref"] for drop in drops] + [drop["groupId"] for drop in drops if drop["groupId"]]
+    candidate_alerts = await alert_repo.find_active_for_products(watched)
+    enabled_stores = await store_state.enabled_store_ids()
+    triggered = evaluator.evaluate(candidate_alerts, drops, enabled_stores)
+    names = await store_state.store_names()
+    for item in triggered:
+        item["storeName"] = names.get(item.get("store"), item.get("store"))
     by_user = evaluator.group_by_user(triggered)
 
     user_emails = await user_repo.emails_for(by_user.keys())

@@ -2,11 +2,12 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { catchError, of, forkJoin } from 'rxjs';
+import { catchError, of } from 'rxjs';
 import { AppConfigService } from '../services/app-config.service';
 import { PlatformStatsService, DiscountByWeekday } from '../services/platform-stats.service';
 import { AlertsService, PriceAlert } from '../services/alerts.service';
 import { ProductsService } from '../services/products.service';
+import { AlertProductsService, alertLink, alertTarget } from '../services/alert-products.service';
 import { AuthService } from '../services/auth.service';
 import { TranslationService } from '../services/translation.service';
 import { TranslatePipe } from '../shared/translate.pipe';
@@ -26,6 +27,7 @@ export class Home implements OnInit {
   private statsService = inject(PlatformStatsService);
   private alertsService = inject(AlertsService);
   private productsService = inject(ProductsService);
+  private alertProducts = inject(AlertProductsService);
   readonly auth = inject(AuthService);
   readonly tl   = inject(TranslationService);
 
@@ -44,8 +46,12 @@ export class Home implements OnInit {
   readonly alertProductNames = signal<Map<string, string>>(new Map());
   readonly enabledAlertCount = computed(() => this.recentAlerts().filter(a => a.enabled).length);
 
-  alertProductName(productId: string): string {
-    return this.alertProductNames().get(productId) ?? productId;
+  alertProductName(alert: PriceAlert): string {
+    return this.alertProductNames().get(alertTarget(alert)) ?? alert.productId;
+  }
+
+  alertLink(alert: PriceAlert): string[] {
+    return alertLink(alert);
   }
 
   ngOnInit(): void {
@@ -77,17 +83,10 @@ export class Home implements OnInit {
           this.recentAlerts.set(recent);
           this.alertsLoaded.set(true);
 
-          // Resolve unique product names
-          const ids = [...new Set(recent.map(a => a.productId))];
-          if (ids.length === 0) return;
-          const requests = ids.map(id =>
-            this.productsService.get(id).pipe(catchError(() => of(null)))
-          );
-          forkJoin(requests).subscribe(products => {
+          // Resolve product names
+          this.alertProducts.resolve(recent).subscribe((products) => {
             const names = new Map<string, string>();
-            products.forEach((p, i) => {
-              if (p?.name) names.set(ids[i], p.name);
-            });
+            products.forEach((p, target) => { if (p.name) names.set(target, p.name); });
             this.alertProductNames.set(names);
           });
         });

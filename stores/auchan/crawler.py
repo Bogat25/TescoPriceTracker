@@ -30,7 +30,40 @@ def configured_category_ids() -> tuple:
 
 
 def is_run_finished(state: Optional[dict]) -> bool:
-    return bool(state and state.get("completed"))
+    """Complete and published: prices saved, statistics rebuilt, alerts sent."""
+    return bool(state and state.get("completed") and state.get("alerts_notified_at"))
+
+
+def publish(state: dict, today, now: Callable[[], datetime]) -> dict:
+    """Rebuild statistics and send price-drop alerts once per day, resumably.
+
+    Prices are already saved when this runs, so a failure here only leaves the
+    publication for the next pass (the scheduler retries an unfinished day).
+    """
+    from stores import alerts_feed, insights  # imported here: both read every store adapter
+
+    if not state.get("stats_rebuilt_at"):
+        insights.rebuild_store(mapper.STORE_ID)
+        state["stats_rebuilt_at"] = now().isoformat()
+        repository.save_run(state)
+    if not state.get("alerts_notified_at"):
+        if not alerts_feed.notify(mapper.STORE_ID, today):
+            state["retryable"] = True
+            state["failure_reason"] = "price-drop alerts were not delivered"
+            repository.save_run(state)
+            logger.error(
+                "Auchan price-drop alerts were not delivered; the next pass retries them.",
+                extra={"Action": "scrape.finalization_failed", "Category": "job", "Store": mapper.STORE_ID},
+            )
+            return state
+        state["alerts_notified_at"] = now().isoformat()
+        state.pop("failure_reason", None)
+        repository.save_run(state)
+        logger.info(
+            "Statistics and price-drop alerts published for Auchan %s.", state["date"],
+            extra={"Action": "scrape.published", "Category": "job", "Store": mapper.STORE_ID},
+        )
+    return state
 
 
 def _new_state(date: str, category_ids, now: datetime) -> dict:
@@ -87,6 +120,8 @@ def run_crawl(
     state = repository.load_run(today)
     if is_run_finished(state):
         return state
+    if state and state.get("completed"):
+        return publish(state, now().date(), now)
     if state is None:
         state = _new_state(today, category_ids, now())
     else:
@@ -152,8 +187,7 @@ def run_crawl(
         extra={"Action": "scrape.completed", "Category": "job", "Store": mapper.STORE_ID,
                "SavedCount": state["saved_count"], "SkippedCount": state["skipped_count"]},
     )
-    from stores import insights  # imported here: insights reads every store adapter
-    insights.rebuild_store(mapper.STORE_ID)
+    publish(state, now().date(), now)
     fetch_missing_details(client, DETAILS_PER_RUN)
     return state
 

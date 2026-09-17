@@ -25,6 +25,7 @@ export const alertsAuthInterceptor: HttpInterceptorFn = (request, next) => {
   const requiresIdentity =
     request.url.includes('/api/alerts') ||
     request.url.includes('/recommendations/personalized') ||
+    request.url.includes('/recommended/personalized') ||
     request.url.includes('/recommendations/debug');
   if (!requiresIdentity) {
     return next(request);

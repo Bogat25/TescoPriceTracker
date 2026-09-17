@@ -28,6 +28,17 @@ from models import PriceDrop, TriggerPayload  # noqa: E402
 from routers import internal  # noqa: E402
 
 
+def _stub_store_state(monkeypatch):
+    async def enabled_store_ids():
+        return {"tesco", "auchan"}
+
+    async def store_names():
+        return {"tesco": "Tesco", "auchan": "Auchan"}
+
+    monkeypatch.setattr(internal.store_state, "enabled_store_ids", enabled_store_ids)
+    monkeypatch.setattr(internal.store_state, "store_names", store_names)
+
+
 def test_users_sharing_an_email_receive_one_merged_digest(monkeypatch):
     captured = {}
 
@@ -45,6 +56,7 @@ def test_users_sharing_an_email_receive_one_merged_digest(monkeypatch):
         return len(digests)
 
     monkeypatch.setattr(internal.settings, "INTERNAL_TRIGGER_TOKEN", "secret")
+    _stub_store_state(monkeypatch)
     monkeypatch.setattr(internal.alert_repo, "find_active_for_products", find_active, raising=False)
     monkeypatch.setattr(internal.alert_repo, "get_email_preference", enabled, raising=False)
     monkeypatch.setattr(internal.user_repo, "emails_for", emails_for, raising=False)
@@ -105,6 +117,7 @@ def test_completed_run_key_does_not_send_digests_twice(monkeypatch):
         return len(digests)
 
     monkeypatch.setattr(internal.settings, "INTERNAL_TRIGGER_TOKEN", "secret")
+    _stub_store_state(monkeypatch)
     monkeypatch.setattr(internal.alert_repo, "find_active_for_products", find_active, raising=False)
     monkeypatch.setattr(internal.alert_repo, "get_email_preference", enabled, raising=False)
     monkeypatch.setattr(internal.alert_repo, "is_trigger_run_completed", is_completed, raising=False)

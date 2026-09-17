@@ -155,3 +155,22 @@ def test_details_fetch_is_bounded_and_best_effort(monkeypatch):
     assert saved == {"1": {"description": "Leírás"}}
     assert failed == {"2": "no variant id"}
     assert crawler.fetch_missing_details(Client(), limit=0) == {"fetched": 0, "failed": 0}
+
+
+def test_completed_day_resends_unsent_alerts_without_crawling(monkeypatch, caplog):
+    from stores import alerts_feed
+
+    client = FakeClient({})
+    repo = FakeRepository({"date": "2026-09-17", "completed": True, "stats_rebuilt_at": "x", "categories": {}})
+    repo.install(monkeypatch)
+    results = iter([False, True])
+    monkeypatch.setattr(alerts_feed, "notify", lambda store, day: next(results))
+
+    first = crawler.run_crawl(client=client, category_ids=(1,), now=lambda: NOW)
+    assert not crawler.is_run_finished(first)
+    assert len(events(caplog, "scrape.finalization_failed")) == 1
+
+    second = crawler.run_crawl(client=client, category_ids=(1,), now=lambda: NOW)
+    assert crawler.is_run_finished(second)
+    assert client.requested == []
+    assert len(events(caplog, "scrape.published")) == 1

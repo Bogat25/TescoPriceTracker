@@ -296,6 +296,8 @@ services:
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
       AUCHAN_SCHEDULER_CRON: ${AUCHAN_SCHEDULER_CRON:-30 6 * * *}
+      ALERT_SERVICE_TRIGGER_URL: ${ALERT_SERVICE_TRIGGER_URL:-http://alert-service:8080/internal/trigger}
+      INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:

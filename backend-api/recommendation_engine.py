@@ -188,17 +188,55 @@ def get_cold_start_recommendations(
 # ── Alert & Category Helpers ──────────────────────────────────────────────────
 
 def get_user_alert_details(user_id: str) -> list[dict]:
-    """Return [{productId, createdAt}] for all enabled alerts of user_id."""
+    """Return [{productId, target, createdAt}] for all enabled alerts of user_id."""
     try:
         alerts_coll = _get_alerts_db()["alerts"]
         docs = list(alerts_coll.find(
             {"userId": user_id, "enabled": True},
-            {"productId": 1, "createdAt": 1, "_id": 0},
+            {"productId": 1, "target": 1, "createdAt": 1, "_id": 0},
         ))
         return docs
     except Exception as e:
         logger.error(f"Failed to fetch alert details for {user_id}: {e}")
         return []
+
+
+def resolve_alert_products(alert_details: list[dict], products_collection, auchan_products=None) -> list[dict]:
+    """Map alert targets to the Tesco products the vectors are keyed by.
+
+    Alerts watch a Tesco listing (``tesco:{tpnc}``, or a bare tpnc on alerts
+    stored before targets existed), another store's listing (``auchan:{id}``)
+    or a barcode group (``g:{gtin}``). Only Tesco products have vectors, so the
+    others count through the Tesco product with the same barcode, if any.
+    """
+    resolved: list[dict] = []
+    pending: list[tuple[dict, str]] = []
+    for alert in alert_details:
+        target = str(alert.get("target") or alert.get("productId") or "")
+        if target.startswith("g:"):
+            pending.append((alert, target[2:]))
+        elif target.startswith("tesco:"):
+            resolved.append(dict(alert, productId=target[len("tesco:"):]))
+        elif target.startswith("auchan:"):
+            if auchan_products is None:
+                from stores.auchan import repository as auchan_repository
+                auchan_products = auchan_repository.products()
+            doc = auchan_products.find_one({"_id": target[len("auchan:"):]}, {"gtin_norm": 1})
+            if doc and doc.get("gtin_norm"):
+                pending.append((alert, doc["gtin_norm"]))
+        elif target and ":" not in target:
+            resolved.append(dict(alert, productId=target))
+    if pending:
+        tesco_by_gtin: dict[str, str] = {}
+        cursor = products_collection.find(
+            {"gtin_norm": {"$in": sorted({gtin for _, gtin in pending})}}, {"_id": 1, "gtin_norm": 1}
+        )
+        for doc in cursor:
+            tesco_by_gtin.setdefault(doc["gtin_norm"], str(doc["_id"]))
+        for alert, gtin in pending:
+            if gtin in tesco_by_gtin:
+                resolved.append(dict(alert, productId=tesco_by_gtin[gtin]))
+    return resolved
 
 
 def resolve_product_categories(product_ids: list[str]) -> dict[str, str]:
@@ -493,7 +531,7 @@ def get_recommendations(
     try:
         # Step 1 — alert details
         logger.info("recommendations: user_id=%r fetching alerts", user_id)
-        alert_details = get_user_alert_details(user_id)
+        alert_details = resolve_alert_products(get_user_alert_details(user_id), products_collection)
         logger.info("recommendations: user_id=%r found %d alerts", user_id, len(alert_details))
         if not alert_details:
             recs = get_cold_start_recommendations(products_collection, limit=limit)

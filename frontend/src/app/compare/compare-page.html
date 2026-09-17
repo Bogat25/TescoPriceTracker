@@ -93,6 +93,8 @@
       <p class="cp-note">{{ 'compare.note.loyalty' | translate }}</p>
     </section>
 
+    <app-store-alert-form [target]="alertTarget()" [offers]="r.offers"/>
+
     <section class="cp-card">
       <div class="cp-chart-head">
         <h2 class="cp-h2">{{ 'compare.history.title' | translate }}</h2>

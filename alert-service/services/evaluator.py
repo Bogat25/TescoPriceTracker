@@ -1,5 +1,6 @@
 """In-memory evaluation of price drops against active alerts."""
 
+from collections import defaultdict
 from typing import Iterable, Optional
 
 
@@ -9,57 +10,69 @@ def _discount_pct(old: Optional[float], new: float) -> Optional[float]:
     return max(0.0, (old - new) / old * 100.0)
 
 
+def _alert_matches(alert: dict, new_price: float) -> tuple[bool, Optional[float]]:
+    alert_type = alert["alertType"]
+    if alert_type == "TARGET_PRICE":
+        target = alert.get("targetPrice")
+        if target is not None and new_price <= target:
+            return True, _discount_pct(target, new_price)
+    elif alert_type == "PERCENTAGE_DROP":
+        base = alert.get("basePriceAtCreation")
+        threshold = alert.get("dropPercentage")
+        if base and threshold:
+            pct = _discount_pct(base, new_price) or 0.0
+            if pct >= threshold:
+                return True, pct
+    return False, None
+
+
 def evaluate(
     alerts: Iterable[dict],
-    drop_map: dict[str, dict],
+    drops: Iterable[dict],
+    enabled_stores: Optional[set] = None,
 ) -> list[dict]:
-    """Return triggered alerts enriched with the originating drop info.
+    """Return triggered alerts enriched with the originating drop.
 
-    ``drop_map`` is keyed by productId and carries ``newPrice`` and optionally
-    ``oldPrice`` and ``productName`` (forwarded from the scraper).
+    Each drop has ``ref`` (offer reference), ``store``, optional ``groupId``,
+    ``newPrice`` and optionally ``oldPrice`` and ``productName``. An alert
+    watching an offer matches that offer's drop; an alert watching a group
+    matches a drop of any member offer. Only stores the alert watches and that
+    are enabled count, so one group alert can fire for two stores in one run.
     """
+    by_key: dict[str, list[dict]] = defaultdict(list)
+    for drop in drops:
+        by_key[drop["ref"]].append(drop)
+        if drop.get("groupId"):
+            by_key[drop["groupId"]].append(drop)
+
     triggered: list[dict] = []
     for alert in alerts:
-        drop = drop_map.get(alert["productId"])
-        if drop is None:
-            continue
-
-        new_price = drop["newPrice"]
-        alert_type = alert["alertType"]
-        matched = False
-        ratio: Optional[float] = None
-
-        if alert_type == "TARGET_PRICE":
-            target = alert.get("targetPrice")
-            if target is not None and new_price <= target:
-                matched = True
-                ratio = _discount_pct(target, new_price)
-        elif alert_type == "PERCENTAGE_DROP":
-            base = alert.get("basePriceAtCreation")
-            threshold = alert.get("dropPercentage")
-            if base and threshold:
-                pct = _discount_pct(base, new_price) or 0.0
-                if pct >= threshold:
-                    matched = True
-                    ratio = pct
-
-        if not matched:
-            continue
-
-        old_price = drop.get("oldPrice")
-        triggered.append(
-            {
-                "userId": alert["userId"],
-                "productId": alert["productId"],
-                "productName": drop.get("productName"),
-                "newPrice": new_price,
-                "oldPrice": old_price,
-                "alertType": alert_type,
-                # Sort key: prefer the actual market drop (old → new) when we know
-                # the previous price; fall back to the alert's own delta otherwise.
-                "discountPct": _discount_pct(old_price, new_price) or ratio or 0.0,
-            }
-        )
+        target = alert.get("target") or f"tesco:{alert['productId']}"
+        stores = alert.get("stores") or ["tesco"]
+        for drop in by_key.get(target, []):
+            if drop["store"] not in stores:
+                continue
+            if enabled_stores is not None and drop["store"] not in enabled_stores:
+                continue
+            matched, ratio = _alert_matches(alert, drop["newPrice"])
+            if not matched:
+                continue
+            old_price = drop.get("oldPrice")
+            triggered.append(
+                {
+                    "userId": alert["userId"],
+                    "productId": drop["ref"],
+                    "target": target,
+                    "store": drop["store"],
+                    "productName": drop.get("productName"),
+                    "newPrice": drop["newPrice"],
+                    "oldPrice": old_price,
+                    "alertType": alert["alertType"],
+                    # Sort key: prefer the actual market drop (old → new) when we know
+                    # the previous price; fall back to the alert's own delta otherwise.
+                    "discountPct": _discount_pct(old_price, drop["newPrice"]) or ratio or 0.0,
+                }
+            )
     return triggered
 
 

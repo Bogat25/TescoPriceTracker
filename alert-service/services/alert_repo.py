@@ -28,6 +28,9 @@ def _to_out(doc: dict) -> dict:
         "id": str(doc["_id"]),
         "userId": doc["userId"],
         "productId": doc["productId"],
+        # Alerts saved before targets existed are Tesco offer alerts.
+        "target": doc.get("target") or f"tesco:{doc['productId']}",
+        "stores": doc.get("stores") or ["tesco"],
         "alertType": doc["alertType"],
         "targetPrice": doc.get("targetPrice"),
         "dropPercentage": doc.get("dropPercentage"),
@@ -38,9 +41,12 @@ def _to_out(doc: dict) -> dict:
 
 
 async def create(user_id: str, payload: dict) -> dict:
+    """``payload`` carries the normalised ``target``, ``productId`` and ``stores``."""
     doc = {
         "userId": user_id,
         "productId": payload["productId"],
+        "target": payload["target"],
+        "stores": list(payload["stores"]),
         "alertType": payload["alertType"],
         "enabled": True,
         "createdAt": datetime.now(timezone.utc),
@@ -109,16 +115,19 @@ async def set_email_preference(user_id: str, email_enabled: bool) -> bool:
     return email_enabled
 
 
-async def find_active_for_products(product_ids: list[str]) -> list[dict]:
-    """Fan out the {productId: $in chunks} queries in parallel."""
-    if not product_ids:
+async def find_active_for_products(targets: list[str]) -> list[dict]:
+    """Enabled alerts watching any of ``targets`` (offer references or groups).
+
+    Fans out the ``{target: $in chunk}`` queries in parallel.
+    """
+    if not targets:
         return []
-    unique_ids = list({pid for pid in product_ids if pid})
+    unique_ids = list({target for target in targets if target})
     chunks = list(_chunks(unique_ids, settings.TRIGGER_CHUNK_SIZE))
 
     async def _query(chunk: list[str]) -> list[dict]:
         cursor = _coll().find(
-            {"productId": {"$in": chunk}, "enabled": True},
+            {"target": {"$in": chunk}, "enabled": True},
         )
         return [d async for d in cursor]
 
