@@ -111,11 +111,25 @@ export class Search implements OnInit {
   private _loadRecommendations(): void {
     this.loadingRecs.set(true);
 
-    // Wait for auth to settle (checkSession replays cached result immediately
-    // if already done, or waits for the in-flight /userinfo call to finish).
-    this.auth.checkSession().pipe(
-      switchMap(() => this.stores.load()),
-      switchMap(() => this.catalog.recommended(this.stores.storesParam(), !!this.auth.userId())),
+    // Cold-start recommendations are public and should never be held hostage by
+    // session/token state. Render them first, then replace them with the signed-in
+    // user's picks when those are available. If personalization fails, keep the
+    // already-rendered cold-start results instead of leaving the page blank.
+    this.stores.load().pipe(
+      switchMap(() => this.catalog.recommended(this.stores.storesParam(), false)),
+      switchMap((coldStart) => {
+        this.recommendations.set(coldStart.results ?? []);
+        this.recommendationType.set(coldStart.type);
+        this.loadingRecs.set(false);
+
+        return this.auth.checkSession().pipe(
+          switchMap(() => this.auth.userId()
+            ? this.catalog.recommended(this.stores.storesParam(), true)
+                .pipe(catchError(() => of(coldStart)))
+            : of(coldStart)),
+          catchError(() => of(coldStart)),
+        );
+      }),
     ).subscribe({
       next: (res) => {
         this.recommendations.set(res.results ?? []);
