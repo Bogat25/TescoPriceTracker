@@ -1,8 +1,9 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–5 done and deployed (2026-09-17). Phase 6 implemented
-(2026-09-17).** The store-aware frontend comes before alerts
-so users see Auchan sooner. Background: [store-spike.md](store-spike.md).
+Status: **Phases 0–6 done and deployed (2026-09-17). Phases 7–8 implemented
+(2026-09-17), waiting for a push and the MongoDB account secrets.**
+Background: [store-spike.md](store-spike.md). Security model:
+[security.md](security.md). Search: [semantic-search.md](semantic-search.md).
 
 This plan turns the Tesco Price Tracker into a **store-neutral** price tracker.
 Tesco and Auchan are equal stores, and each can be switched off without a
@@ -22,17 +23,17 @@ its own.
 | 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | ✅ Done |
 | 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | ✅ Done |
 | 5 | Store-aware alerts and recommendations | ✅ Done |
-| 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | ✅ Implemented |
-| 7 | Neutral name, hostname and routes; ecosystem renames | |
-| 8 | Security hardening | |
+| 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | ✅ Done |
+| 7 | Neutral name and routes | ✅ Implemented |
+| 8 | Security hardening | ✅ Implemented |
 | 9 | Tests (cross-cutting) and documentation | |
 
-**Auchan card prices (open, decision D3):** anonymous responses contain the
+**Auchan card prices (decided, D3 = accept and label):** anonymous responses contain the
 card unit price only for products flagged with a card offer (~380), and those
 prices match GVH Árfigyelő. Árfigyelő also shows card prices (mostly a flat
 30 % off) for products with no anonymous card data, most likely the ~1,250
 card offers listed in category 14288, which is empty for anonymous visitors.
-The logged-in reader is not built; see §2.2 D3.
+The logged-in reader is not built; the comparison page says so. See §2.1.
 
 ---
 
@@ -44,7 +45,7 @@ The logged-in reader is not built; see §2.2 D3.
 |---|---|
 | Second store | **Auchan** (auchan.hu online shop). Penny, Lidl, SPAR, Kifli.hu rejected; see store-spike.md §7 |
 | Neutrality | No store is special. Tesco and Auchan are both registry entries and can each be disabled for users |
-| Naming | **New neutral site name, hostname and API route.** `/api/tesco/*` and the current hostnames stay as working aliases |
+| Naming | **Price Tracker** (D1, 2026-09-17). The hostname `price-tracker.gavaller.com` was already store-neutral and stays; the API route becomes `/api/prices/*` with `/api/tesco/*` kept as a working alias |
 | Default view | **One product row with a price per enabled store.** Barcode-linked products appear once; unlinked and own-brand products appear as single-store rows |
 | Alerts | **The user picks stores per alert** (default: all enabled). Fires when any selected store meets the condition. Alerts on disabled stores are paused, not deleted |
 | Order | Stores first, then search. Semantic search is built store-aware from the start. Frontend before alerts (revised 2026-09-17) |
@@ -52,13 +53,12 @@ The logged-in reader is not built; see §2.2 D3.
 | Loyalty prices | A `loyalty` price channel for every store. Tesco: Clubcard price. Auchan: card price derived from the anonymous card unit price (flagged offers only; see D3) |
 | Store switches | Changed with `python -m stores.admin` in the `api` container; no HTTP endpoint, because the gateway forwards every `/api/v1/*` path |
 | Git | Commit directly on each repository's default branch; the owner's push releases |
+| Auchan card prices | **(a) Accept partial coverage and label it** (D3, 2026-09-17). The comparison page already says card prices are known for part of Auchan's offers. The logged-in reader is not built: it would need the burner account's credentials in the stack, Auchan's terms are not clearly permissive, and card prices may depend on the account's loyalty level, so the data would be one account's view rather than everyone's |
 
 ### 2.2 Open
 
-| # | Question | Needed before |
-|---|---|---|
-| D1 | Neutral site name, public hostname, API route prefix (proposal: `/api/prices/*`) | Phase 7 (UI text can stay neutral earlier) |
-| D3 | Auchan card prices beyond the flagged offers: (a) accept partial coverage and label it, (b) take card prices for basic products from GVH Árfigyelő daily, or (c) build the logged-in reader (account terms to check first; prices may depend on the account's loyalty level) | Before comparing "best price" publicly |
+None. D1 (name and routes) and D2 (host CPU) and D3 (Auchan card prices) were
+all decided on 2026-09-17; see §2.1.
 
 ---
 
@@ -332,41 +332,71 @@ cross-store personal recommendations (need a category mapping, Phase 9).
 
 ---
 
-## 9. Phase 7: neutral name, routes and ecosystem
+## 9. Phase 7: neutral name and routes (implemented 2026-09-17)
 
-1. Apply D1: site name, titles, SEO metadata, footer, privacy policy,
-   manifest, translations; no store named in site-wide text.
-2. Store-neutral product URLs (`/p/{group_id}`, `/o/{ref}`) with redirects.
+D1: the site is **Price Tracker**; the hostname stays, the API route becomes
+`/api/prices/*`.
 
-| Area | Repo | Change |
-|---|---|---|
-| Gateway routes | `Gavaller_websites_backend_ecosystem` | New `/api/{prefix}/*` → `api` `/api/v1/*`; keep `/api/tesco/*`; new hostname on the frontend route; keep old hostnames |
-| Hostname / tunnel | `DockerNetworkArchitecture` / Cloudflare | New public hostname |
-| Keycloak redirect URIs, CORS, auth-gateway return hosts | this repo, SecretManager | Add the new hostname |
-| SecretManager | `SecretManager` | Variables in both blocks when new ones appear; redeploy after image tag changes |
-| Grafana | `Observability` | Store-neutral folder and titles; store variable on product dashboards |
-| RefDataSync + ClickHouse dictionary | `Gavaller_websites_backend_ecosystem`, `ClickHouseInfra` | Product dimension keyed by `ref` with a `store` column; Tesco rows keep `tpnc` |
-| Browser extension | this repo | Stays a Tesco-site integration on legacy routes; opens the neutral site |
-| TescoDotnetPort | `TescoDotnetPort` | No change (uses `/api/tesco/`) |
+1. **Site name** in the navbar, sidebar, page titles, meta and JSON-LD, the
+   footer, the privacy policy and both translations. No store is named in
+   site-wide text; "Tesco" now appears only where it means the store (the
+   extension section, the data-source list, per-offer links).
+2. **`/api/prices/*`** added to the YARP gateway and to the frontend's nginx,
+   both rewriting to the API's `/api/v1/*`. `/api/tesco/*` keeps working for
+   the browser extension and bookmarks.
+3. **Frontend config**: `apiBaseUrl` (default `/api/prices`) replaces
+   `tescoApiBaseUrl`; the old runtime key is still read, so the deployed
+   `TESCO_API_BASE_URL` value keeps working until it is switched to
+   `/api/prices` through the controller.
+4. **Gateway log classification** now recognises both prefixes and names the
+   store-neutral endpoints (`row_search`, `row_browse`, `offer_view`,
+   `group_view`, `insights`, `recommended_*`, `store_list`), so the dashboards
+   stop filing them as generic requests.
+5. **Grafana**: dashboards and alert rules moved from the folder
+   "Tesco Price Tracker" to "Price Tracker".
+6. **API title**: "Price Tracker API".
+
+Not done, moved to Phase 9: the ClickHouse product dimension is still keyed by
+`tpnc`. Making it `ref` + `store` touches RefDataSync, the ClickHouse
+dictionary and two dashboards, and is independent of the rename. The Keycloak
+realm keeps its `tesco-tracker` name: renaming a realm invalidates every
+session and token for a cosmetic gain.
 
 ---
 
-## 10. Phase 8: security hardening
+## 10. Phase 8: security hardening (implemented 2026-09-17)
 
-1. Least-privilege MongoDB users per service; no root credentials in
-   application containers.
-2. CORS allowlists instead of `*` (`ALLOWED_ORIGINS`, `ALERTS_ALLOWED_ORIGINS`),
-   including the new hostname.
-3. Trust-boundary document: networks per service, which token protects which
-   endpoint, why internal HTTP is acceptable or where TLS is added.
-4. Auth realms: document the two-realm flow with a sequence diagram, or
-   consolidate.
-5. `mongo-express`: admin ingress only, strong basic-auth, or disabled in
-   production.
-6. Tesco scrape reliability against recurring `429` responses (pacing, thread
-   count); several complete days before the thesis presentation.
-7. Tesco metadata refresh (fills `deposit_amount` and other fields added after
-   a product's first fetch), paced so it does not add rate-limit pressure.
+Full write-up: [security.md](security.md).
+
+1. **Per-service MongoDB accounts.** `svc_api`, `svc_scraper` and `svc_alerts`
+   with rights on the databases they actually use, replacing the shared root
+   account. `mongo/init-users.js` runs on every deploy in the one-shot
+   `mongo-users` container and creates or updates them from Infisical
+   passwords. A service without its own password keeps working and logs
+   `mongo.root_credentials`, so a partial rollout is visible instead of broken.
+2. **CORS allowlists** (`cors_policy.py`): the site's hostnames plus browser
+   extension schemes, credentials only with a real allowlist, and a warning
+   when a wildcard is configured. Replaces `allow_origins=["*"]` in the API and
+   the alert service.
+3. **mongo-express is off by default**; it starts only with
+   `COMPOSE_PROFILES=admin-tools`, and stays tailnet-only with basic auth.
+4. **Tesco rate limiting**: an adaptive pacer keeps a floor between requests,
+   doubles it after every 429 (to a ceiling) and halves it back after a run of
+   successes (`graphql.pace_changed`). The existing `Retry-After` handling and
+   shared cooldown are unchanged; pacing is what keeps a pass from earning the
+   penalty in the first place.
+5. **Tesco metadata repair**: fields Tesco added after a product's first fetch
+   (deposit amount and the rest) used to stay missing forever, because later
+   days fetch prices only. Each pass now re-fetches a bounded number of
+   products whose stored metadata is older than 30 days, so the catalogue comes
+   round in a few weeks at no extra rate-limit risk.
+6. **Documents**: trust boundaries, which secret protects which endpoint, why
+   internal HTTP is acceptable, the two-realm login with a sequence diagram,
+   and the known gaps.
+
+Deployment order for the MongoDB accounts: push, rebuild the controller image
+(the registry is baked in), generate the three secrets, then reconcile the
+stack. Until the secrets exist the services stay on the previous credentials.
 
 ---
 
