@@ -297,10 +297,28 @@ E5 similarities fall in a narrow band: in the verification run,
 "gluténmentes reggeli" scored 0.856 against a gluten-free muesli and still
 0.817 against Coca-Cola. Without a threshold, pure semantic search returns the
 "least unrelated" products even for nonsense. `SEMANTIC_MIN_SCORE` drops weak
-matches. The value was calibrated with `scripts/search_eval.py --calibrate`
-against the live catalogue: the highest precision at which nonsense queries
-return (almost) nothing. See [search-eval.md](search-eval.md). Hybrid search is
-less sensitive to it: text matches rank first through RRF anyway.
+matches.
+
+Calibrated with `scripts/search_eval.py --calibrate` against the live
+catalogue (full table in [search-eval.md](search-eval.md)):
+
+| Threshold | Semantic P@10 | Results for 4 off-catalogue queries |
+|---|---|---|
+| 0.80 | 0.84 | 40 |
+| **0.82** | **0.82** | **24** |
+| 0.84 | 0.77 | 20 |
+| 0.86 | 0.57 | 1 |
+
+**0.82 is the deployed value**: it removes 40 % of the weak matches for two
+points of precision. Pushing to 0.86 does clear the noise, but costs a third of
+the real results, which is the wrong trade for a shop where a missing product
+is worse than an odd one at the bottom of the list.
+
+The remaining off-catalogue results are not random: "autógumi téli" returns
+"Téli Puncs" air freshener, "laptop töltő 65w" returns a 3D-pen refill — the
+model is matching a real word in the query. No single threshold separates those
+from genuine loose matches. Hybrid search is less sensitive to all of this,
+because text matches rank first through RRF anyway.
 
 ---
 
@@ -345,7 +363,7 @@ Catalogue: 22,708 Tesco + 15,036 Auchan products ≈ 37,700 texts.
 | `EMBEDDING_CPUS` / `EMBEDDING_MEMORY_LIMIT` | compose | 4 / 1536m | container limits |
 | `EMBEDDING_SERVICE_URL` | api, vectorizer | `http://embedding-service:8080` | |
 | `QDRANT_OFFERS_COLLECTION` | api, vectorizer | `offers` | |
-| `SEMANTIC_MIN_SCORE` | api | see §5 | similarity threshold |
+| `SEMANTIC_MIN_SCORE` | api | 0.82 | similarity threshold (§5) |
 | `VECTORIZE_INTERVAL_SECONDS` | vectorizer | 1800 | pass interval |
 | `VECTORIZE_BATCH_SIZE` | vectorizer | 64 | texts per embedding request |
 

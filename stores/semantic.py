@@ -26,7 +26,7 @@ VECTOR_SIZE = 384  # intfloat/multilingual-e5-small
 # Cosine similarity below this is not treated as a semantic match. E5 scores
 # sit in a narrow band (unrelated texts still score ~0.7); calibrated with
 # scripts/search_eval.py, see docs/semantic-search.md.
-MIN_SCORE = float(os.environ.get("SEMANTIC_MIN_SCORE", "0.8"))
+MIN_SCORE = float(os.environ.get("SEMANTIC_MIN_SCORE", "0.82"))
 
 _POINT_NAMESPACE = uuid.UUID("6f1c0e0a-3c1e-4d6b-9a57-7b0f6f3b2a10")
 PAYLOAD_INDEXES = ("store", "ref", "group_id", "category")
