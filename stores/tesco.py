@@ -92,9 +92,22 @@ def history_from_doc(doc: dict) -> list:
     return sorted(rows, key=lambda row: row["date"])
 
 
+def _text(value) -> Optional[str]:
+    if isinstance(value, list):
+        value = " ".join(str(part) for part in value if part)
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
 def get_offer(store_product_id: str) -> Optional[dict]:
-    doc = _collection().find_one({"_id": str(store_product_id)}, _OFFER_PROJECTION)
-    return offer_from_doc(doc) if doc else None
+    """One offer with its description and ingredients (list views leave them out)."""
+    projection = dict(_OFFER_PROJECTION, product_marketing=1, marketing=1, short_description=1, ingredients=1)
+    doc = _collection().find_one({"_id": str(store_product_id)}, projection)
+    if not doc:
+        return None
+    offer = offer_from_doc(doc)
+    offer["description"] = _text(doc.get("product_marketing")) or _text(doc.get("marketing")) or _text(doc.get("short_description"))
+    offer["ingredients"] = _text(doc.get("ingredients"))
+    return offer
 
 
 def get_history(store_product_id: str) -> Optional[list]:

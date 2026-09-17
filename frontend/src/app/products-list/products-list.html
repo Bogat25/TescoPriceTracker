@@ -1,192 +1,110 @@
 <div class="pl-page hex-slide-in">
 
-  <!-- Header row -->
   <div class="pl-header">
     <div>
       <h1 class="pl-title">{{ 'catalogue.title' | translate }}</h1>
       <p class="pl-subtitle">
-        @if (!loading()) {
-          @if (query().trim()) {
-            @if (backendSearching()) { Searching… }
-            @else { {{ searchTotal() | number }} result{{ searchTotal() === 1 ? '' : 's' }} }
-          } @else {
-            {{ filtered().length | number }} of {{ total() | number }} items
-          }
-        } @else { Loading… }
+        @if (loading()) {
+          {{ 'catalogue.loading' | translate }}
+        } @else {
+          {{ total() | number }} {{ 'catalogue.offers' | translate }}
+        }
+      </p>
+    </div>
+    <div class="pl-search-wrap">
       <svg class="pl-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
            stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input type="search" class="pl-search-input"
-             placeholder="Search by name, TPNC or category…"
+             [placeholder]="'catalogue.search.placeholder' | translate"
              [ngModel]="query()"
              (ngModelChange)="onQueryChange($event)"
              autocomplete="off"/>
     </div>
   </div>
 
+  <app-store-selector (changed)="reload()"/>
+
   @if (loading()) {
-    <div class="pl-loading">
-      <span class="loading loading-spinner loading-lg"></span>
-    </div>
+    <div class="pl-loading"><span class="loading loading-spinner loading-lg"></span></div>
   } @else if (error()) {
     <div class="pl-error-banner pl-scraper-notice">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/>
-        <line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-      <div>
-        <div class="pl-scraper-title">Data collection is in progress</div>
-        <div class="pl-scraper-sub">The product catalogue will appear here after the scraper completes its first run. This usually takes a few minutes.</div>
-      </div>
+      <div class="pl-scraper-title">{{ error() }}</div>
     </div>
-  } @else if (total() === 0) {
-    <div class="pl-error-banner pl-scraper-notice">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="12" y1="8" x2="12" y2="12"/>
-        <line x1="12" y1="16" x2="12.01" y2="16"/>
-      </svg>
-      <div>
-        <div class="pl-scraper-title">Waiting for the first scrape</div>
-        <div class="pl-scraper-sub">No products have been collected yet. The scraper is scheduled to run shortly. Please check back in a few minutes.</div>
-      </div>
-    </div>
-  } @else if (filtered().length === 0 && !backendSearching()) {
+  } @else if (rows().length === 0) {
     <div class="pl-empty">
-      <svg width="44" height="50" viewBox="0 0 44 50" style="opacity:.2;margin-bottom:12px">
-        <polygon points="22,0 44,12.5 44,37.5 22,50 0,37.5 0,12.5" fill="none" stroke="currentColor" stroke-width="2"/>
-      </svg>
-      <div class="pl-empty-title">No products found</div>
-      <p class="pl-empty-sub">Try a different search term.</p>
+      <div class="pl-empty-title">{{ 'catalogue.empty.title' | translate }}</div>
+      <p class="pl-empty-sub">{{ 'catalogue.empty.sub' | translate }}</p>
     </div>
   } @else {
-    <!-- ── Category filter ─────────────────────────── -->
-    @if (superDepartments().length) {
-      <div class="pl-cat-filter">
-        <!-- Layer 1: super-departments -->
-        <div class="pl-cat-row" role="group" aria-label="Filter by category">
-          <button class="pl-cat-pill" [class.active]="selectedSuper() === null"
-                  type="button" (click)="selectSuper(null)">All</button>
-          @for (s of superDepartments(); track s) {
-            <button class="pl-cat-pill" [class.active]="selectedSuper() === s"
-                    type="button" (click)="selectSuper(s)">{{ s }}</button>
-          }
-        </div>
-        <!-- Layer 2: departments within selected super (only shown when a super is selected) -->
-        @if (selectedSuper() && departments().length > 1) {
-          <div class="pl-cat-row pl-cat-sub" role="group" [attr.aria-label]="'Filter within ' + selectedSuper()">
-            <button class="pl-cat-pill pl-cat-pill-sub" [class.active]="selectedDept() === null"
-                    type="button" (click)="selectDept(null)">All {{ selectedSuper() }}</button>
-            @for (d of departments(); track d) {
-              <button class="pl-cat-pill pl-cat-pill-sub" [class.active]="selectedDept() === d"
-                      type="button" (click)="selectDept(d)">{{ d }}</button>
-            }
-          </div>
-        }
-      </div>
+    <app-sec-label [text]="searching() ? ('catalogue.results' | translate) : ('catalogue.all' | translate)" accent="#2563eb"/>
+    @if (searching()) {
+      <p class="pl-subtitle">{{ 'catalogue.sort.relevance' | translate }}</p>
     }
-
-    <app-sec-label text="All tracked items" accent="#00539F"/>
     <div class="pl-table-wrap">
       <table class="pl-table">
         <thead>
           <tr>
             <th class="pl-th pl-th-icon"></th>
-            <th class="pl-th pl-th-sortable" (click)="setSort('name')">
-              {{ 'catalogue.col.product' | translate }} <span class="pl-sort-icon">{{ sortIcon('name') }}</span>
+            <th class="pl-th" [class.pl-th-sortable]="!searching()" (click)="setSort('name')">
+              {{ 'catalogue.col.product' | translate }}
+              @if (!searching()) { <span class="pl-sort-icon">{{ sortIcon('name') }}</span> }
             </th>
-            <th class="pl-th pl-th-cat pl-th-sortable" (click)="setSort('category')">
-              {{ 'catalogue.col.category' | translate }} <span class="pl-sort-icon">{{ sortIcon('category') }}</span>
+            <th class="pl-th" [class.pl-th-sortable]="!searching()" (click)="setSort('price')">
+              {{ 'catalogue.col.price' | translate }}
+              @if (!searching()) { <span class="pl-sort-icon">{{ sortIcon('price') }}</span> }
             </th>
-            <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('price')">
-              {{ 'catalogue.col.price' | translate }} <span class="pl-sort-icon">{{ sortIcon('price') }}</span>
+            <th class="pl-th pl-th-right pl-th-discount" [class.pl-th-sortable]="!searching()" (click)="setSort('discount')">
+              {{ 'catalogue.col.discount' | translate }}
+              @if (!searching()) { <span class="pl-sort-icon">{{ sortIcon('discount') }}</span> }
             </th>
-            <th class="pl-th pl-th-sortable pl-th-right pl-th-discount" (click)="setSort('discount')">
-              Discount <span class="pl-sort-icon">{{ sortIcon('discount') }}</span>
-            </th>
-            <th class="pl-th pl-th-sortable pl-th-right" (click)="setSort('rating')">
-              {{ 'catalogue.col.rating' | translate }} <span class="pl-sort-icon">{{ sortIcon('rating') }}</span>
-            </th>
-            <th class="pl-th pl-th-right">{{ 'catalogue.col.reviews' | translate }}</th>
             <th class="pl-th"></th>
           </tr>
         </thead>
         <tbody>
-          @for (p of filtered(); track p.tpnc; let i = $index) {
+          @for (row of rows(); track $index; let i = $index) {
             <tr class="pl-row" [class.pl-row-even]="i % 2 === 0">
-              <!-- Icon -->
               <td class="pl-td pl-td-icon">
-                @if (p.imageUrl) {
-                  <a [routerLink]="['/products', p.tpnc]">
-                    <img [src]="p.imageUrl" [alt]="p.name || p.tpnc" class="pl-thumb" loading="lazy" referrerpolicy="no-referrer"/>
-                  </a>
-                } @else {
-                  <a [routerLink]="['/products', p.tpnc]">
-                    <app-hex-icon [letter]="(p.name || p.tpnc).charAt(0).toUpperCase()" [accent]="'#00539F'" [size]="28"/>
-                  </a>
-                }
+                <a [routerLink]="link(row)">
+                  @if (row.image_url) {
+                    <img [src]="row.image_url" [alt]="row.name || ''" class="pl-thumb" loading="lazy" referrerpolicy="no-referrer"/>
+                  }
+                </a>
               </td>
-
-              <!-- Name -->
               <td class="pl-td">
-                <a [routerLink]="['/products', p.tpnc]" class="pl-name">{{ p.name || p.tpnc }}</a>
-                @if (p.packSize || p.unit) {
-                  <div class="pl-meta">
-                    {{ p.packSize || '' }}{{ p.packSize && p.unit ? ' · ' : '' }}{{ p.unit || '' }}
+                <a [routerLink]="link(row)" class="pl-name">{{ row.name }}</a>
+                @if (row.brand) { <div class="pl-meta">{{ row.brand }}</div> }
+              </td>
+              <td class="pl-td">
+                @for (offer of row.offers; track offer.ref) {
+                  <div class="pl-store-price" [class.pl-store-cheapest]="isCheapest(row, offer)">
+                    <span class="pl-store-name" [style.color]="accent(offer.store)">{{ stores.name(offer.store) }}</span>
+                    @if (offer.effective_price !== null) {
+                      <span class="pl-price font-mono-prices"
+                            [class.pl-price--discount]="kind(offer) === 'promo'"
+                            [class.pl-price--clubcard]="kind(offer) === 'loyalty'">
+                        {{ offer.effective_price | number:'1.0-0' }} Ft
+                      </span>
+                      @if (kind(offer) !== 'regular' && offer.prices.regular !== null) {
+                        <span class="pl-price--original font-mono-prices">{{ offer.prices.regular | number:'1.0-0' }} Ft</span>
+                      }
+                    } @else {
+                      <span class="pl-no-price">—</span>
+                    }
+                    @if (offer.prices.unit_price !== null && offer.prices.unit) {
+                      <span class="pl-unit-price">{{ offer.prices.unit_price | number:'1.0-0' }} Ft/{{ offer.prices.unit }}</span>
+                    }
                   </div>
                 }
-                <div class="pl-tpnc">{{ p.tpnc }}</div>
               </td>
-
-              <!-- Category -->
-              <td class="pl-td pl-td-cat">
-                <button type="button" class="pl-category-badge pl-category-btn" (click)="filterByCategory(p)">{{ p.category || '—' }}</button>
-              </td>
-
-              <!-- Price -->
-              <td class="pl-td pl-td-right">
-                @if (p.currentPrice !== undefined) {
-                  @if (p.discountPrice !== undefined) {
-                    <span class="pl-price pl-price--discount font-mono-prices">{{ p.discountPrice | number:'1.2-2' }} Ft</span>
-                    <span class="pl-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                  } @else if (p.clubcardPrice !== undefined) {
-                    <span class="pl-price pl-price--clubcard font-mono-prices">{{ p.clubcardPrice | number:'1.2-2' }} Ft</span>
-                    <span class="pl-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                  } @else {
-                    <span class="pl-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                  }
-                  @if (p.unitPrice !== undefined && p.unitMeasure) {
-                    <div class="pl-unit-price">{{ p.unitPrice | number:'1.0-0' }} Ft/{{ p.unitMeasure }}</div>
-                  }
-                } @else {
-                  <span class="pl-no-price">—</span>
-                }
-              </td>
-
-              <!-- Discount % -->
               <td class="pl-td pl-td-right pl-td-discount">
-                @if (p.discountPrice !== undefined && p.currentPrice !== undefined && p.currentPrice > 0) {
-                  <span class="pl-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
+                @if (bestDiscount(row); as pct) {
+                  <span class="pl-discount-pct">-{{ pct }}%</span>
                 } @else { <span class="pl-no-price">—</span> }
               </td>
-              <td class="pl-td pl-td-right">
-                @if (p.rating !== undefined) {
-                  <span class="pl-rating">★ {{ p.rating | number:'1.1-1' }}</span>
-                } @else { — }
-              </td>
-
-              <!-- Reviews -->
-              <td class="pl-td pl-td-right pl-reviews">
-                {{ p.reviewCount !== undefined ? (p.reviewCount | number) : '—' }}
-              </td>
-
-              <!-- Detail link -->
               <td class="pl-td pl-td-action">
-                <a [routerLink]="['/products', p.tpnc]" class="pl-detail-btn">View →</a>
+                <a [routerLink]="link(row)" class="pl-detail-btn">{{ 'catalogue.btn.view' | translate }}</a>
               </td>
             </tr>
           }
@@ -194,23 +112,12 @@
       </table>
     </div>
 
-    <!-- Load more / all loaded -->
-    @if (hasMore() && !query()) {
+    @if (hasMore()) {
       <div class="pl-load-more">
-        <button class="pl-load-more-btn" (click)="loadMore()" [disabled]="loadingMore()">
-          @if (loadingMore()) {
-            <span class="loading loading-spinner loading-sm"></span> Loading…
-          } @else {
-            Load more ({{ total() - allProducts().length | number }} remaining)
-          }
+        <button type="button" class="pl-load-more-btn" [disabled]="loadingMore()" (click)="loadMore()">
+          @if (loadingMore()) { <span class="loading loading-spinner loading-sm"></span> }
+          {{ 'catalogue.loadmore' | translate }}
         </button>
-      </div>
-    } @else if (allLoaded()) {
-      <div class="pl-all-loaded">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:.5">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        All {{ total() | number }} products loaded
       </div>
     }
   }

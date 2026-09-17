@@ -46,6 +46,10 @@ import {
 import { AuthService } from '../services/auth.service';
 import { AlertType, AlertsService, CreateAlertRequest } from '../services/alerts.service';
 import { SeoService } from '../services/seo.service';
+import { CatalogService, ProductRow } from '../services/catalog.service';
+import { StoresService } from '../services/stores.service';
+import { storeAccent } from '../shared/store-accent';
+import { RouterLink } from '@angular/router';
 
 Chart.register(
   LineController,
@@ -98,7 +102,7 @@ interface KpiAgg {
 
 @Component({
   selector: 'app-product-detail',
-  imports: [CommonModule, FormsModule, HexIcon, HexKpi, SecLabel, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, HexIcon, HexKpi, SecLabel, TranslatePipe],
   templateUrl: './product-detail.html',
   styleUrl: './product-detail.scss',
 })
@@ -121,6 +125,11 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   private alertsApi = inject(AlertsService);
   private cdr = inject(ChangeDetectorRef);
   private seo = inject(SeoService);
+  private catalog = inject(CatalogService);
+  readonly stores = inject(StoresService);
+
+  /** The same product in other stores (linked by barcode), when there is one. */
+  readonly storeRow = signal<ProductRow | null>(null);
   public auth = inject(AuthService);
 
   readonly tpnc = signal<string>('');
@@ -246,6 +255,7 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
   private load(tpnc: string): void {
     this.loading.set(true);
     this.error.set('');
+    this.loadStoreComparison(tpnc);
     combineLatest({
       product: this.products.get(tpnc),
       stats: this.products.stats(tpnc).pipe(catchError(() => of(null as ProductStats | null))),
@@ -293,6 +303,22 @@ export class ProductDetail implements AfterViewInit, OnDestroy {
         this.loading.set(false);
       },
     });
+  }
+
+  private loadStoreComparison(tpnc: string): void {
+    this.storeRow.set(null);
+    this.stores.load().pipe(
+      switchMap(() => this.catalog.offer(`tesco:${tpnc}`)),
+      switchMap((offer) => (offer.group_id ? this.catalog.group(offer.group_id, '') : of(null))),
+      catchError(() => of(null)),
+    ).subscribe((row) => {
+      this.storeRow.set(row && row.offers.length > 1 ? row : null);
+      this.cdr.detectChanges();
+    });
+  }
+
+  storeAccent(storeId: string): string {
+    return storeAccent(storeId);
   }
 
   private renderChart(raw: ProductResponse, range: 7 | 30 | 90): void {

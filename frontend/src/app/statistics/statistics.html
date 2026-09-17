@@ -18,6 +18,22 @@
     </div>
   </div>
 
+  <!-- Store selection: statistics are per store; the comparison uses every enabled store -->
+  @if (stores.showSelector()) {
+    <div class="st-store-tabs" role="tablist">
+      @for (store of stores.stores(); track store.id) {
+        <button type="button" class="st-store-tab" role="tab"
+                [class.active]="activeTab() === 'overview' && statsStore() === store.id"
+                [style.--accent]="storeAccent(store.id)"
+                (click)="selectStatsStore(store.id)">{{ store.name }}</button>
+      }
+      <button type="button" class="st-store-tab st-store-tab-compare" role="tab"
+              [class.active]="activeTab() === 'compare'" (click)="showComparison()">
+        {{ 'stats.compare.tab' | translate }}
+      </button>
+    </div>
+  }
+
   <!-- Tab navigation -->
   <div class="st-tabs">
     <button type="button" class="st-tab" [class.active]="activeTab() === 'overview'"  (click)="switchTab('overview')">
@@ -37,6 +53,81 @@
   <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
        TAB 1: PLATFORM OVERVIEW
   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+  @if (activeTab() === 'compare') {
+    @if (comparisonLoading()) {
+      <div class="st-loading"><span class="loading loading-spinner loading-lg"></span></div>
+    }
+    @if (comparisonError()) {
+      <div class="st-error-banner">{{ comparisonError() }}</div>
+    }
+    @if (comparison(); as cmp) {
+      <div class="st-card">
+        <app-sec-label [text]="'stats.compare.title' | translate"/>
+        <p class="st-card-sub">{{ 'stats.compare.sub' | translate }} ({{ cmp.linked_products | number }})</p>
+        <div class="st-compare-table">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                @for (id of cmp.stores; track id) {
+                  <th style="text-align:right" [style.color]="storeAccent(id)">{{ stores.name(id) }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{{ 'stats.compare.cheapest.regular' | translate }}</td>
+                @for (id of cmp.stores; track id) { <td class="font-mono-prices num">{{ cmp.cheapest_by_regular_price[id] | number }}</td> }
+              </tr>
+              <tr>
+                <td>{{ 'stats.compare.cheapest.best' | translate }}</td>
+                @for (id of cmp.stores; track id) { <td class="font-mono-prices num">{{ cmp.cheapest_by_best_price[id] | number }}</td> }
+              </tr>
+              <tr>
+                <td>{{ 'stats.compare.index' | translate }}</td>
+                @for (id of cmp.stores; track id) { <td class="font-mono-prices num">{{ cmp.price_index_vs_cheapest[id] | number:'1.1-1' }}</td> }
+              </tr>
+              @if (cmp.basket.length) {
+                <tr>
+                  <td>{{ 'stats.compare.basket' | translate }} ({{ cmp.basket[cmp.basket.length - 1].items | number }})</td>
+                  @for (id of cmp.stores; track id) { <td class="font-mono-prices num">{{ basketTotal(id) | number:'1.0-0' }} Ft</td> }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="st-card-sub">{{ 'stats.compare.ties' | translate }}: {{ cmp.ties.regular | number }} · {{ 'compare.note.loyalty' | translate }}</p>
+      </div>
+
+      <div class="st-card">
+        <app-sec-label [text]="'stats.compare.categories' | translate"/>
+        <p class="st-card-sub">{{ 'stats.compare.categories.sub' | translate }}</p>
+        <div class="st-compare-table">
+          <table>
+            <thead>
+              <tr>
+                <th>{{ 'catalogue.col.category' | translate }}</th>
+                <th style="text-align:right">{{ 'stats.compare.products' | translate }}</th>
+                @for (id of cmp.stores; track id) {
+                  <th style="text-align:right" [style.color]="storeAccent(id)">{{ stores.name(id) }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (cat of cmp.categories; track cat.category) {
+                <tr>
+                  <td>{{ cat.category }}</td>
+                  <td class="font-mono-prices num">{{ cat.products | number }}</td>
+                  @for (id of cmp.stores; track id) { <td class="font-mono-prices num">{{ cat.price_index_vs_cheapest[id] | number:'1.1-1' }}</td> }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+
   @if (activeTab() === 'overview') {
 
     @if (platformLoading()) {
@@ -72,7 +163,7 @@
         @if (categoryDiff(); as cd) {
           <app-hex-kpi
             [value]="cd.clubcard_vs_normal_pct !== null ? (cd.clubcard_vs_normal_pct | number:'1.1-1') + '%' : '—'"
-            label="Clubcard saving" accent="var(--hex2)"/>
+            [label]="'stats.kpi.loyalty' | translate" accent="var(--hex2)"/>
         }
       </div>
 
@@ -182,7 +273,7 @@
                 @for (drop of priceDropsToday().slice(0, 20); track drop.tpnc) {
                   <tr>
                     <td>
-                      <a [routerLink]="['/products', drop.tpnc]" class="st-product-link">
+                      <a [routerLink]="offerLink(drop.tpnc)" class="st-product-link">
                         {{ drop.name || drop.tpnc }}
                       </a>
                     </td>

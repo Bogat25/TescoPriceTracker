@@ -342,3 +342,22 @@
   .pd-main-grid { grid-template-columns: 1fr; }
   .pd-kpi-row { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── Same product in other stores ───────────────── */
+.pd-stores {
+  border: 1px solid var(--border-color);
+  background: var(--surface-card);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.pd-stores-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+.pd-stores-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); }
+.pd-stores-link { font-size: 13px; font-weight: 600; text-decoration: none; color: #2563eb; }
+.pd-stores-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.pd-stores-item {
+  display: flex; gap: 10px; align-items: baseline; padding: 6px 12px; border-radius: 10px;
+  border: 1px solid var(--border-color); font-size: 15px; font-weight: 700; color: var(--text-primary);
+  &.cheapest { background: var(--hover-bg); }
+}
+.pd-stores-name { font-size: 12px; font-weight: 700; }

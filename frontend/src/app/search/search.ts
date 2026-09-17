@@ -8,24 +8,31 @@ import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/
 import { of } from 'rxjs';
 import { ProductSummary, ProductsService } from '../services/products.service';
 import { AuthService } from '../services/auth.service';
+import { CatalogService, ProductRow, rowLink } from '../services/catalog.service';
+import { StoresService } from '../services/stores.service';
+import { StoreSelector } from '../shared/store-selector/store-selector';
+import { ProductRowCard } from '../shared/product-row-card/product-row-card';
+import { TranslatePipe } from '../shared/translate.pipe';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, StoreSelector, ProductRowCard, TranslatePipe],
   templateUrl: './search.html',
   styleUrl: './search.scss',
 })
 export class Search implements OnInit {
   private products = inject(ProductsService);
+  private catalog = inject(CatalogService);
+  readonly stores = inject(StoresService);
   private auth = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
 
   query = '';
-  readonly allResults   = signal<ProductSummary[]>([]);
+  readonly allResults   = signal<ProductRow[]>([]);
   readonly results      = computed(() => this.allResults());
   readonly totalResults = signal(0);
-  readonly suggestions  = signal<ProductSummary[]>([]);
+  readonly suggestions  = signal<ProductRow[]>([]);
   readonly loading      = signal(false);
   readonly suggesting   = signal(false);
   readonly error        = signal('');
@@ -40,7 +47,8 @@ export class Search implements OnInit {
   /** Pagination state */
   readonly pageSize    = signal(this._calcPageSize());
   readonly currentPage = signal(0);
-  readonly totalPages  = computed(() => Math.ceil(this.totalResults() / this.pageSize()));
+  // The API serves at most the first 1000 results of a query.
+  readonly totalPages  = computed(() => Math.min(Math.ceil(this.totalResults() / this.pageSize()), Math.floor(1000 / this.pageSize())));
   readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, i) => i));
 
   private _lastQuery = '';
@@ -73,7 +81,9 @@ export class Search implements OnInit {
             return of({ results: [], total: 0 });
           }
           this.suggesting.set(true);
-          return this.products.searchPaged(term, 0, 6).pipe(catchError(() => of({ results: [], total: 0 })));
+          return this.catalog
+            .search(term, this.stores.storesParam(), 0, 6)
+            .pipe(catchError(() => of({ results: [] as ProductRow[], total: 0 })));
         }),
       )
       .subscribe((res) => {
@@ -92,7 +102,8 @@ export class Search implements OnInit {
     if (q.trim()) {
       this.query = q;
       this._lastQuery = q;
-      this._doSearch(q, page);
+      // The remembered store selection is only known once the store list loaded.
+      this.stores.load().subscribe(() => this._doSearch(q, page));
     } else {
       // Load recommendations when user hasn't searched yet
       this._loadRecommendations();
@@ -133,10 +144,15 @@ export class Search implements OnInit {
     this.suggest$.next(value);
   }
 
-  pickSuggestion(p: ProductSummary): void {
+  pickSuggestion(row: ProductRow): void {
     this.showDropdown.set(false);
     this.suggestions.set([]);
-    this.router.navigate(['/products', p.tpnc]);
+    this.router.navigate(rowLink(row));
+  }
+
+  /** Store chips changed: repeat the current search for the new selection. */
+  onStoresChanged(): void {
+    if (this._lastQuery) this._doSearch(this._lastQuery, 0);
   }
 
   closeDropdown(): void {
@@ -175,7 +191,7 @@ export class Search implements OnInit {
     this.searched.set(true);
     const skip = page * this.pageSize();
     const limit = this.pageSize();
-    this.products.searchPaged(q, skip, limit).subscribe({
+    this.catalog.search(q, this.stores.storesParam(), skip, limit).subscribe({
       next: (response) => {
         this.allResults.set(response?.results ?? []);
         this.totalResults.set(response?.total ?? 0);
@@ -183,7 +199,7 @@ export class Search implements OnInit {
         this.loading.set(false);
       },
       error: (err) => {
-        this.error.set(err?.error?.error || 'Search failed.');
+        this.error.set(err?.error?.detail || 'Search failed.');
         this.loading.set(false);
       },
     });

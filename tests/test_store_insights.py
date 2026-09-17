@@ -55,7 +55,13 @@ def test_store_insights_single_pass(monkeypatch):
     assert thursday == {"weekday": "Thursday", "avg_pct_off": 25.0, "total_events": 1}
     assert data["inflation_30d"]["avg_30d_ago"] == 400.0
     assert data["inflation_30d"]["avg_today"] == 1250.0
-    assert data["inflation_30d"]["pct_change"] == pytest.approx(212.5)
+    # Only product 1 has a price on both days (400 -> 400): no change, although
+    # the plain averages over different product sets differ by 212.5 %.
+    assert data["inflation_30d"]["pct_change"] == 0.0
+    assert data["inflation_30d"]["paired_products"] == 1
+    # Channels compare each product's promo/card price with its own regular price.
+    assert data["price_channels"]["promo_vs_regular_pct"] == -25.0
+    assert data["price_channels"]["loyalty_vs_regular_pct"] == -12.5
 
 
 def test_empty_store_does_not_fail(monkeypatch):

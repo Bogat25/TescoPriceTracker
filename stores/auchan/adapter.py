@@ -13,8 +13,14 @@ _OFFER_PROJECTION = {"price_history": 0, "description": 0, "ingredients": 0}
 
 
 def get_offer(store_product_id: str) -> Optional[dict]:
-    doc = repository.products().find_one({"_id": str(store_product_id)}, _OFFER_PROJECTION)
-    return mapper.offer_from_doc(doc) if doc else None
+    """One offer with its description and ingredients (list views leave them out)."""
+    doc = repository.products().find_one({"_id": str(store_product_id)}, {"price_history": 0})
+    if not doc:
+        return None
+    offer = mapper.offer_from_doc(doc)
+    offer["description"] = doc.get("description")
+    offer["ingredients"] = doc.get("ingredients")
+    return offer
 
 
 def get_history(store_product_id: str) -> Optional[list]:

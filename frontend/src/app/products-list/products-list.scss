@@ -341,3 +341,17 @@
   .pl-td-discount, .pl-th-discount { display: none; }
   .pl-thumb   { width: 100px; height: 100px; min-width: 100px; }
 }
+
+/* ── Per-store prices in a catalogue row ─────────── */
+.pl-store-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.pl-store-cheapest { background: var(--hover-bg); }
+.pl-store-name { font-size: 11px; font-weight: 700; min-width: 52px; }
+.pl-store-price .pl-unit-price { margin-left: auto; }

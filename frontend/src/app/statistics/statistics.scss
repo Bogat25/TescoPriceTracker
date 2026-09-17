@@ -382,3 +382,18 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ── Store tabs and cross-store comparison ─────── */
+.st-store-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.st-store-tab {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--surface-card);
+  color: var(--text-secondary); font-size: 13px; font-weight: 600; cursor: pointer;
+  &.active { border-color: var(--accent, var(--text-primary)); color: var(--text-primary); box-shadow: inset 0 -2px 0 var(--accent, var(--text-primary)); }
+}
+.st-compare-table {
+  overflow-x: auto;
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); color: var(--text-primary); }
+  .num { text-align: right; white-space: nowrap; }
+}

@@ -2,8 +2,8 @@
 
   <div class="sr-header">
     <div>
-      <h1 class="sr-title">Search products</h1>
-      <p class="sr-subtitle">Full-text search over tracked Tesco products.</p>
+      <h1 class="sr-title">{{ 'search.title' | translate }}</h1>
+      <p class="sr-subtitle">{{ 'search.subtitle' | translate }}</p>
     </div>
   </div>
 
@@ -14,7 +14,7 @@
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input type="search" class="sr-input"
-             placeholder="Search by product name or TPNC…"
+             [placeholder]="'search.placeholder' | translate"
              [value]="query"
              (input)="onInput($any($event.target).value)"
              (blur)="closeDropdown()"
@@ -25,24 +25,24 @@
       <!-- Live suggestion dropdown -->
       @if (showDropdown() && suggestions().length) {
         <ul class="sr-dropdown">
-          @for (s of suggestions(); track s.tpnc) {
+          @for (s of suggestions(); track $index) {
             <li>
               <button type="button" class="sr-dropdown-item" (mousedown)="pickSuggestion(s)">
                 <div class="sr-dropdown-img">
-                  @if (s.imageUrl) {
-                    <img [src]="s.imageUrl" [alt]="s.name || s.tpnc" loading="lazy" referrerpolicy="no-referrer"/>
-                  } @else {
-                    <svg width="20" height="23" viewBox="0 0 20 23">
-                      <polygon points="10,0 20,5.75 20,17.25 10,23 0,17.25 0,5.75" fill="rgba(0,83,159,.15)" stroke="#00539F" stroke-width="1.2"/>
-                    </svg>
+                  @if (s.image_url) {
+                    <img [src]="s.image_url" [alt]="s.name || ''" loading="lazy" referrerpolicy="no-referrer"/>
                   }
                 </div>
                 <div class="sr-dropdown-info">
-                  <div class="sr-dropdown-name">{{ s.name || s.tpnc }}</div>
-                  <div class="sr-dropdown-meta">{{ s.tpnc }}@if (s.packSize) { · {{ s.packSize }}}@if (s.unit) { · {{ s.unit }}}</div>
+                  <div class="sr-dropdown-name">{{ s.name }}</div>
+                  <div class="sr-dropdown-meta">
+                    @for (o of s.offers; track o.ref; let last = $last) {
+                      <span>{{ stores.name(o.store) }}</span>@if (!last) {<span> · </span>}
+                    }
+                  </div>
                 </div>
-                @if (s.currentPrice !== undefined) {
-                  <span class="sr-dropdown-price font-mono-prices">{{ s.currentPrice | number:'1.2-2' }} Ft</span>
+                @if (s.best_price !== null) {
+                  <span class="sr-dropdown-price font-mono-prices">{{ s.best_price | number:'1.0-0' }} Ft</span>
                 }
               </button>
             </li>
@@ -57,6 +57,8 @@
       Search
     </button>
   </form>
+
+  <app-store-selector (changed)="onStoresChanged()"/>
 
   @if (error()) {
     <div class="sr-error">{{ error() }}</div>
@@ -151,8 +153,8 @@
       <svg width="40" height="46" viewBox="0 0 40 46" style="opacity:.2;margin-bottom:12px">
         <polygon points="20,0 40,11.5 40,34.5 20,46 0,34.5 0,11.5" fill="none" stroke="currentColor" stroke-width="2"/>
       </svg>
-      <div class="sr-empty-title">No results found</div>
-      <p class="sr-empty-sub">Try a different name or TPNC code.</p>
+      <div class="sr-empty-title">{{ 'search.empty.title' | translate }}</div>
+      <p class="sr-empty-sub">{{ 'search.empty.sub' | translate }}</p>
     </div>
   }
 
@@ -165,62 +167,8 @@
       }
     </div>
     <ul class="sr-grid">
-      @for (p of results(); track p.tpnc) {
-      <li>
-          <a [routerLink]="['/products', p.tpnc]" class="sr-card" [class.is-discounted]="p.discountPrice !== undefined || p.clubcardPrice !== undefined">
-            <!-- Product image (square, full-width top) -->
-            <div class="sr-card-img">
-              @if (p.imageUrl) {
-                <img [src]="p.imageUrl" [alt]="p.name || p.tpnc"
-                     loading="lazy" referrerpolicy="no-referrer"/>
-              } @else {
-                <svg width="48" height="55" viewBox="0 0 48 55">
-                  <polygon points="24,0 48,13.75 48,41.25 24,55 0,41.25 0,13.75" fill="rgba(0,83,159,.1)" stroke="#00539F" stroke-width="1.5"/>
-                  <text x="24" y="31" text-anchor="middle" dominant-baseline="central" font-size="18" fill="#00539F" font-weight="800">
-                    {{ (p.name || p.tpnc).charAt(0).toUpperCase() }}
-                  </text>
-                </svg>
-              }
-            </div>
-            <!-- Card body -->
-            <div class="sr-card-body">
-              <div class="sr-card-name">{{ p.name || p.tpnc }}</div>
-              <div class="sr-card-meta">
-                <span>{{ p.tpnc }}</span>
-                @if (p.packSize) { <span>· {{ p.packSize }}</span> }
-                @if (p.unit) { <span>· {{ p.unit }}</span> }
-              </div>
-            </div>
-            <!-- Footer: price + arrow -->
-            <div class="sr-card-footer">
-              @if (p.currentPrice !== undefined) {
-                <div class="sr-card-pricing">
-                  @if (p.discountPrice !== undefined) {
-                    <!-- Discount is lowest — show in red -->
-                    <span class="sr-card-price sr-card-price--discount font-mono-prices">{{ p.discountPrice | number:'1.2-2' }} Ft</span>
-                    <span class="sr-card-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                    <span class="sr-card-discount-pct">-{{ ((1 - p.discountPrice / p.currentPrice) * 100) | number:'1.0-0' }}%</span>
-                  } @else if (p.clubcardPrice !== undefined) {
-                    <!-- Clubcard — show in yellow/amber -->
-                    <span class="sr-card-price sr-card-price--clubcard font-mono-prices">{{ p.clubcardPrice | number:'1.2-2' }} Ft</span>
-                    <span class="sr-card-price--original font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                  } @else {
-                    <span class="sr-card-price font-mono-prices">{{ p.currentPrice | number:'1.2-2' }} Ft</span>
-                  }
-                  @if (p.unitPrice !== undefined && p.unitMeasure) {
-                    <span class="sr-card-unit-price">{{ p.unitPrice | number:'1.0-0' }} Ft/{{ p.unitMeasure }}</span>
-                  }
-                </div>
-              } @else {
-                <span class="sr-card-no-price">No price</span>
-              }
-              <svg class="sr-card-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none"
-                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </div>
-          </a>
-        </li>
+      @for (row of results(); track $index) {
+        <li><app-product-row-card [row]="row"/></li>
       }
     </ul>
     <!-- Pagination -->

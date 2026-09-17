@@ -1,6 +1,6 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–2 done and deployed (2026-09-17). Phase 3 implemented
+Status: **Phases 0–3 done and deployed (2026-09-17). Phase 4 implemented
 (2026-09-17, not yet deployed).** The store-aware frontend comes before alerts
 so users see Auchan sooner. Background: [store-spike.md](store-spike.md).
 
@@ -19,9 +19,9 @@ its own.
 | 0 | Quick fixes, recommendation tests in CI | ✅ Done |
 | 1 | Store registry, switches, store-neutral API (read side) | ✅ Done |
 | 2 | Auchan crawl, `auchan-scheduler`, alert rules | ✅ Done |
-| 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | ✅ Implemented |
-| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | Next |
-| 5 | Store-aware alerts and recommendations | |
+| 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | ✅ Done |
+| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | ✅ Implemented |
+| 5 | Store-aware alerts and recommendations | Next |
 | 6 | Semantic and hybrid search across stores | |
 | 7 | Neutral name, hostname and routes; ecosystem renames | |
 | 8 | Security hardening | |
@@ -204,26 +204,44 @@ products searchable within minutes, legacy Tesco endpoints unchanged.
 
 ---
 
-## 6. Phase 4: store-aware frontend
+## 6. Phase 4: store-aware frontend (implemented 2026-09-17)
 
-Goal: users see and choose stores. Branding stays for now (Phase 7), but new
-text is written store-neutrally.
+Deployed result of Phase 3 (2026-09-17): 6,221 linked Tesco–Auchan products;
+cheapest by regular price Tesco 2,981, Auchan 1,720, ties 1,520; average price
+index vs the cheapest store Tesco 102.75, Auchan 107.73.
 
-1. `StoresService` from `GET /api/v1/stores`; global store chips, remembered
-   per visitor (localStorage), overridable per search; hidden when only one
-   store is enabled.
-2. Search and product list switch to `/search` and `/browse` with `stores`,
-   rendering merged group rows: product image and name once, a price per
-   store, the cheapest highlighted, store badges on single-store rows.
-3. Product page for a group: compare table (regular, promo, card price, unit
-   price, availability, link to the store's own page) and one history chart
-   with a line per store. Old `/products/{tpnc}` URLs keep working and
-   redirect to the group page when the Tesco product is linked.
-4. Statistics page: store selector, the per-store charts from `/insights`
-   and the comparison from `/insights/compare`; retire `/stats/*` afterwards.
-5. Translations (`hu.json`, `en.json`) for store names and new labels.
-6. Tests: selector behaviour, hidden selector with one store, group row
-   rendering, compare table, legacy URL redirect.
+1. **Stores.** `StoresService` loads `GET /stores`; the visitor's selection is
+   remembered in localStorage and sent as `stores` (empty = every enabled
+   store, so a newly enabled store appears automatically). The store chips
+   (`app-store-selector`) are hidden when only one store is enabled.
+2. **Search** uses `/search` rows: live suggestions and result cards
+   (`app-product-row-card`) show one price line per store, cheapest
+   highlighted, promo and card prices marked. Pages are capped at the API's
+   first 1,000 results.
+3. **Catalogue** uses `/browse` (sort by name, price or discount) and `/search`
+   (relevance), one table row per product with every store's price. The Tesco
+   category pills and rating sort are gone: the two stores' category trees do
+   not match (see Phase 9 follow-up).
+4. **Product pages.** `/p/:groupId` (linked product) and `/o/:ref` (single
+   offer): comparison table (regular, promo, card, unit price, availability,
+   date, links to the store and to the rich Tesco page), a history chart with
+   one line per store (lowest price per day), description and ingredients.
+   The rich Tesco page `/products/:tpnc` shows a "price in other stores" panel
+   when the product is linked. Links: linked rows open `/p/`, Tesco-only rows
+   the Tesco page, other stores `/o/`.
+5. **Statistics** read `/insights` through the existing service shapes (store
+   tabs; the Tesco "product analysis" tab is unchanged) and add a "Compare
+   stores" tab from `/insights/compare`. Price-drop links follow the store.
+   Backend fix: 30-day inflation and promo/card savings now compare the same
+   products (Tesco showed +25.7 % inflation from comparing different product
+   sets).
+6. `/offers/{ref}` returns `description` and `ingredients`.
+7. Translations (hu/en) for all new labels; search texts no longer name Tesco.
+8. Tests: store selection and persistence, row links, best-price kind, chart
+   series alignment, catalogue API parameters, statistics mapping (14 specs).
+
+Not in this phase: legacy `/stats/*` endpoints stay until nothing calls them;
+home page texts still name Tesco (Phase 7).
 
 ---
 
@@ -336,7 +354,9 @@ Documentation:
 5. Decision records (`docs/adr/`): per-store collections + group layer,
    barcode linking, store switches, anonymous Auchan card prices, E5 + Qdrant,
    RRF hybrid search.
-6. Clean-up: `respond.json`, `versions/*.zip`, `.envbeforethe update`,
+6. Category mapping across stores (Tesco and Auchan trees differ), to bring
+   back category filters in the store-neutral catalogue.
+7. Clean-up: `respond.json`, `versions/*.zip`, `.envbeforethe update`,
    `.env.prodversion`, empty `templates/`.
 
 ---
@@ -347,7 +367,7 @@ Documentation:
 |---|---|---|
 | M0–M2 | 0–2 | ✅ Store layer and daily Auchan collection live (2026-09-17) |
 | M3 | 3 | ✅ Linked products, merged rows, compare and cross-store stats in the API (implemented) |
-| M4 | 4 | Users choose stores and compare prices on the site |
+| M4 | 4 | ✅ Users choose stores and compare prices on the site (implemented) |
 | M5 | 5 | Store-aware alerts and recommendations |
 | M6 | 6 | Hybrid semantic search across stores, no laptop dependency |
 | M7 | 7 | Neutral name and routes live; old routes still work |

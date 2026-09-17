@@ -1,0 +1,122 @@
+<div class="cp-page hex-slide-in">
+  <app-store-selector (changed)="load()"/>
+
+  @if (loading()) {
+    <div class="cp-loading"><span class="loading loading-spinner loading-lg"></span></div>
+  } @else if (notFound()) {
+    <div class="cp-empty">
+      <div class="cp-empty-title">{{ 'compare.notfound.title' | translate }}</div>
+      <p>{{ 'compare.notfound.sub' | translate }}</p>
+      <a routerLink="/search" class="cp-link">{{ 'nav.search' | translate }} →</a>
+    </div>
+  } @else if (row(); as r) {
+    <header class="cp-header">
+      <div class="cp-image">
+        @if (r.image_url) {
+          <img [src]="r.image_url" [alt]="r.name || ''" referrerpolicy="no-referrer"/>
+        }
+      </div>
+      <div class="cp-head-text">
+        @if (categoryPath().length) {
+          <div class="cp-crumbs">{{ categoryPath().join(' › ') }}</div>
+        }
+        <h1 class="cp-title">{{ r.name }}</h1>
+        <div class="cp-meta">
+          @if (r.brand) { <span>{{ r.brand }}</span> }
+          @if (r.gtin) { <span>{{ 'compare.barcode' | translate }}: {{ r.gtin }}</span> }
+        </div>
+        @if (r.best_price !== null) {
+          <div class="cp-best">
+            <span class="cp-best-label">{{ 'compare.best' | translate }}</span>
+            <span class="cp-best-price font-mono-prices">{{ r.best_price | number:'1.0-0' }} Ft</span>
+            @if (r.offers.length > 1) {
+              <span class="cp-best-store">{{ cheapestNames(r) }}</span>
+            }
+          </div>
+        }
+      </div>
+    </header>
+
+    <section class="cp-card">
+      <h2 class="cp-h2">{{ 'compare.table.title' | translate }}</h2>
+      <div class="cp-table-wrap">
+        <table class="cp-table">
+          <thead>
+            <tr>
+              <th>{{ 'compare.col.store' | translate }}</th>
+              <th class="num">{{ 'price.regular' | translate }}</th>
+              <th class="num">{{ 'price.promo' | translate }}</th>
+              <th class="num">{{ 'price.loyalty' | translate }}</th>
+              <th class="num">{{ 'compare.col.unit' | translate }}</th>
+              <th>{{ 'compare.col.updated' | translate }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (offer of r.offers; track offer.ref) {
+              <tr [class.cheapest]="isCheapest(offer)">
+                <td>
+                  <span class="cp-store" [style.--accent]="accent(offer.store)">{{ stores.name(offer.store) }}</span>
+                  @if (offer.availability === 'unavailable') {
+                    <span class="cp-unavailable">{{ 'compare.unavailable' | translate }}</span>
+                  }
+                  @if (offer.name !== r.name) { <div class="cp-offer-name">{{ offer.name }}</div> }
+                </td>
+                <td class="num font-mono-prices" [class.best]="kind(offer) === 'regular'">
+                  {{ offer.prices.regular !== null ? (offer.prices.regular | number:'1.0-0') + ' Ft' : '—' }}
+                </td>
+                <td class="num font-mono-prices promo" [class.best]="kind(offer) === 'promo'">
+                  {{ offer.prices.promo !== null ? (offer.prices.promo | number:'1.0-0') + ' Ft' : '—' }}
+                </td>
+                <td class="num font-mono-prices loyalty" [class.best]="kind(offer) === 'loyalty'">
+                  {{ offer.prices.loyalty !== null ? (offer.prices.loyalty | number:'1.0-0') + ' Ft' : '—' }}
+                </td>
+                <td class="num">
+                  @if (offer.prices.unit_price !== null && offer.prices.unit) {
+                    {{ offer.prices.unit_price | number:'1.0-0' }} Ft/{{ offer.prices.unit }}
+                  } @else { — }
+                </td>
+                <td class="muted">{{ offer.price_date || '—' }}</td>
+                <td class="links">
+                  @if (offer.store === 'tesco') {
+                    <a [routerLink]="['/products', offer.store_product_id]" class="cp-link">{{ 'compare.details' | translate }}</a>
+                  }
+                  @if (offer.url) {
+                    <a [href]="offer.url" target="_blank" rel="noopener noreferrer" class="cp-link">{{ 'compare.open.store' | translate }} ↗</a>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="cp-note">{{ 'compare.note.loyalty' | translate }}</p>
+    </section>
+
+    <section class="cp-card">
+      <div class="cp-chart-head">
+        <h2 class="cp-h2">{{ 'compare.history.title' | translate }}</h2>
+        <div class="cp-range">
+          <button type="button" [class.active]="range() === 30" (click)="setRange(30)">30d</button>
+          <button type="button" [class.active]="range() === 90" (click)="setRange(90)">90d</button>
+          <button type="button" [class.active]="range() === 0" (click)="setRange(0)">{{ 'compare.range.all' | translate }}</button>
+        </div>
+      </div>
+      <p class="cp-note">{{ 'compare.history.sub' | translate }}</p>
+      <div class="cp-chart"><canvas #historyChart></canvas></div>
+    </section>
+
+    @if (description() || ingredients()) {
+      <section class="cp-card">
+        @if (description()) {
+          <h2 class="cp-h2">{{ 'compare.description' | translate }}</h2>
+          <p class="cp-text">{{ description() }}</p>
+        }
+        @if (ingredients()) {
+          <h2 class="cp-h2">{{ 'compare.ingredients' | translate }}</h2>
+          <p class="cp-text">{{ ingredients() }}</p>
+        }
+      </section>
+    }
+  }
+</div>

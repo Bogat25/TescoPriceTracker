@@ -57,10 +57,6 @@ def _avg(values) -> Optional[float]:
     return round(sum(values) / len(values), 2) if values else None
 
 
-def _pct(base, other) -> Optional[float]:
-    return round((other - base) / base * 100, 2) if base and other else None
-
-
 # -- per store ---------------------------------------------------------------------
 
 def compute_store_insights(store_id: str, today: date) -> dict:
@@ -75,6 +71,9 @@ def compute_store_insights(store_id: str, today: date) -> dict:
     tiers = {label: 0 for _, _, label in PRICE_TIERS}
     volatility = defaultdict(list)
     latest_regular, latest_promo, latest_loyalty = [], [], []
+    # Paired samples: (regular, other) of the same product, so a channel or a
+    # month is never compared against a different set of products.
+    promo_pairs, loyalty_pairs, month_pairs = [], [], []
     today_regular, month_ago_regular = [], []
     top_discounts, price_drops = [], []
     total = active_today = 0
@@ -111,8 +110,12 @@ def compute_store_insights(store_id: str, today: date) -> dict:
                 volatility[_tier(regular)].append(math.sqrt(sum((v - mean) ** 2 for v in recent) / len(recent)))
         if promo is not None:
             latest_promo.append(promo)
+            if regular:
+                promo_pairs.append((regular, promo))
         if loyalty is not None:
             latest_loyalty.append(loyalty)
+            if regular:
+                loyalty_pairs.append((regular, loyalty))
 
         today_row, yesterday_row, month_row = by_date.get(today_s), by_date.get(yesterday_s), by_date.get(month_ago_s)
         if today_row and today_row[1] is not None:
@@ -130,10 +133,18 @@ def compute_store_insights(store_id: str, today: date) -> dict:
                 })
         if month_row and month_row[1] is not None:
             month_ago_regular.append(month_row[1])
+            if today_row and today_row[1] is not None:
+                month_pairs.append((month_row[1], today_row[1]))
 
     dates = sorted(daily_regular)
     first_avg = sum(daily_regular[dates[0]]) / len(daily_regular[dates[0]]) if dates else 0
     avg_today, avg_month_ago = _avg(today_regular), _avg(month_ago_regular)
+
+    def paired_pct(pairs):
+        """Change of the second value against the first, over the same products."""
+        base = sum(first for first, _ in pairs)
+        return round((sum(second for _, second in pairs) - base) / base * 100, 2) if base else None
+
     best_day = max(savings_by_date, key=savings_by_date.get) if savings_by_date else None
 
     top_discounts.sort(key=lambda item: item["pct_off"], reverse=True)
@@ -152,8 +163,8 @@ def compute_store_insights(store_id: str, today: date) -> dict:
             "avg_regular": avg_regular,
             "avg_promo": _avg(latest_promo),
             "avg_loyalty": _avg(latest_loyalty),
-            "promo_vs_regular_pct": _pct(avg_regular, _avg(latest_promo)),
-            "loyalty_vs_regular_pct": _pct(avg_regular, _avg(latest_loyalty)),
+            "promo_vs_regular_pct": paired_pct(promo_pairs),
+            "loyalty_vs_regular_pct": paired_pct(loyalty_pairs),
             "products_with_promo": len(latest_promo),
             "products_with_loyalty": len(latest_loyalty),
         },
@@ -173,7 +184,8 @@ def compute_store_insights(store_id: str, today: date) -> dict:
         ],
         "global_avg": {"avg_price": avg_regular, "product_count": len(latest_regular)},
         "inflation_30d": {
-            "pct_change": _pct(avg_month_ago, avg_today),
+            "pct_change": paired_pct(month_pairs),
+            "paired_products": len(month_pairs),
             "avg_today": avg_today,
             "avg_30d_ago": avg_month_ago,
             "date_today": today_s,

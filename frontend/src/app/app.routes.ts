@@ -8,6 +8,7 @@ import { UserSettings } from './user-settings/user-settings';
 import { Statistics } from './statistics/statistics';
 import { PrivacyPolicy } from './privacy-policy/privacy-policy';
 import { authGuard } from './auth/auth.guard';
+import { ComparePage } from './compare/compare-page';
 
 export const routes: Routes = [
   {
@@ -40,6 +41,22 @@ export const routes: Routes = [
     title: 'Tesco Product Price History — Tesco Price Tracker',
     data: {
       description: 'View this Tesco product’s current price, price history, promotions, trends and shopping analytics.',
+    },
+  },
+  {
+    path: 'p/:groupId',
+    component: ComparePage,
+    title: 'Price comparison',
+    data: {
+      description: 'Compare the current price, promotions, card prices and price history of this product across stores.',
+    },
+  },
+  {
+    path: 'o/:ref',
+    component: ComparePage,
+    title: 'Product price history',
+    data: {
+      description: 'Current price, promotions and price history of this product.',
     },
   },
   {

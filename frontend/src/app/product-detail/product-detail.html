@@ -49,6 +49,24 @@
 
     <!-- â”€â”€ KPI Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
     @if (effectiveKpi(); as ek) {
+      @if (storeRow(); as sr) {
+        <div class="pd-stores">
+          <div class="pd-stores-head">
+            <span class="pd-stores-title">{{ 'compare.panel.title' | translate }}</span>
+            @if (sr.group_id) {
+              <a [routerLink]="['/p', sr.group_id]" class="pd-stores-link">{{ 'compare.panel.open' | translate }} →</a>
+            }
+          </div>
+          <div class="pd-stores-list">
+            @for (offer of sr.offers; track offer.ref) {
+              <div class="pd-stores-item" [class.cheapest]="offer.effective_price === sr.best_price">
+                <span class="pd-stores-name" [style.color]="storeAccent(offer.store)">{{ stores.name(offer.store) }}</span>
+                <span class="font-mono-prices">{{ offer.effective_price !== null ? (offer.effective_price | number:'1.0-0') + ' Ft' : '—' }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      }
       <div class="pd-kpi-row">
         <div class="pd-kpi-tile" style="--kpi-accent: #00539F">
           <div class="pd-kpi-watermark">

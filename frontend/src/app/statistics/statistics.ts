@@ -18,6 +18,9 @@ import { catchError } from 'rxjs/operators';
 import { HexIcon }   from '../shared/hex-icon/hex-icon';
 import { HexKpi }    from '../shared/hex-kpi/hex-kpi';
 import { SecLabel }  from '../shared/sec-label/sec-label';
+import { StoresService } from '../services/stores.service';
+import { TranslatePipe } from '../shared/translate.pipe';
+import { storeAccent } from '../shared/store-accent';
 import {
   ArcElement,
   BarController,
@@ -56,6 +59,8 @@ import {
   ProductVolume,
   TopDiscountGroup,
   VolatilityTier,
+  StoreComparison,
+  offerLink,
 } from '../services/platform-stats.service';
 
 Chart.register(
@@ -110,7 +115,7 @@ interface KpiAgg {
 
 @Component({
   selector: 'app-statistics',
-  imports: [CommonModule, FormsModule, RouterLink, HexIcon, HexKpi, SecLabel],
+  imports: [CommonModule, FormsModule, RouterLink, HexIcon, HexKpi, SecLabel, TranslatePipe],
   templateUrl: './statistics.html',
   styleUrl: './statistics.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -143,7 +148,14 @@ export class Statistics implements AfterViewInit, OnDestroy {
   private cdr = inject(ChangeDetectorRef);
 
   // ─── Tab state ──────────────────────────────────────────────────────
-  readonly activeTab = signal<'overview' | 'product'>('overview');
+  readonly activeTab = signal<'overview' | 'product' | 'compare'>('overview');
+  readonly stores = inject(StoresService);
+  /** Store whose statistics the overview shows. */
+  readonly statsStore = signal<string>('');
+  readonly comparison = signal<StoreComparison | null>(null);
+  readonly comparisonLoading = signal(false);
+  readonly comparisonError = signal('');
+  readonly offerLink = offerLink;
 
   // ─── Platform overview signals ──────────────────────────────────────
   readonly platformLoading = signal(false);
@@ -205,7 +217,45 @@ export class Statistics implements AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.viewReady = true;
+    this.stores.load().subscribe(() => {
+      this.statsStore.set(this.stores.selected()[0] ?? 'tesco');
+      this.loadPlatformStats();
+    });
+  }
+
+  selectStatsStore(storeId: string): void {
+    if (storeId === this.statsStore() && this.activeTab() === 'overview') return;
+    this.statsStore.set(storeId);
+    this.activeTab.set('overview');
     this.loadPlatformStats();
+  }
+
+  showComparison(): void {
+    this.activeTab.set('compare');
+    if (this.comparison() || this.comparisonLoading()) return;
+    this.comparisonLoading.set(true);
+    this.comparisonError.set('');
+    this.platformStats.comparison('').subscribe({
+      next: (data) => {
+        this.comparison.set(data);
+        this.comparisonLoading.set(false);
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.comparisonError.set('Failed to load the store comparison.');
+        this.comparisonLoading.set(false);
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  storeAccent(storeId: string): string {
+    return storeAccent(storeId);
+  }
+
+  basketTotal(storeId: string): number | null {
+    const basket = this.comparison()?.basket ?? [];
+    return basket.length ? basket[basket.length - 1].totals[storeId] ?? null : null;
   }
 
   ngOnDestroy(): void {
@@ -215,7 +265,7 @@ export class Statistics implements AfterViewInit, OnDestroy {
     this.searchInput$.complete();
   }
 
-  switchTab(tab: 'overview' | 'product'): void {
+  switchTab(tab: 'overview' | 'product' | 'compare'): void {
     this.activeTab.set(tab);
     if (tab === 'overview') {
       this.cdr.detectChanges();
@@ -226,21 +276,22 @@ export class Statistics implements AfterViewInit, OnDestroy {
   // ─── Platform overview loading ──────────────────────────────────────
 
   private loadPlatformStats(): void {
+    const store = this.statsStore() || undefined;
     this.platformLoading.set(true);
     this.platformError.set('');
 
     forkJoin({
-      priceIndex: this.platformStats.priceIndex().pipe(catchError(() => of([]))),
-      productVolume: this.platformStats.productVolume().pipe(catchError(() => of(null))),
-      priceTiers: this.platformStats.priceTiers().pipe(catchError(() => of([]))),
-      categoryDiff: this.platformStats.categoryDiff().pipe(catchError(() => of(null))),
-      topDiscounts: this.platformStats.topDiscounts().pipe(catchError(() => of([]))),
-      bestShoppingDay: this.platformStats.bestShoppingDay().pipe(catchError(() => of(null))),
-      discountByWeekday: this.platformStats.discountByWeekday().pipe(catchError(() => of([]))),
-      volatilityTiers: this.platformStats.volatility().pipe(catchError(() => of([]))),
-      globalAvg: this.platformStats.globalAvg().pipe(catchError(() => of(null))),
-      inflation30d: this.platformStats.inflation30d().pipe(catchError(() => of(null))),
-      priceDropsToday: this.platformStats.priceDropsToday().pipe(catchError(() => of([]))),
+      priceIndex: this.platformStats.priceIndex(store).pipe(catchError(() => of([]))),
+      productVolume: this.platformStats.productVolume(store).pipe(catchError(() => of(null))),
+      priceTiers: this.platformStats.priceTiers(store).pipe(catchError(() => of([]))),
+      categoryDiff: this.platformStats.categoryDiff(store).pipe(catchError(() => of(null))),
+      topDiscounts: this.platformStats.topDiscounts(store).pipe(catchError(() => of([]))),
+      bestShoppingDay: this.platformStats.bestShoppingDay(store).pipe(catchError(() => of(null))),
+      discountByWeekday: this.platformStats.discountByWeekday(store).pipe(catchError(() => of([]))),
+      volatilityTiers: this.platformStats.volatility(store).pipe(catchError(() => of([]))),
+      globalAvg: this.platformStats.globalAvg(store).pipe(catchError(() => of(null))),
+      inflation30d: this.platformStats.inflation30d(store).pipe(catchError(() => of(null))),
+      priceDropsToday: this.platformStats.priceDropsToday(store).pipe(catchError(() => of([]))),
     }).subscribe({
       next: (data) => {
         this.priceIndex.set(data.priceIndex as PriceIndexPoint[]);
