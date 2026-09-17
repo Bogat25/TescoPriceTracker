@@ -108,6 +108,18 @@
       <div class="cp-chart"><canvas #historyChart></canvas></div>
     </section>
 
+    @if (similar().length) {
+      <section class="cp-card">
+        <h2 class="cp-h2">{{ 'compare.similar.title' | translate }}</h2>
+        <p class="cp-note">{{ 'compare.similar.sub' | translate }}</p>
+        <ul class="cp-similar">
+          @for (item of similar(); track $index) {
+            <li><app-product-row-card [row]="item"/></li>
+          }
+        </ul>
+      </section>
+    }
+
     @if (description() || ingredients()) {
       <section class="cp-card">
         @if (description()) {

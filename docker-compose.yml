@@ -215,8 +215,10 @@ services:
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
       QDRANT_HOST: ${QDRANT_HOST:-qdrant}
       QDRANT_PORT: ${QDRANT_PORT:-6333}
-      QDRANT_COLLECTION: ${QDRANT_COLLECTION:-products}
+      QDRANT_OFFERS_COLLECTION: ${QDRANT_OFFERS_COLLECTION:-offers}
       QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
+      EMBEDDING_SERVICE_URL: http://embedding-service:8080
+      SEMANTIC_MIN_SCORE: ${SEMANTIC_MIN_SCORE:-0.8}
       INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
       KC_JWKS_URL: ${KC_JWKS_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/certs}
@@ -243,6 +245,72 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # ── Semantic search: embedding model and vectorizer ──────────────────────────
+  embedding-service:
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-embedding:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: ${STACK_PREFIX}tesco-tracker-embedding-service
+    labels:
+    - vector.enable=true
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      SERVICE_NAME: embedding-service
+      EMBEDDING_THREADS: ${EMBEDDING_THREADS:-4}
+      TZ: Europe/Budapest
+    # The i5-12500 has 12 threads; the model gets 4 so scrapers and the API keep theirs.
+    cpus: ${EMBEDDING_CPUS:-4}
+    mem_limit: ${EMBEDDING_MEMORY_LIMIT:-1536m}
+    networks:
+      - tesco-tracker-internal
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/health', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  vectorizer:
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    container_name: ${STACK_PREFIX}tesco-tracker-vectorizer
+    labels:
+    - vector.enable=true
+    restart: unless-stopped
+    working_dir: /app/scheduler
+    command: python -m stores.vectorize
+    environment:
+      SERVICE_NAME: vectorizer
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
+      MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
+      MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
+      QDRANT_OFFERS_COLLECTION: ${QDRANT_OFFERS_COLLECTION:-offers}
+      EMBEDDING_SERVICE_URL: http://embedding-service:8080
+      VECTORIZE_INTERVAL_SECONDS: ${VECTORIZE_INTERVAL_SECONDS:-1800}
+      PYTHONPATH: /app
+      TZ: Europe/Budapest
+    networks:
+      - tesco-tracker-internal
+    depends_on:
+      mongo:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      embedding-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-m", "stores.vectorize", "--healthcheck"]
+      interval: 2m
+      timeout: 15s
+      retries: 3
+      start_period: 2m
 
   # ── Scrape scheduler ─────────────────────────────────────────────────────────
   scheduler:
@@ -502,6 +570,10 @@ services:
       public_ingress:
         aliases:
           - ${STACK_PREFIX}price-tracker
+      # Deployment health check of the secret controller (it cannot reach the public hostname).
+      admin_ingress:
+        aliases:
+          - ${STACK_PREFIX}tesco-price-tracker-health
     depends_on:
       api:
         condition: service_started

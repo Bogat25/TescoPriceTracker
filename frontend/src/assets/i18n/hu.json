@@ -174,5 +174,7 @@
   "alertform.err.pct": "Adj meg 1 és 100 közötti százalékot.",
   "alertform.err.base": "A választott áruházakban nincs aktuális ár.",
   "alertform.err.login": "Jelentkezz be az árértesítők mentéséhez.",
-  "alertform.err.save": "Az értesítőt nem sikerült menteni."
+  "alertform.err.save": "Az értesítőt nem sikerült menteni.",
+  "compare.similar.title": "Hasonló termékek",
+  "compare.similar.sub": "Leírásuk alapján legközelebbi termékek a kiválasztott áruházakban (jelentés, nem név szerint)."
 }

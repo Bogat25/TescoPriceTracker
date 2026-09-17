@@ -57,6 +57,7 @@
   button.active { background: var(--hover-bg); color: var(--text-primary); font-weight: 700; }
 }
 .cp-chart { height: 300px; margin-top: 8px; }
+.cp-similar { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 
 @media (max-width: 640px) {
   .cp-header { flex-direction: column; }

@@ -73,6 +73,16 @@ describe('CatalogService', () => {
     expect(search.request.params.get('q')).toBe('tej');
     expect(search.request.params.get('stores')).toBe('auchan');
     expect(search.request.params.get('skip')).toBe('50');
+    expect(search.request.params.get('mode')).toBe('hybrid');
+
+    service.search('tej', '', 0, 6, 'text').subscribe();
+    expect(http.expectOne((req) => req.url === '/api/tesco/search').request.params.get('mode')).toBe('text');
+
+    service.similar('g:54026193', 'tesco', 8).subscribe();
+    const groupSimilar = http.expectOne((req) => req.url === '/api/tesco/groups/g%3A54026193/similar');
+    expect(groupSimilar.request.params.get('limit')).toBe('8');
+    service.similar('auchan:678170', '').subscribe();
+    http.expectOne((req) => req.url === '/api/tesco/offers/auchan%3A678170/similar');
 
     service.browse('', 0, 50, 'price', 'desc').subscribe();
     const browse = http.expectOne((req) => req.url === '/api/tesco/browse');

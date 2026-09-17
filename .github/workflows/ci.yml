@@ -96,6 +96,10 @@ jobs:
             image: tesco-tracker-frontend
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
+          - service: embedding
+            image: tesco-tracker-embedding
+            context: ./embedding-service
+            dockerfile: ./embedding-service/Dockerfile
           - service: keycloak
             image: tesco-tracker-keycloak
             context: .

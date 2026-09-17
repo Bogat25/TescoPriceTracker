@@ -13,6 +13,7 @@ import {
 import { StoresService } from '../services/stores.service';
 import { StoreSelector } from '../shared/store-selector/store-selector';
 import { StoreAlertForm } from '../shared/store-alert-form/store-alert-form';
+import { ProductRowCard } from '../shared/product-row-card/product-row-card';
 import { TranslatePipe } from '../shared/translate.pipe';
 import { storeAccent } from '../shared/store-accent';
 
@@ -48,7 +49,7 @@ export function alignSeries(
 /** Product page for a barcode group (/p/:groupId) or a single store offer (/o/:ref). */
 @Component({
   selector: 'app-compare-page',
-  imports: [DecimalPipe, RouterLink, StoreSelector, StoreAlertForm, TranslatePipe],
+  imports: [DecimalPipe, RouterLink, StoreSelector, StoreAlertForm, ProductRowCard, TranslatePipe],
   templateUrl: './compare-page.html',
   styleUrl: './compare-page.scss',
 })
@@ -62,6 +63,7 @@ export class ComparePage implements OnInit, OnDestroy {
 
   readonly row = signal<ProductRow | null>(null);
   readonly texts = signal<OfferWithText[]>([]);
+  readonly similar = signal<ProductRow[]>([]);
   readonly loading = signal(true);
   readonly notFound = signal(false);
   readonly range = signal<Range>(90);
@@ -107,6 +109,7 @@ export class ComparePage implements OnInit, OnDestroy {
         this.title.setTitle(`${result.row.name ?? ''} — ${this.stores.stores().map((s) => s.name).join(', ')}`);
         setTimeout(() => this.renderChart(), 0);
         this.loadTexts(result.row);
+        this.loadSimilar();
       });
   }
 
@@ -139,6 +142,16 @@ export class ComparePage implements OnInit, OnDestroy {
     forkJoin(row.offers.map((o) => this.catalog.offer(o.ref).pipe(catchError(() => of(null))))).subscribe(
       (offers) => this.texts.set(offers.filter((o): o is OfferWithText => o !== null)),
     );
+  }
+
+  private loadSimilar(): void {
+    this.similar.set([]);
+    const target = this.alertTarget();
+    if (!target) return;
+    this.catalog
+      .similar(target, this.stores.storesParam(), 8)
+      .pipe(catchError(() => of({ results: [] as ProductRow[] })))
+      .subscribe((res) => this.similar.set(res.results ?? []));
   }
 
   setRange(range: Range): void {

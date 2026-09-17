@@ -47,6 +47,7 @@ ENTRYPOINTS = [
     ("scheduler/scheduler.py",              "/app/scheduler",            "scheduler.py"),
     ("scheduler/auchan_scheduler.py",       "/app/scheduler",            "auchan_scheduler.py"),
     ("scheduler/auchan_healthcheck.py",     "/app/scheduler",            "/app/scheduler/auchan_healthcheck.py"),
+    ("embedding-service/app.py",            "/app/embedding-service",    "app.py"),
 ]
 
 
@@ -157,7 +158,7 @@ def test_entrypoint_import_block_resolves_under_container_conditions(
             "mongo.queries", "mongo.products_catalog_manager", "config",
         "recommendation_engine", "data_preparation",
         "scraper", "scraper.scraper",
-        "stores", "stores.registry", "stores.queries", "stores.browse", "stores.ids", "stores.insights", "stores.offers", "stores.recommendations",
+        "stores", "stores.registry", "stores.queries", "stores.browse", "stores.ids", "stores.insights", "stores.offers", "stores.recommendations", "stores.semantic", "stores.embedding_text",
         "stores.auchan", "stores.auchan.crawler", "stores.auchan.repository", "stores.auchan.mapper",
         "starlette", "starlette.concurrency",
         "services", "services.keycloak_admin", "services.user_repo",

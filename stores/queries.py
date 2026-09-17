@@ -11,7 +11,7 @@ filled in by barcode, so a row shows every requested store that sells it.
 import logging
 from typing import Optional
 
-from stores import tesco
+from stores import semantic, tesco
 from stores.auchan import adapter as auchan
 from stores.browse import SORT_FIELDS
 from stores.ids import parse_ref
@@ -101,16 +101,13 @@ def _fill_missing_stores(groups: list, store_ids: list) -> None:
             offers.extend(o for o in by_gtin.get(offers[0]["gtin"], []) if o["store"] not in present)
 
 
-def search(store_ids: list, query: str, skip: int, limit: int) -> dict:
-    window = _window(skip, limit)
-    ranked = []
-    total = 0
-    for order, store_id in enumerate(store_ids):
-        page = adapter_for(store_id).search(query, window)
-        total += page["total"]
-        ranked.extend((rank, order, offer) for rank, offer in enumerate(page["results"]))
-    ranked.sort(key=lambda item: (item[0], item[1]))
-    groups = _group_in_order([offer for _, _, offer in ranked])[skip:skip + limit]
+SEARCH_MODES = ("hybrid", "semantic", "text")
+RRF_K = 60            # Reciprocal Rank Fusion constant (Cormack et al., 2009)
+CANDIDATES_MAX = 200  # per store and per retriever; the text index also stops at 200
+
+
+def _page(ranked_offers: list, total: int, store_ids: list, skip: int, limit: int, mode: str) -> dict:
+    groups = _group_in_order(ranked_offers)[skip:skip + limit]
     _fill_missing_stores(groups, store_ids)
     return {
         "results": [make_row(offers, store_ids) for offers in groups],
@@ -119,7 +116,119 @@ def search(store_ids: list, query: str, skip: int, limit: int) -> dict:
         "skip": skip,
         "limit": limit,
         "stores": store_ids,
+        "mode": mode,
     }
+
+
+def _interleave(lists_by_store: list) -> list:
+    """Merge per-store rankings by rank, so no store is favoured."""
+    ranked = [(rank, order, offer) for order, offers in enumerate(lists_by_store) for rank, offer in enumerate(offers)]
+    ranked.sort(key=lambda item: (item[0], item[1]))
+    return [offer for _, _, offer in ranked]
+
+
+def _semantic_offers(store_id: str, vector: list, window: int, min_score: float) -> list:
+    hits = semantic.nearest(vector, [store_id], window, min_score=min_score)
+    ids = [parse_ref(ref)[1] for ref, _ in hits]
+    return adapter_for(store_id).find_by_ids(ids)
+
+
+def fuse(rankings: list) -> list:
+    """Reciprocal Rank Fusion of several rankings of the same store's offers.
+
+    Each offer scores ``sum(1 / (RRF_K + rank))`` over the rankings it appears
+    in (rank starts at 1). Only ranks are used, so the text score and the
+    cosine similarity never need to be put on the same scale.
+    """
+    scores: dict = {}
+    offers_by_ref: dict = {}
+    first_seen: dict = {}
+    for ranking in rankings:
+        for rank, offer in enumerate(ranking, start=1):
+            ref = offer["ref"]
+            scores[ref] = scores.get(ref, 0.0) + 1.0 / (RRF_K + rank)
+            offers_by_ref.setdefault(ref, offer)
+            first_seen.setdefault(ref, len(first_seen))
+    order = sorted(scores, key=lambda ref: (-scores[ref], first_seen[ref]))
+    return [offers_by_ref[ref] for ref in order]
+
+
+def _is_code(query: str) -> bool:
+    """Barcodes and product IDs: only an exact text match makes sense."""
+    return query.replace(" ", "").isdigit()
+
+
+def search(store_ids: list, query: str, skip: int, limit: int, mode: str = "text",
+           min_score: Optional[float] = None) -> dict:
+    """``min_score`` overrides ``SEMANTIC_MIN_SCORE`` (used by scripts/search_eval.py to calibrate it)."""
+    if mode not in SEARCH_MODES:
+        raise ValueError(f"mode must be one of {SEARCH_MODES}")
+    window = _window(skip, limit)
+    if mode != "text" and not _is_code(query):
+        try:
+            threshold = semantic.MIN_SCORE if min_score is None else min_score
+            return _semantic_search(store_ids, query, skip, limit, mode, min(window, CANDIDATES_MAX), threshold)
+        except semantic.SemanticUnavailable as exc:
+            logger.warning(
+                "Semantic search unavailable, answering with text search: %s", exc,
+                extra={"Action": "search.semantic_unavailable", "Category": "search"},
+            )
+
+    text_lists = []
+    total = 0
+    for store_id in store_ids:
+        page = adapter_for(store_id).search(query, window)
+        total += page["total"]
+        text_lists.append(page["results"])
+    return _page(_interleave(text_lists), total, store_ids, skip, limit, "text")
+
+
+def _semantic_search(store_ids: list, query: str, skip: int, limit: int, mode: str, window: int, min_score: float) -> dict:
+    vector = semantic.embed_query(query)
+    per_store = []
+    for store_id in store_ids:
+        semantic_offers = _semantic_offers(store_id, vector, window, min_score)
+        if mode == "semantic":
+            per_store.append(semantic_offers)
+        else:
+            text_offers = adapter_for(store_id).search(query, window)["results"]
+            per_store.append(fuse([text_offers, semantic_offers]))
+    ranked = _interleave(per_store)
+    return _page(ranked, len(ranked), store_ids, skip, limit, mode)
+
+
+def similar(store_ids: list, limit: int, ref: Optional[str] = None, group_id: Optional[str] = None) -> Optional[dict]:
+    """Products whose descriptions are closest to an offer's or a group's.
+
+    The product's own group is left out, so the list never repeats the same
+    product from another store. Returns None when the product has no vector yet.
+    """
+    if group_id:
+        gtin = parse_group_id(group_id)
+        if gtin is None:
+            return None
+        refs = [offer["ref"] for store_id in ADAPTERS for offer in adapter_for(store_id).find_by_gtins([gtin])]
+    else:
+        store_id, product_id = parse_ref(ref)
+        found = adapter_for(store_id).find_by_ids([product_id])
+        if not found:
+            return None
+        refs = [ref]
+        group_id = found[0].get("group_id")
+    vectors = semantic.vectors_for(refs)
+    if not vectors:
+        return None
+    hits = semantic.nearest(semantic.mean_vector(list(vectors.values())), store_ids, limit * 4,
+                            exclude_group=group_id, exclude_ref=None if group_id else ref)
+    by_store: dict = {}
+    for hit_ref, _ in hits:
+        hit_store, hit_id = parse_ref(hit_ref)
+        by_store.setdefault(hit_store, []).append(hit_id)
+    offers_by_ref = {offer["ref"]: offer for store_id, ids in by_store.items() for offer in adapter_for(store_id).find_by_ids(ids)}
+    ranked = [offers_by_ref[hit_ref] for hit_ref, _ in hits if hit_ref in offers_by_ref]
+    groups = _group_in_order(ranked)[:limit]
+    _fill_missing_stores(groups, store_ids)
+    return {"results": [make_row(offers, store_ids) for offers in groups], "stores": store_ids}
 
 
 def _row_sort_key(sort_by: str, descending: bool):

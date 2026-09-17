@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'backend-api'))
 
 from recommendation_engine import (  # noqa: E402
-    _string_to_qdrant_id,
+    _point_id,
     get_cold_start_recommendations,
     get_recommendations,
     hydrate_products,
@@ -120,8 +120,8 @@ class TestQdrantAccess:
         kwargs = client.query_points.call_args.kwargs
         assert kwargs["query"] == [0.5, 0.5]
         assert kwargs["limit"] == 25  # 2.5x oversearch
-        assert kwargs["query_filter"].must[0].key == "category"
-        assert kwargs["query_filter"].must[0].match.value == "Italok"
+        conditions = {c.key: c.match.value for c in kwargs["query_filter"].must}
+        assert conditions == {"store": "tesco", "category": "Italok"}
         assert result == [{"product_id": "keep", "score": 0.8}]
 
     @patch("recommendation_engine._get_qdrant")
@@ -157,17 +157,16 @@ class TestHydrateProducts:
         assert result[0]["name"] == "Minimal"
 
 
-class TestStringToQdrantId:
+class TestPointId:
 
     def test_deterministic_and_distinct(self):
-        assert _string_to_qdrant_id("123") == _string_to_qdrant_id("123")
-        assert _string_to_qdrant_id("123") != _string_to_qdrant_id("456")
+        assert _point_id("123") == _point_id("123")
+        assert _point_id("123") != _point_id("456")
 
-    def test_positive_int_within_int64(self):
-        for value in ["0", "abc", "123456789", "special-chars!@#"]:
-            result = _string_to_qdrant_id(value)
-            assert isinstance(result, int)
-            assert 0 < result < 2 ** 63
+    def test_matches_the_vectorizer_point_for_the_tesco_ref(self):
+        from stores import semantic
+
+        assert _point_id("123") == semantic.point_id("tesco:123")
 
 
 class TestPersonalizedFlow:

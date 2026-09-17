@@ -40,6 +40,14 @@ def search(query: str, limit: int) -> dict:
     return {"results": [mapper.offer_from_doc(doc) for doc in docs], "total": len(docs)}
 
 
+def find_by_ids(product_ids: list) -> list:
+    """Offers for these product IDs, in the given order."""
+    if not product_ids:
+        return []
+    docs = {doc["_id"]: doc for doc in repository.products().find({"_id": {"$in": [str(i) for i in product_ids]}}, _OFFER_PROJECTION)}
+    return [mapper.offer_from_doc(docs[str(i)]) for i in product_ids if str(i) in docs]
+
+
 def find_by_gtins(gtin_norms: list) -> list:
     if not gtin_norms:
         return []

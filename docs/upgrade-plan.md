@@ -1,7 +1,7 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–3 done and deployed (2026-09-17). Phases 4–5 implemented
-(2026-09-17, not yet deployed).** The store-aware frontend comes before alerts
+Status: **Phases 0–5 done and deployed (2026-09-17). Phase 6 implemented
+(2026-09-17).** The store-aware frontend comes before alerts
 so users see Auchan sooner. Background: [store-spike.md](store-spike.md).
 
 This plan turns the Tesco Price Tracker into a **store-neutral** price tracker.
@@ -20,9 +20,9 @@ its own.
 | 1 | Store registry, switches, store-neutral API (read side) | ✅ Done |
 | 2 | Auchan crawl, `auchan-scheduler`, alert rules | ✅ Done |
 | 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | ✅ Done |
-| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | ✅ Implemented |
-| 5 | Store-aware alerts and recommendations | ✅ Implemented |
-| 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | Next |
+| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | ✅ Done |
+| 5 | Store-aware alerts and recommendations | ✅ Done |
+| 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | ✅ Implemented |
 | 7 | Neutral name, hostname and routes; ecosystem renames | |
 | 8 | Security hardening | |
 | 9 | Tests (cross-cutting) and documentation | |
@@ -58,7 +58,6 @@ The logged-in reader is not built; see §2.2 D3.
 | # | Question | Needed before |
 |---|---|---|
 | D1 | Neutral site name, public hostname, API route prefix (proposal: `/api/prices/*`) | Phase 7 (UI text can stay neutral earlier) |
-| D2 | Host CPU architecture for the embedding model image (compose defaults to `linux/amd64`; the recommendation blueprint and the ARM64 Qdrant build describe a Raspberry Pi 5) | Phase 6 |
 | D3 | Auchan card prices beyond the flagged offers: (a) accept partial coverage and label it, (b) take card prices for basic products from GVH Árfigyelő daily, or (c) build the logged-in reader (account terms to check first; prices may depend on the account's loyalty level) | Before comparing "best price" publicly |
 
 ---
@@ -91,7 +90,7 @@ The logged-in reader is not built; see §2.2 D3.
 | Offer reference (one listing in one store) | `{store}:{store_product_id}` | `tesco:121262922`, `auchan:678170` |
 | Product group (linked by barcode) | `g:{gtin_norm}` | `g:54026193` |
 | Normalised GTIN | digits, leading zeros stripped, at least 7 digits | `00000054026193` → `54026193` |
-| Qdrant point ID | hash of the offer reference; existing Tesco points keep `hash(tpnc)` until re-vectorised | – |
+| Qdrant point ID (collection `offers`) | `uuid5(namespace, ref)` | `uuid5(…, "tesco:121262922")` |
 
 In-store codes (EAN-13 starting with `2`, e.g. weighed products) are flagged
 `is_weighed` and never linked across stores.
@@ -291,26 +290,45 @@ vectors, so Auchan-only products can be recommended personally.
 
 ---
 
-## 8. Phase 6: semantic and hybrid search
+## 8. Phase 6: semantic and hybrid search (implemented 2026-09-17)
 
-1. `embedding-service` container: FastAPI + CPU `sentence-transformers`,
-   `intfloat/multilingual-e5-small` baked into the image, `POST /embed
-   {texts, mode: query|passage}` (service adds E5 prefixes), internal network
-   and token only, same logging format. Image platform from D2.
-2. In-cluster vectorisation after each store run replaces the laptop worker
-   for normal operation; `worker.py` stays as a bulk backfill tool. Qdrant
-   payload gains `store`, `ref` and `gtin_norm`, and Auchan products are
-   vectorised, so personal recommendations can pick Auchan-only products
-   (Phase 5 maps Auchan and group alerts to Tesco vectors for now).
-3. `/search?mode=text|semantic|hybrid` (default `hybrid`): Mongo text results
-   and Qdrant results (filtered by stores) fused with Reciprocal Rank Fusion,
-   then merged by group. Text results are returned if the vector path fails.
-4. `/offers/{ref}/similar` and group-level similar products.
-5. Optional: embedding + brand + pack-size matching for products without a
-   shared barcode, measured against barcode groups as ground truth.
-6. Search evaluation: ~30 labelled Hungarian queries; precision@10 and MRR for
-   text / semantic / hybrid; results table in `docs/`.
-7. Tests: prefixing, fusion, fallback, store filter in Qdrant queries.
+Full technical description: [semantic-search.md](semantic-search.md).
+Host decision (D2): Intel Core i5-12500, `linux/amd64`.
+
+1. **`embedding-service`** (new image `tesco-tracker-embedding`): FastAPI and
+   sentence-transformers on CPU-only PyTorch, `intfloat/multilingual-e5-small`
+   baked in at a pinned revision, `POST /embed {texts, mode: query|passage}`
+   (the service adds the E5 prefixes). Internal network only, limited to 4 CPUs
+   and 1.5 GB. It logs its measured throughput at start-up. Measured: 172
+   passages/s on 4 CPUs, 7–8 ms per query, 707 MiB.
+2. **`vectorizer`** (backend image, `python -m stores.vectorize`) replaces the
+   laptop worker. Every 30 minutes it embeds new or changed products of every
+   enabled store (content hash per product in `embedding_state`, model identity
+   included), upserts them into the Qdrant collection `offers` (one point per
+   offer ref, payload `store`/`ref`/`group_id`/`gtin_norm`/`category`) and
+   removes points of products that left a catalogue.
+3. **`/search?mode=hybrid|semantic|text`** (default `hybrid`): per store, the
+   text index and Qdrant (filtered by store, similarity threshold) are fused
+   with Reciprocal Rank Fusion (k = 60). Stores are interleaved by rank and
+   results grouped by barcode as before. Barcodes use text only. If vectors
+   are unavailable the answer is text search (`mode: "text"`,
+   `search.semantic_unavailable`). Live suggestions use `mode=text`.
+4. **Similar products:** `/groups/{id}/similar` and `/offers/{ref}/similar`
+   exclude the product's own group. Shown on the comparison page.
+5. **Recommendation engine** reads the `offers` collection (Tesco points,
+   `store = tesco` filter). The old `products` collection and the laptop sync
+   API stay until the Phase 9 clean-up.
+6. **Evaluation:** `scripts/search_eval.py` (30 Hungarian queries: literal,
+   intent, typo and English; precision@10, MRR, latency) and threshold
+   calibration. Results in [search-eval.md](search-eval.md).
+7. **Observability:** `vectorizer-failing`, `vectorizer-stale` and
+   `semantic-search-degraded` rules.
+8. **Tests:** RRF, per-store hybrid ranking, fallback, barcode queries,
+   similar products, incremental vectorizing (unchanged, changed, model change,
+   removal, batching), embedding texts, the embedding-service API.
+
+Not done: embedding + brand + pack-size linking without barcodes (optional);
+cross-store personal recommendations (need a category mapping, Phase 9).
 
 ---
 
@@ -392,9 +410,9 @@ Documentation:
 |---|---|---|
 | M0–M2 | 0–2 | ✅ Store layer and daily Auchan collection live (2026-09-17) |
 | M3 | 3 | ✅ Linked products, merged rows, compare and cross-store stats in the API (implemented) |
-| M4 | 4 | ✅ Users choose stores and compare prices on the site (implemented) |
-| M5 | 5 | Store-aware alerts and recommendations |
-| M6 | 6 | Hybrid semantic search across stores, no laptop dependency |
+| M4 | 4 | ✅ Users choose stores and compare prices on the site |
+| M5 | 5 | ✅ Store-aware alerts and recommendations |
+| M6 | 6 | ✅ Hybrid semantic search across stores, no laptop dependency (implemented) |
 | M7 | 7 | Neutral name and routes live; old routes still work |
 | M8 | 8–9 | Hardened, tested, documented; ready for the thesis |
 

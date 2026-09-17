@@ -174,5 +174,7 @@
   "alertform.err.pct": "Enter a percentage between 1 and 100.",
   "alertform.err.base": "No current price in the chosen stores.",
   "alertform.err.login": "Log in to save price alerts.",
-  "alertform.err.save": "Could not save the alert."
+  "alertform.err.save": "Could not save the alert.",
+  "compare.similar.title": "Similar products",
+  "compare.similar.sub": "Closest in description, in the selected stores (found by meaning, not by name)."
 }

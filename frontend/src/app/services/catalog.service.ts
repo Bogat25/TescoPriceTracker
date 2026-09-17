@@ -54,7 +54,12 @@ export interface RowPage {
   skip: number;
   limit: number;
   stores: string[];
+  /** Which search answered: text is used when vectors are unavailable. */
+  mode?: SearchMode;
 }
+
+/** ``hybrid`` fuses text and meaning; ``text`` is the plain index (fast, for suggestions). */
+export type SearchMode = 'hybrid' | 'semantic' | 'text';
 
 export interface HistoryRow extends PriceSet {
   date: string;
@@ -112,8 +117,16 @@ export class CatalogService {
     return params;
   }
 
-  search(q: string, stores: string, skip = 0, limit = 50): Observable<RowPage> {
-    return this.http.get<RowPage>(`${this.base}/search`, { params: this.params({ q, stores, skip, limit }) });
+  search(q: string, stores: string, skip = 0, limit = 50, mode: SearchMode = 'hybrid'): Observable<RowPage> {
+    return this.http.get<RowPage>(`${this.base}/search`, { params: this.params({ q, stores, skip, limit, mode }) });
+  }
+
+  /** Products closest in meaning to a group (``g:…``) or an offer ref, excluding the product itself. */
+  similar(target: string, stores: string, limit = 12): Observable<{ results: ProductRow[] }> {
+    const path = target.startsWith('g:') ? 'groups' : 'offers';
+    return this.http.get<{ results: ProductRow[] }>(`${this.base}/${path}/${encodeURIComponent(target)}/similar`, {
+      params: this.params({ stores, limit }),
+    });
   }
 
   browse(stores: string, skip = 0, limit = 50, sortBy: SortBy = 'name', sortDir: SortDir = 'asc'): Observable<RowPage> {

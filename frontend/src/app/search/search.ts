@@ -80,7 +80,7 @@ export class Search implements OnInit {
           }
           this.suggesting.set(true);
           return this.catalog
-            .search(term, this.stores.storesParam(), 0, 6)
+            .search(term, this.stores.storesParam(), 0, 6, 'text')
             .pipe(catchError(() => of({ results: [] as ProductRow[], total: 0 })));
         }),
       )

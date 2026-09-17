@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from stores import insights, queries
+from stores import insights, queries, semantic
 from stores.browse import SORT_FIELDS
 from stores.ids import InvalidReference, parse_ref
 from stores.registry import DisabledStore, UnknownStore, registry
@@ -68,10 +68,14 @@ def search(
     stores: str = Query(default=""),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
+    mode: str = Query(default="hybrid", pattern="^(" + "|".join(queries.SEARCH_MODES) + ")$"),
+    min_score: float | None = Query(default=None, ge=0.0, le=1.0),
 ):
+    """``mode``: ``hybrid`` (text and meaning, fused), ``semantic`` or ``text``.
+    The response's ``mode`` says what answered: text when vectors are unavailable."""
     store_ids = resolve_stores(stores)
     try:
-        return queries.search(store_ids, q.strip(), skip, limit)
+        return queries.search(store_ids, q.strip(), skip, limit, mode, min_score)
     except queries.WindowTooLarge as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -121,6 +125,32 @@ def get_group_history(group_id: str, stores: str = Query(default="")):
     if history is None:
         raise HTTPException(404, "product not found")
     return history
+
+
+# -- similar products ---------------------------------------------------------------
+
+def _similar(result):
+    if result is None:
+        return {"results": [], "stores": []}
+    return result
+
+
+@router.get("/offers/{ref}/similar")
+def get_offer_similar(ref: str, stores: str = Query(default=""), limit: int = Query(default=12, ge=1, le=48)):
+    store_ids = resolve_stores(stores)
+    try:
+        return _similar(queries.similar(store_ids, limit, ref=_enabled_ref(ref)))
+    except semantic.SemanticUnavailable as exc:
+        raise HTTPException(503, "similar products are temporarily unavailable") from exc
+
+
+@router.get("/groups/{group_id}/similar")
+def get_group_similar(group_id: str, stores: str = Query(default=""), limit: int = Query(default=12, ge=1, le=48)):
+    store_ids = resolve_stores(stores)
+    try:
+        return _similar(queries.similar(store_ids, limit, group_id=group_id))
+    except semantic.SemanticUnavailable as exc:
+        raise HTTPException(503, "similar products are temporarily unavailable") from exc
 
 
 # -- statistics -------------------------------------------------------------------------

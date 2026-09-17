@@ -42,7 +42,7 @@ class Queries:
         self.calls = []
         self.offers = {"tesco:1": make_offer("tesco", "1", "Tej"), "auchan:2": make_offer("auchan", "2", "Túró")}
 
-    def search(self, store_ids, q, skip, limit):
+    def search(self, store_ids, q, skip, limit, mode="text", min_score=None):
         self.calls.append(("search", store_ids, q, skip, limit))
         if skip + limit > 1000:
             raise self.WindowTooLarge("too deep")

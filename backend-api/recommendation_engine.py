@@ -14,13 +14,15 @@ from pymongo import MongoClient
 from qdrant_client import QdrantClient
 from qdrant_client.models import Filter, FieldCondition, MatchValue
 
+from stores import semantic
+
 logger = logging.getLogger(__name__)
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "qdrant")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
-QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", "products")
+QDRANT_COLLECTION = semantic.COLLECTION  # store-aware "offers"; Tesco points are "tesco:{tpnc}"
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY") or None
 MONGO_URI = os.environ.get("MONGO_URI", "mongodb://localhost:27017/")
 MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "tesco_tracker")
@@ -54,10 +56,9 @@ def _get_alerts_db():
     return _alerts_mongo_client[MONGO_ALERTS_DB_NAME]
 
 
-def _string_to_qdrant_id(s: str) -> int:
-    """Must match the same function in Service B for consistency."""
-    h = hashlib.sha256(s.encode()).hexdigest()
-    return int(h[:15], 16)
+def _point_id(tpnc: str) -> str:
+    """Qdrant point of a Tesco product in the store-aware offers collection."""
+    return semantic.point_id(f"tesco:{tpnc}")
 
 
 # ── Vector Mathematics ────────────────────────────────────────────────────────
@@ -244,7 +245,7 @@ def resolve_product_categories(product_ids: list[str]) -> dict[str, str]:
     if not product_ids:
         return {}
     qdrant = _get_qdrant()
-    point_ids = [_string_to_qdrant_id(pid) for pid in product_ids]
+    point_ids = [_point_id(pid) for pid in product_ids]
     try:
         points = qdrant.retrieve(
             collection_name=QDRANT_COLLECTION,
@@ -331,7 +332,7 @@ def search_category_bucket(
     qdrant = _get_qdrant()
 
     # Retrieve vectors for the user's alerted products in this category
-    point_ids = [_string_to_qdrant_id(pid) for pid in alerted_product_ids]
+    point_ids = [_point_id(pid) for pid in alerted_product_ids]
     try:
         points = qdrant.retrieve(
             collection_name=QDRANT_COLLECTION,
@@ -353,7 +354,10 @@ def search_category_bucket(
     search_limit = math.ceil(slot_size * 2.5)
 
     search_filter = Filter(
-        must=[FieldCondition(key="category", match=MatchValue(value=category))]
+        must=[
+            FieldCondition(key="store", match=MatchValue(value="tesco")),
+            FieldCondition(key="category", match=MatchValue(value=category)),
+        ]
     )
     try:
         response = qdrant.query_points(
