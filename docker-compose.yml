@@ -38,11 +38,17 @@ services:
   # account per service, so no application connects as root. Idempotent, and a
   # service whose password is unset keeps its previous credentials.
   mongo-users:
-    image: mongo:8
+    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
+    pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-mongo-users
     restart: "no"
+    working_dir: /app
+    command: python -m mongo.init_users
     environment:
+      SERVICE_NAME: mongo-users
+      # Root here on purpose: this is the one job allowed to manage accounts.
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_ALERTS_DB_NAME: ${MONGO_ALERTS_DB_NAME:-tesco_alerts}
       MONGO_API_USERNAME: ${MONGO_API_USERNAME:-svc_api}
@@ -51,15 +57,10 @@ services:
       MONGO_SCRAPER_PASSWORD: ${MONGO_SCRAPER_PASSWORD:-}
       MONGO_ALERTS_USERNAME: ${MONGO_ALERTS_USERNAME:-svc_alerts}
       MONGO_ALERTS_PASSWORD: ${MONGO_ALERTS_PASSWORD:-}
-    entrypoint: ["mongosh"]
-    command:
-      - "mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/admin"
-      - "--quiet"
-      - "--file"
-      - "/scripts/init-users.js"
-    configs:
-      - source: mongo_init_users
-        target: /scripts/init-users.js
+      PYTHONPATH: /app
+      TZ: Europe/Budapest
+    labels:
+    - vector.enable=true
     networks:
       - tesco-tracker-internal
     depends_on:
@@ -683,10 +684,6 @@ networks:
     name: tesco-internal
 
 # ── Volumes ───────────────────────────────────────────────────────────────────
-configs:
-  mongo_init_users:
-    file: ./mongo/init-users.js
-
 volumes:
   mongo-data:
     name: ${STACK_PREFIX}tesco-tracker-mongo-data

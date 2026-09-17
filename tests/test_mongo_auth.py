@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 import mongo_auth
+from mongo import init_users
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -59,23 +60,67 @@ def test_every_application_service_has_its_own_account():
     services = _compose()["services"]
     using_mongo = {name for name, spec in services.items()
                    if "MONGO_URI" in (spec.get("environment") or {})}
-    # The admin tool keeps root; it is off unless COMPOSE_PROFILES says otherwise.
-    assert using_mongo - {"mongo-express"} != set()
-    for name in using_mongo - {"mongo-express"}:
+    # Root stays with the admin tool (off unless COMPOSE_PROFILES says otherwise)
+    # and with the job whose whole purpose is managing accounts.
+    applications = using_mongo - {"mongo-express", "mongo-users"}
+    assert applications
+    for name in applications:
         environment = services[name]["environment"]
         assert "MONGO_USER" in environment and "MONGO_PASSWORD" in environment, name
         assert services[name]["depends_on"]["mongo-users"]["condition"] == "service_completed_successfully", name
     assert "profiles" in services["mongo-express"]
 
 
-def test_the_account_creator_runs_once_with_the_script():
-    services = _compose()["services"]
-    creator = services["mongo-users"]
+def test_the_account_creator_runs_once_from_the_application_image():
+    compose = _compose()
+    creator = compose["services"]["mongo-users"]
     assert creator["restart"] == "no"
     assert creator["depends_on"]["mongo"]["condition"] == "service_healthy"
-    assert creator["configs"][0]["target"] == "/scripts/init-users.js"
-    assert _compose()["configs"]["mongo_init_users"]["file"] == "./mongo/init-users.js"
-    script = (ROOT / "mongo" / "init-users.js").read_text(encoding="utf-8")
-    # Skipping an account without a password is what makes a partial rollout safe.
-    assert "no password configured" in script
-    assert "updateUser" in script and "createUser" in script
+    assert creator["command"] == "python -m mongo.init_users"
+    # Portainer git stacks do not ship repo files to the host, so the script
+    # travels inside the image instead of a bind-mounted config.
+    assert "configs" not in compose and "configs" not in creator
+    assert "tescopricetracker" in creator["image"]
+
+
+class FakeAdmin:
+    def __init__(self, users=()):
+        self.users = list(users)
+        self.commands = []
+
+    def command(self, name, *args, **kwargs):
+        if name == "usersInfo":
+            return {"users": [{"user": user} for user in self.users]}
+        self.commands.append((name, args[0], kwargs["roles"]))
+        return {"ok": 1}
+
+
+def test_accounts_get_only_the_databases_they_use(monkeypatch):
+    monkeypatch.setenv("MONGO_API_PASSWORD", "a")
+    monkeypatch.setenv("MONGO_SCRAPER_PASSWORD", "b")
+    monkeypatch.setenv("MONGO_ALERTS_PASSWORD", "c")
+    by_user = {a["user"]: a for a in init_users.accounts("catalogue", "alerts")}
+
+    assert by_user["svc_scraper"]["roles"] == [{"role": "readWrite", "db": "catalogue"}]
+    assert by_user["svc_api"]["roles"] == [{"role": "readWrite", "db": "catalogue"}, {"role": "read", "db": "alerts"}]
+    assert by_user["svc_alerts"]["roles"] == [{"role": "readWrite", "db": "alerts"}, {"role": "read", "db": "catalogue"}]
+
+
+def test_existing_accounts_are_updated_and_new_ones_created():
+    admin = FakeAdmin(users=["svc_api"])
+    wanted = [
+        {"user": "svc_api", "password": "a", "roles": [{"role": "readWrite", "db": "catalogue"}]},
+        {"user": "svc_alerts", "password": "c", "roles": [{"role": "readWrite", "db": "alerts"}]},
+    ]
+
+    assert init_users.apply(admin, wanted) == {"created": 1, "updated": 1, "skipped": 0}
+    assert [(name, user) for name, user, _ in admin.commands] == [("updateUser", "svc_api"), ("createUser", "svc_alerts")]
+
+
+def test_an_account_without_a_password_is_left_alone(caplog):
+    admin = FakeAdmin()
+    counts = init_users.apply(admin, [{"user": "svc_api", "password": "", "roles": []}])
+
+    assert counts == {"created": 0, "updated": 0, "skipped": 1}
+    assert admin.commands == []
+    assert [r for r in caplog.records if getattr(r, "Action", None) == "mongo.account_skipped"]
