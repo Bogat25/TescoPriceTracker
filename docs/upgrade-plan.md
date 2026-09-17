@@ -1,8 +1,9 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–2 implemented** on `master` (2026-09-17, not yet
-deployed). Rewritten 2026-09-17 after the store spike
-([store-spike.md](store-spike.md)).
+Status: **Phases 0–2 done and deployed (2026-09-17).** Plan revised the same
+day: the logged-in Auchan loyalty reader is dropped, and the store-aware
+frontend moves before alerts so users see Auchan sooner. Background:
+[store-spike.md](store-spike.md).
 
 This plan turns the Tesco Price Tracker into a **store-neutral** price tracker.
 Tesco and Auchan are equal stores, and each can be switched off without a
@@ -12,390 +13,327 @@ its own.
 
 ---
 
-## 1. Decisions
+## 1. Overview
 
-### 1.1 Made (2026-09-17)
+| Phase | Content | Status |
+|---|---|---|
+| 0 | Quick fixes, recommendation tests in CI | ✅ Done |
+| 1 | Store registry, switches, store-neutral API (read side) | ✅ Done |
+| 2 | Auchan crawl, `auchan-scheduler`, alert rules | ✅ Done |
+| 3 | Barcode linking, merged product rows, compare, cross-store stats, loyalty-price check | Next |
+| 4 | Store-aware frontend (selector, badges, compare table); users see Auchan | |
+| 5 | Store-aware alerts and recommendations | |
+| 6 | Semantic and hybrid search across stores | |
+| 7 | Neutral name, hostname and routes; ecosystem renames | |
+| 8 | Security hardening | |
+| 9 | Tests (cross-cutting) and documentation | |
+
+**Removed:** the logged-in Auchan loyalty reader (old Phase 8). Anonymous
+responses already contain the card unit price (see §4.3), and the crawler
+stores card prices. The throwaway loyalty account is not needed; its
+credentials should never be added to any configuration.
+
+---
+
+## 2. Decisions
+
+### 2.1 Made
 
 | Topic | Decision |
 |---|---|
 | Second store | **Auchan** (auchan.hu online shop). Penny, Lidl, SPAR, Kifli.hu rejected; see store-spike.md §7 |
-| Neutrality | No store is special. Tesco and Auchan are both entries in a store registry and can each be disabled for users |
+| Neutrality | No store is special. Tesco and Auchan are both registry entries and can each be disabled for users |
 | Naming | **New neutral site name, hostname and API route.** `/api/tesco/*` and the current hostnames stay as working aliases |
 | Default view | **One product row with a price per enabled store.** Barcode-linked products appear once; unlinked and own-brand products appear as single-store rows |
-| Alerts | **The user picks stores per alert** (default: all enabled). The alert fires when any selected store meets the condition. Alerts on disabled stores are paused, not deleted |
-| Order | **Stores first, then search.** Semantic search is built store-aware from the start |
-| Storage | Separate collections per store; shared layers only join when a query needs it. The existing Tesco collection is not migrated |
-| Loyalty prices | Modelled as a `loyalty` price channel for every store. Auchan loyalty prices come from a dedicated account, behind its own switch, as the last phase |
+| Alerts | **The user picks stores per alert** (default: all enabled). Fires when any selected store meets the condition. Alerts on disabled stores are paused, not deleted |
+| Order | Stores first, then search. Semantic search is built store-aware from the start. Frontend before alerts (revised 2026-09-17) |
+| Storage | Separate collections per store; shared layers only join when a query needs it. The Tesco collection is not migrated |
+| Loyalty prices | A `loyalty` price channel for every store. Tesco: Clubcard price. Auchan: card unit price × pack size from the anonymous crawl |
+| Store switches | Changed with `python -m stores.admin` in the `api` container; no HTTP endpoint, because the gateway forwards every `/api/v1/*` path |
+| Git | Commit directly on each repository's default branch; the owner's push releases |
 
-### 1.2 Still open (resolve in Phase 0)
+### 2.2 Open
 
 | # | Question | Needed before |
 |---|---|---|
-| D1 | Neutral site name, public hostname, API route prefix (proposal: `/api/prices/*`) | Phase 6 (code can use neutral internal names earlier) |
-| D2 | Host CPU architecture for the embedding model image (compose defaults to `linux/amd64`; the recommendation blueprint and the ARM64 Qdrant build describe a Raspberry Pi 5 production host; confirm which is current) | Phase 5 |
-| D3 | Bizalomkártya programme terms allow the account's use | Phase 8 |
+| D1 | Neutral site name, public hostname, API route prefix (proposal: `/api/prices/*`) | Phase 7 (UI text can stay neutral earlier) |
+| D2 | Host CPU architecture for the embedding model image (compose defaults to `linux/amd64`; the recommendation blueprint and the ARM64 Qdrant build describe a Raspberry Pi 5) | Phase 6 |
 
 ---
 
-## 2. Target architecture
+## 3. Architecture
 
 ```
                          stores registry (Mongo `stores`)
-            { _id, name, enabled, scrape_enabled, loyalty_enabled, collection, order }
+            { _id, name, enabled, scrape_enabled, loyalty_enabled, order, website }
                                        │
    ┌───────────────────────────┬───────┴───────────────────────┐
-   │ products  (Tesco, as-is)  │  auchan_products  (new)       │   one collection per store,
-   │ runs      (Tesco, as-is)  │  auchan_runs      (new)       │   store-specific fields kept
+   │ products  (Tesco, as-is)  │  auchan_products              │   one collection per store,
+   │ runs      (Tesco, as-is)  │  auchan_runs                  │   store-specific fields kept
    └─────────────┬─────────────┴──────────────┬────────────────┘
-                 │   per-store mappers → common `Offer` model  │
+                 │   per-store adapters → common `Offer` model │
                  └───────────────┬─────────────────────────────┘
                                  │
-                 product_groups (Mongo)  key = normalised GTIN
-                 { _id: gtin, members: [ {store, store_product_id} ], name, brand, updated_at }
+          product_groups (Phase 3)  key = normalised GTIN
+          { _id: gtin_norm, members: [ {store, store_product_id} ], name, brand, updated_at }
                                  │
-     API: search · browse · product · compare · stats · alerts · recommendations
+     API: stores · search · browse · offers · groups · compare · stats · alerts · recommendations
           ?stores=a,b   (default: all enabled stores; single store → no join)
 ```
 
-### 2.1 Identifiers
+### 3.1 Identifiers
 
 | Thing | Format | Example |
 |---|---|---|
 | Store ID | lowercase slug | `tesco`, `auchan` |
 | Offer reference (one listing in one store) | `{store}:{store_product_id}` | `tesco:121262922`, `auchan:678170` |
-| Product group (linked by barcode) | `g:{gtin}`, GTIN digits with leading zeros stripped | `g:54026193` |
+| Product group (linked by barcode) | `g:{gtin_norm}` | `g:54026193` |
+| Normalised GTIN | digits, leading zeros stripped, at least 7 digits | `00000054026193` → `54026193` |
 | Qdrant point ID | hash of the offer reference; existing Tesco points keep `hash(tpnc)` until re-vectorised | – |
 
-Barcode notes from the spike: Tesco stores GTIN-14 with leading zeros; Auchan
-has an EAN on every product; codes starting with `2` of length 13 are in-store
-weighed-item codes and are never linked across stores.
+In-store codes (EAN-13 starting with `2`, e.g. weighed products) are flagged
+`is_weighed` and never linked across stores.
 
-### 2.2 Common `Offer` model (API layer)
+### 3.2 `Offer` model (implemented)
 
-`store`, `ref`, `store_product_id`, `gtin`, `group_id`, `name`, `brand`,
-`image_url`, `category_path[]`, `pack_size`, `pack_unit`, `is_weighed`,
-`availability`, `prices { regular, promo, loyalty, unit_price, unit }`,
-`price_date`, `flags[]`, `url` (link to the store's own product page).
+`store`, `ref`, `store_product_id`, `gtin`, `is_weighed`, `name`, `brand`,
+`image_url`, `category_path[]`, `pack_size`, `pack_unit`, `availability`,
+`prices {regular, promo, loyalty, unit_price, unit}`, `effective_price`,
+`discount_ratio`, `price_date`, `flags[]`, `url`.
 
-Price history uses one shape for every store:
-`{date, regular, promo, loyalty}`. Tesco's stored `normal`/`discount`/`clubcard`
-fields are mapped when read. Stored Tesco documents are not rewritten.
+History rows: `{date, regular, promo, loyalty, unit_price, unit, availability}`.
+Tesco's stored `normal`/`discount`/`clubcard` are mapped on read.
 
-### 2.3 Store switches
+### 3.3 Store switches (implemented)
 
 | Switch | Effect when `false` |
 |---|---|
-| `enabled` | Store hidden everywhere for users: search, browse, product pages, stats, recommendations, alert evaluation (alerts paused), store selector. Data is kept. Explicit `?stores=` for it returns a clear error |
-| `scrape_enabled` | Scheduler does not run the store's scraper; data stops updating |
-| `loyalty_enabled` | Loyalty reader for the store is not run |
+| `enabled` | Store hidden from store-neutral endpoints; `?stores=` naming it returns 404; for Tesco also the legacy `/products`, `/stats`, `/recommendations`, `/{tpnc}.json` endpoints return 404. Data is kept |
+| `scrape_enabled` | The store's scheduler skips collection and logs `scrape.disabled` once a day (alert rules treat it as healthy) |
+| `loyalty_enabled` | Reserved; unused now that loyalty prices come from the normal crawl |
 
-The API caches the registry for ~60 s, so a toggle takes effect without a
-redeploy. If only one store is enabled, the frontend hides the selector, and
-the site stays store-neutral.
-
----
-
-## 3. Phase 0: decisions and quick fixes
-
-1. Resolve D1–D3 (§1.2).
-2. Quick fixes that later phases rely on:
-   - remove the API-key prefix from logs in `config.py`,
-   - constant-time token check in `recomendation-system/app.py` `verify_api_token` (`hmac.compare_digest`),
-   - fix the two stale recommendation test files (they import removed functions `get_product_vectors`, `sort_by_discount`) and add `recomendation-system/tests` to `pytest.ini` `testpaths`,
-   - investigate why Tesco `deposit_amount` is always `null`.
+Registry reads are cached for 60 s and fall back to the defaults if MongoDB is
+unavailable.
 
 ---
 
-## 4. Phase 1: store layer (no visible change)
+## 4. Done
 
-Goal: the API works through the store registry and the `Offer` model with
-Tesco as the only store. Users see no difference.
+### 4.1 Phase 0: quick fixes
 
-1. `stores` collection, seeded idempotently at startup (both stores enabled,
-   as decided for launch). Registry module with TTL cache and fail-open reads,
-   shared by `backend-api` and the schedulers (`alert-service` in Phase 4).
-2. Switches are changed with a CLI inside the `api` container
-   (`python -m stores.admin set auchan enabled=false`), not an HTTP endpoint:
-   the public gateway forwards every `/api/v1/*` path. The Tesco-only legacy
-   endpoints (`/products`, `/stats`, `/recommendations`, `/{tpnc}.json`)
-   answer 404 while Tesco is disabled.
-3. `stores/` package with a `StoreMapper` interface (document → `Offer`,
-   history → common shape). `TescoMapper` wraps the existing fields.
-4. Normalised `gtin_norm` field + index on Tesco `products`: backfill script
-   (idempotent, batch updates), and set on every scraper write.
-5. `GET /api/v1/stores` → enabled stores with display data.
-6. New store-neutral endpoints alongside the existing ones:
-   `GET /api/v1/offers/{ref}`, `GET /api/v1/offers/{ref}/history`,
-   `GET /api/v1/search?q=&stores=`, `GET /api/v1/browse?stores=`.
-   Existing `/api/v1/products/*` endpoints keep their responses unchanged
-   (extension, Blazor project).
-7. Tests: registry cache and toggles, Tesco mapper, `stores` parameter
-   validation, legacy endpoint responses unchanged.
+- API-key prefix no longer logged; vector-sync token compared in constant time.
+- Recommendation tests were git-ignored; now tracked, rewritten against the
+  current engine, and part of `pytest` `testpaths`.
+- Tesco `deposit_amount` gap explained (metadata only written on a product's
+  first fetch; field added later). Fix deferred: it needs extra Tesco requests.
 
----
+### 4.2 Phase 1: store layer
 
-## 5. Phase 2: Auchan ingestion
+- `stores` package: `ids`, `registry`, `offers`, `tesco` and `auchan` adapters,
+  `queries` (merging), `admin` CLI.
+- Endpoints (public through `/api/tesco/*` until Phase 7):
+  `GET /api/v1/stores`, `/search?q=&stores=&skip=&limit=`,
+  `/browse?stores=&sort_by=name|price|discount&sort_dir=`,
+  `/offers/{ref}`, `/offers/{ref}/history`.
+- Several stores are merged without favouring any: search results interleave
+  by rank per store; browse results merge by the sort key.
+- `gtin_norm` on Tesco products (written by the scraper, backfilled at start).
 
-Goal: Auchan data collected daily into its own collections, monitored like
-Tesco. Not visible to users yet (`enabled: false`).
+### 4.3 Phase 2: Auchan ingestion
 
-API facts (store-spike.md §7.6–7.7):
+- Client: anonymous token (`/fe-api/get-token`), 1 request/s, retries with
+  `Retry-After`, outage vs contract errors.
+- Daily crawl of 8 grocery categories into `auchan_products`, resumable per
+  page from `auchan_runs`; ~15k products in ~8 min.
+- Prices: regular, promo, **card price = `loyaltyUnitPrice` (discounted) ×
+  pack size** (per-kg price for loose items), unit price, availability,
+  promo/card validity dates, flags, own-brand marker.
+- Description and ingredients fetched for new or renamed products (300/run).
+- `auchan-scheduler` service (cron `30 6 * * *`), health check, Grafana rules
+  `auchan-scrape-incomplete|fatal|upstream-failure-burst|stale`.
 
-- token: `POST https://auchan.hu/fe-api/get-token` `{"grant_type":"anonymous"}`, 24 h,
-- list: `GET /api/v2/products?page=&itemsPerPage=100&isCached=true&categories={id}` (max 100),
-- tree: `GET /api/v2/tree/0?depth=1`; grocery top-level IDs 14479, 14602, 14656, 14740, 14830, 13307, 14863, 12617,
-- details: `/api/v2/products/{id}/variants/{variantId}/details[/description|ingredients|nutrition|parameterList]`,
-- one national catalogue (delivery area does not change price or assortment),
-- ~15k products, full crawl ~8 min at 1 request/s, 0 errors on two days,
-  0 EAN or ID changes day over day, ~7.5% price changes per day.
+### 4.4 Deployment 2026-09-17
 
-Steps:
-
-1. `scraper/stores/auchan/` client: token fetch/refresh on 401, retries with
-   backoff, 1 request/s, descriptive logs using the existing structured logging
-   (`auchan.fetch`, `auchan.rate_limit`, `auchan.token_refresh`).
-2. Crawl job: category IDs from configuration (with the tree endpoint used to
-   detect new or removed categories), paged listing, de-duplication by product
-   ID.
-3. Write model in `auchan_products` (`_id` = Auchan product ID): name, brand,
-   EAN + `gtin_norm`, category path, pack size/unit, weighed flag, image, flags,
-   availability, `price_history[]` daily entries `{date, regular, promo,
-   loyalty: null, unit_price, unit}`, `first_seen`, `last_seen`.
-   Weighed items (`loose: true`) store the per-kg unit price.
-4. Detail fetch only for new products or changed names (description,
-   ingredients) to feed embeddings; low rate, separate step.
-5. Run state in `auchan_runs` with resume, same pattern as the Tesco scraper.
-6. Scheduler: per-store schedules and run states; each store runs only when
-   `scrape_enabled`. A failure or rate limit in one store never blocks another.
-7. Compose: `auchan-scraper` service (same image, own command), `vector.enable`
-   label, health check. SecretManager: new configuration variables
-   (`AUCHAN_CATEGORY_IDS`, schedule) in **both** `deployments.yaml` blocks.
-8. Monitoring: Grafana alert rules mirroring the Tesco ones (incomplete,
-   fatal, stale, upstream failure burst), with store-neutral titles.
-9. Tests: recorded JSON fixtures for list, tree, token, 401 refresh, mapper,
-   weighed item, run resume. No live network in CI.
-10. Deploy it with `enabled: false` as soon as it works and keep it
-    collecting. Phase 3 does not wait for this; build it against fixtures and
-    the spike crawls. Before switching Auchan on for users (`enabled: true`),
-    confirm from production: several complete daily runs from the server's
-    IP, no sustained rate limiting, alerts working, and enough price history
-    for the compare charts.
+Observability and tesco-price-tracker redeployed. After the deploy: no error
+events for any tracker service, new endpoints answer in 0.1–0.5 s, Auchan
+products searchable within minutes, legacy Tesco endpoints unchanged.
 
 ---
 
-## 6. Phase 3: linking and shared queries
+## 5. Phase 3: linking and shared queries (next)
 
-1. `product_groups` job after each store's run: group all offers by
-   `gtin_norm` (excluding in-store weighed codes); upsert members; remove stale
-   members. Log counts (`groups.linked`, `groups.single_store`).
-2. Search and browse (text search for now):
-   - one store in `stores` → query that store's collection only,
-   - several stores → query each enabled store's collection in parallel, map to
-     `Offer`, merge by `group_id` (fallback: `ref`), rank (text score, then
-     exact-name and barcode hits), paginate after merging.
-   - Mongo text index on `auchan_products.name` (+ brand) like Tesco.
-3. `GET /api/v1/groups/{group_id}` → product with every enabled store's
-   current offer. `GET /api/v1/groups/{group_id}/history` → aligned price
-   history per store (the compare chart).
-4. Statistics: every existing `/stats/*` endpoint takes `stores`; the cache key
-   includes the store set. New cross-store stats on linked groups:
-   - share of linked products where each store is cheapest,
-   - price index of a fixed basket of linked products per store over time,
-   - average price difference per category.
-   Products with a loyalty offer but no loyalty price are excluded from
-   "cheapest store" statistics.
-5. Tests: merge and pagination, single-store short-circuit, disabled store
-   excluded, stats cache key per store set, weighed codes never linked.
+1. `product_groups` job after each store's run (and a one-off build): group
+   offers by `gtin_norm` across stores, excluding in-store codes; upsert
+   members, remove stale members; log `groups.linked`, `groups.single_store`.
+   Expected: ~6,000 linked Tesco–Auchan products (spike estimate 31% ± 5 of
+   Tesco).
+2. Merged rows: when several stores are requested, search and browse return
+   one row per group with every enabled store's offer inside, cheapest first;
+   unlinked offers stay single-store rows. Pagination happens after merging.
+3. `GET /api/v1/groups/{group_id}` (every enabled store's current offer) and
+   `GET /api/v1/groups/{group_id}/history` (aligned daily history per store).
+   `GET /api/v1/offers/{ref}` gains `group_id`.
+4. Statistics: existing `/stats/*` endpoints get a `stores` parameter (cache
+   key includes the store set). New cross-store statistics on linked groups:
+   share where each store is cheapest (regular price and best price), price
+   index of a fixed linked basket over time, average difference per category.
+5. Loyalty-price validation: compare Auchan card prices with the Auchan
+   `LOYALTY` prices in GVH Árfigyelő for overlapping barcodes. Document the
+   agreement rate; if it is poor, mark Auchan card prices as estimates in the
+   UI and exclude them from "cheapest" statistics.
+6. Tests: grouping (in-store codes never linked, stale members removed),
+   merged pagination, disabled store excluded from groups, statistics cache
+   key per store set.
 
 ---
 
-## 7. Phase 4: store-aware alerts and recommendations
+## 6. Phase 4: store-aware frontend
+
+Goal: users see and choose stores. Branding stays for now (Phase 7), but new
+text is written store-neutrally.
+
+1. `StoresService` from `GET /api/v1/stores`; global store chips, remembered
+   per visitor (localStorage), overridable per search; hidden when only one
+   store is enabled.
+2. Search and product list switch to `/search` and `/browse` with `stores`,
+   rendering merged group rows: product image and name once, a price per
+   store, the cheapest highlighted, store badges on single-store rows.
+3. Product page for a group: compare table (regular, promo, card price, unit
+   price, availability, link to the store's own page) and one history chart
+   with a line per store. Old `/products/{tpnc}` URLs keep working and
+   redirect to the group page when the Tesco product is linked.
+4. Statistics page: store selector and the cross-store charts from Phase 3.
+5. Translations (`hu.json`, `en.json`) for store names and new labels.
+6. Tests: selector behaviour, hidden selector with one store, group row
+   rendering, compare table, legacy URL redirect.
+
+---
+
+## 7. Phase 5: store-aware alerts and recommendations
 
 1. Alert model: `target` = `{kind: "offer", ref}` or `{kind: "group", group_id}`,
-   plus `stores: [...]` (default: all enabled at creation), existing type fields.
-2. Migration of existing alerts (idempotent script, dry-run first):
+   plus `stores: [...]` (default: all enabled at creation).
+2. Migration of existing alerts (idempotent script, dry run first):
    `productId` → `target {kind: "offer", ref: "tesco:{productId}"}`,
    `stores: ["tesco"]`. Keep `productId` until the old API is retired.
-3. Scraper → alert-service trigger payload carries `ref`, `store`, `gtin_norm`.
-   The evaluator matches offer alerts by `ref` and group alerts by group
-   membership, only for stores that are both selected and enabled.
-   Duplicate-send protection becomes per store run (`runKey` = `{store}:{date}`).
-4. Digest email shows store name and links to the store-neutral product page.
-5. Recommendations: candidate products limited to the requested/enabled
-   stores; results de-duplicated by group; cold-start "best deals" merged
-   across stores.
-6. Qdrant payload gains `store`, `ref`, `gtin_norm`; filters on `store`;
-   payload indexes created. Auchan products are vectorised with the existing
-   worker until Phase 5 moves vectorisation into the cluster.
-7. Tests: migration dry-run and idempotency, evaluator with store subsets and
+3. Each store's scheduler triggers the alert service after its run with
+   `ref`, `store`, `gtin_norm`; the Auchan scheduler gains the publication step
+   the Tesco scraper already has (`runKey` = `{store}:{date}`).
+4. Evaluator matches offer alerts by `ref` and group alerts by group
+   membership, only for selected and enabled stores. Digest email names the
+   store and links to the group page.
+5. Frontend: store checkboxes when creating an alert; "paused" badge when every
+   selected store is disabled.
+6. Recommendations: candidates limited to requested/enabled stores,
+   de-duplicated by group; cold-start "best deals" merged across stores.
+7. Qdrant payload gains `store`, `ref`, `gtin_norm`; Auchan products are
+   vectorised (description and ingredients are already stored).
+8. Tests: migration dry run and idempotency, evaluator with store subsets and
    disabled stores, digest grouping, recommendation de-duplication.
 
 ---
 
-## 8. Phase 5: semantic and hybrid search (store-aware)
+## 8. Phase 6: semantic and hybrid search
 
 1. `embedding-service` container: FastAPI + CPU `sentence-transformers`,
-   model `intfloat/multilingual-e5-small` baked into the image, endpoint
-   `POST /embed {texts, mode: query|passage}` (the service adds the E5
-   prefixes), internal network only, internal token (`hmac.compare_digest`),
-   same logging format. Image platform from D2.
-2. In-cluster vectorisation replaces the laptop worker for normal operation:
-   after each store run, embed new or changed offers (`passage` mode) and
-   upsert into Qdrant with `store`/`ref`/`gtin_norm`/category payload.
-   Keep `worker.py` as an optional bulk backfill tool.
-3. `GET /api/v1/search?q=&stores=&mode=text|semantic|hybrid` (default
-   `hybrid`): Mongo text results + Qdrant results (filtered by stores) fused
-   with Reciprocal Rank Fusion, then merged by group as in Phase 3. If the
-   embedding service or Qdrant fails, text results are returned and a warning
-   is logged.
-4. `GET /api/v1/offers/{ref}/similar` and group-level "similar products"
-   (Qdrant query by point, excluding the same group).
-5. Cross-store matching for products **without** a shared barcode (optional,
-   thesis material): embedding similarity + brand + normalised pack size →
-   `product_matches` with confidence. Barcode groups are the labelled set for
-   measuring precision and recall.
+   `intfloat/multilingual-e5-small` baked into the image, `POST /embed
+   {texts, mode: query|passage}` (service adds E5 prefixes), internal network
+   and token only, same logging format. Image platform from D2.
+2. In-cluster vectorisation after each store run replaces the laptop worker
+   for normal operation; `worker.py` stays as a bulk backfill tool.
+3. `/search?mode=text|semantic|hybrid` (default `hybrid`): Mongo text results
+   and Qdrant results (filtered by stores) fused with Reciprocal Rank Fusion,
+   then merged by group. Text results are returned if the vector path fails.
+4. `/offers/{ref}/similar` and group-level similar products.
+5. Optional: embedding + brand + pack-size matching for products without a
+   shared barcode, measured against barcode groups as ground truth.
 6. Search evaluation: ~30 labelled Hungarian queries; precision@10 and MRR for
    text / semantic / hybrid; results table in `docs/`.
-7. Tests: prefixing, fusion, fallback path, store filter in Qdrant queries.
+7. Tests: prefixing, fusion, fallback, store filter in Qdrant queries.
 
 ---
 
-## 9. Phase 6: store-neutral frontend and branding
+## 9. Phase 7: neutral name, routes and ecosystem
 
-1. Apply the neutral name (D1): titles, SEO metadata, footer, privacy policy,
-   manifest, translations (`hu.json`, `en.json`). No store is named in
-   site-wide text.
-2. Store selector: global chips from `GET /api/v1/stores`, remembered per
-   visitor, overridable per search; hidden if only one store is enabled.
-   Every product-list request sends `stores`.
-3. Product rows: one row per group with each enabled store's price, cheapest
-   highlighted; single-store rows show the store badge.
-4. Product page (group): compare table (price, unit price, promo, loyalty,
-   availability, link to the store) and a combined history chart per store.
-5. Alerts UI: store checkboxes when creating (default: all enabled), paused
-   badge when all selected stores are disabled.
-6. Statistics page: store selector and the cross-store charts from Phase 3.
-7. Routes: store-neutral product URLs (`/p/{group_id}`, `/o/{ref}`), with
-   redirects from the old `/products/{tpnc}` URLs.
-8. Tests: selector behaviour, hidden selector with one store, compare table,
-   alert store selection, legacy URL redirects.
-
----
-
-## 10. Phase 7: ecosystem and routing
+1. Apply D1: site name, titles, SEO metadata, footer, privacy policy,
+   manifest, translations; no store named in site-wide text.
+2. Store-neutral product URLs (`/p/{group_id}`, `/o/{ref}`) with redirects.
 
 | Area | Repo | Change |
 |---|---|---|
-| Gateway routes | `Gavaller_websites_backend_ecosystem` | New `/api/{prefix}/*` → `api` `/api/v1/*`; keep `/api/tesco/*` as alias; add the new hostname to the frontend route; keep the old hostnames |
-| Frontend hostname / tunnel | `DockerNetworkArchitecture` / Cloudflare | New public hostname (D1) |
-| Keycloak redirect URIs, CORS allowlists, auth-gateway return hosts | this repo, SecretManager | Add the new hostname |
-| SecretManager | `SecretManager` | New variables in both blocks; controller redeploy after image tag changes (reconcile alone does not re-pull) |
-| Grafana | `Observability` | Folder and dashboard titles store-neutral; store variable on product dashboards; Auchan alert rules |
-| RefDataSync + ClickHouse dictionary | `Gavaller_websites_backend_ecosystem`, `ClickHouseInfra` | Product dimension keyed by `ref` with a `store` column; Tesco rows keep `tpnc` for existing panels |
-| Browser extension | this repo | Stays a Tesco-site integration; keeps legacy routes; opens the neutral site |
-| TescoDotnetPort (coursework) | `TescoDotnetPort` | No change; uses `/api/tesco/` alias |
+| Gateway routes | `Gavaller_websites_backend_ecosystem` | New `/api/{prefix}/*` → `api` `/api/v1/*`; keep `/api/tesco/*`; new hostname on the frontend route; keep old hostnames |
+| Hostname / tunnel | `DockerNetworkArchitecture` / Cloudflare | New public hostname |
+| Keycloak redirect URIs, CORS, auth-gateway return hosts | this repo, SecretManager | Add the new hostname |
+| SecretManager | `SecretManager` | Variables in both blocks when new ones appear; redeploy after image tag changes |
+| Grafana | `Observability` | Store-neutral folder and titles; store variable on product dashboards |
+| RefDataSync + ClickHouse dictionary | `Gavaller_websites_backend_ecosystem`, `ClickHouseInfra` | Product dimension keyed by `ref` with a `store` column; Tesco rows keep `tpnc` |
+| Browser extension | this repo | Stays a Tesco-site integration on legacy routes; opens the neutral site |
+| TescoDotnetPort | `TescoDotnetPort` | No change (uses `/api/tesco/`) |
 
 ---
 
-## 11. Phase 8: Auchan loyalty prices (optional, behind `loyalty_enabled`)
+## 10. Phase 8: security hardening
 
-**Update 2026-09-17: probably not needed.** Anonymous list responses include
-`packageInfo.loyaltyUnitPrice` (the discounted card unit price) for every
-loyalty-flagged product (380/380 in the 2026-09-17 crawl). Card price = unit
-price × pack size (loose items: the per-kg price), which reproduces shelf
-prices exactly (Kaiser 699 → 599 Ft). The Phase 2 crawler already fills the
-`loyalty` channel this way. Remaining work: validate a sample against the
-Auchan `LOYALTY` prices reported to GVH Árfigyelő. Only if that fails, or the
-field disappears, build the logged-in reader below.
-
-Original facts: the product variant carries `loyaltyPrice`, `loyaltyUnitPrice`,
-`loyaltyPricePerKg`, shown when `isLoyaltyPriceValid`. The `Bizalomkártyás`
-flag marks affected products (380–613 at a time).
-
-1. Check the programme terms (D3).
-2. Account credentials and tokens are stored only in Infisical through
-   SecretManager and injected as environment variables. Never commit them,
-   never log them, never print them.
-3. The login itself is not automated. Log in once by hand, store the refresh
-   token, and let the reader keep the session alive with
-   `grant_type=refresh_token`. If refreshing fails, the reader stops, logs
-   `auchan.loyalty_session_expired`, and a Grafana alert asks for a manual
-   re-login.
-4. The reader only fetches flagged products and only writes the `loyalty`
-   channel; normal prices keep coming from the anonymous crawl.
-5. Validation before switching on: loyalty prices must equal the Auchan
-   `LOYALTY` prices reported to GVH Árfigyelő for the overlapping products. If
-   they differ (for example by loyalty level), do not publish them.
-6. Until this phase is live, flagged products show a "card price available"
-   badge and are excluded from cheapest-store statistics.
-
----
-
-## 12. Phase 9: security hardening
-
-1. Least-privilege MongoDB users per service (read-only for `api` on store
-   collections; write only where needed); stop passing root credentials to
+1. Least-privilege MongoDB users per service; no root credentials in
    application containers.
-2. CORS allowlists instead of `*` (`ALLOWED_ORIGINS`, `ALERTS_ALLOWED_ORIGINS`)
+2. CORS allowlists instead of `*` (`ALLOWED_ORIGINS`, `ALERTS_ALLOWED_ORIGINS`),
    including the new hostname.
 3. Trust-boundary document: networks per service, which token protects which
    endpoint, why internal HTTP is acceptable or where TLS is added.
-4. Auth realms: document the two-realm flow (browser JWTs from
-   `backend-ecosystem`, stack realm for auth-gateway and admin sync) with a
-   sequence diagram, or consolidate.
+4. Auth realms: document the two-realm flow with a sequence diagram, or
+   consolidate.
 5. `mongo-express`: admin ingress only, strong basic-auth, or disabled in
    production.
-6. Tesco scrape reliability: pacing and thread count against the recurring
-   `429` responses; several complete days before the presentation.
+6. Tesco scrape reliability against recurring `429` responses (pacing, thread
+   count); several complete days before the thesis presentation.
+7. Tesco metadata refresh (fills `deposit_amount` and other fields added after
+   a product's first fetch), paced so it does not add rate-limit pressure.
 
 ---
 
-## 13. Tests (across phases)
+## 11. Phase 9: tests and documentation
 
-Each phase lists its own tests. In addition:
+Tests (each phase also adds its own):
 
 1. CI integration job: `docker compose` with `mongo`, `qdrant`, `api`,
    `alert-service`, a stub `embedding-service`, seeded fixtures for **two
-   stores**; checks search/browse/compare with every store combination, store
-   toggles, alert create → trigger → digest (email stubbed), recommendations.
-2. Angular specs for services, the store selector, compare table, alerts
-   (only `alerts.spec.ts` exists today).
-3. Optional Playwright smoke test: search → group page → compare → create alert.
-4. Coverage reports as CI artifacts (numbers for the thesis).
+   stores**; search/browse/compare for every store combination, store
+   switches, alert create → trigger → digest (email stubbed), recommendations.
+2. Angular specs for services, store selector, compare table, alerts (only
+   `alerts.spec.ts` exists today).
+3. Optional Playwright smoke test: search → group page → compare → alert.
+4. Coverage reports as CI artifacts.
 
----
-
-## 14. Documentation
+Documentation:
 
 1. Root `README.md`: what the system does, services, local run, deployment.
 2. `docs/architecture.md`: component diagram including the ecosystem
    (Cloudflare Tunnel → YARP gateway → services, Keycloak, Vector → ClickHouse
    → Grafana, SecretManager, Portainer), store registry and switches, daily
    scrape → link → vectorise → alert flow, search pipeline, auth sequence.
-3. `docs/stores.md`: how to add a store (mapper, scraper, registry entry,
-   monitoring, tests), using Auchan as the worked example.
-4. `docs/deployment.md`: CI, GHCR images, Portainer, SecretManager variables,
-   rollback.
+3. `docs/stores.md`: adding a store (adapter, crawler, registry entry,
+   scheduler, alert rules, tests) with Auchan as the worked example; how to
+   switch stores on and off.
+4. `docs/deployment.md`: CI, GHCR images, Portainer, SecretManager, rollback.
 5. Decision records (`docs/adr/`): per-store collections + group layer,
-   barcode linking, store switches, E5 + Qdrant, RRF hybrid search, loyalty
-   reader design.
+   barcode linking, store switches, anonymous Auchan card prices, E5 + Qdrant,
+   RRF hybrid search.
 6. Clean-up: `respond.json`, `versions/*.zip`, `.envbeforethe update`,
    `.env.prodversion`, empty `templates/`.
 
 ---
 
-## 15. Milestones
+## 12. Milestones
 
 | Milestone | Phases | Result |
 |---|---|---|
-| M0 | 0 | Decisions made; quick fixes; all tests run in CI |
-| M1 | 1 | Store registry and neutral API, Tesco only, no visible change |
-| M2 | 2 | Auchan collected daily and monitored, hidden from users (keeps running while M3 is built) |
-| M3 | 3–4 | Linked products, shared search/browse/stats, store-aware alerts and recommendations |
-| M4 | 5 | Hybrid semantic search across stores, no laptop dependency |
-| M5 | 6–7 | Store-neutral site live under the new name; old routes still work |
-| M6 | 8 | Auchan loyalty prices (if D3 allows) |
-| M7 | 9, 13, 14 | Hardened, tested, documented; ready for the thesis |
+| M0–M2 | 0–2 | ✅ Store layer and daily Auchan collection live (2026-09-17) |
+| M3 | 3 | Linked products, merged rows, compare and cross-store stats in the API |
+| M4 | 4 | Users choose stores and compare prices on the site |
+| M5 | 5 | Store-aware alerts and recommendations |
+| M6 | 6 | Hybrid semantic search across stores, no laptop dependency |
+| M7 | 7 | Neutral name and routes live; old routes still work |
+| M8 | 8–9 | Hardened, tested, documented; ready for the thesis |
 
-Deploy note: Portainer pulls images from GHCR. When an image tag changes, a
-controller reconcile alone does not pull the new image; redeploy the stack.
+Deploy note: Portainer pulls images from GHCR. When an image changes, a
+controller reconcile alone does not pull it; redeploy the stack.
