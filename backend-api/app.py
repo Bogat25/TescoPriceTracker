@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+
+from cors_policy import cors_kwargs
 from fastapi.responses import JSONResponse
 from mongo import database_manager as db
 from mongo import stats_manager
@@ -28,16 +30,7 @@ app.middleware("http")(tesco_switch_middleware())
 # Registered last so it runs first: every later middleware/handler logs with the IDs.
 app.middleware("http")(correlation_middleware())
 
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "").split(",")
-if not allowed_origins or allowed_origins == [""]:
-    allowed_origins = ["*"] # fallback if not specified
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_methods=["GET", "POST", "DELETE"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, **cors_kwargs(["GET", "POST", "DELETE"]))
 
 @app.on_event("startup")
 def startup_event():

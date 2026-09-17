@@ -163,6 +163,9 @@ def insert_daily_prices(tpnc, price_updates, metadata=None):
         today_entry[category] = dict(fields)
 
     if metadata:
+        # Stamped so the scraper can find products whose metadata predates
+        # fields Tesco added later (scraper.MetadataRefreshBudget).
+        metadata = dict(metadata, metadata_at=datetime.now().isoformat())
         embedding_changed = any(
             data.get(field) != metadata.get(field)
             for field in _EMBEDDING_SOURCE_FIELDS

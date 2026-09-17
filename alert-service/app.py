@@ -7,6 +7,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from cors_policy import cors_kwargs
+
 import db as alert_db
 import settings
 from auth import prime_jwks
@@ -87,14 +89,7 @@ app = FastAPI(
 app.middleware("http")(correlation_middleware())
 
 
-_cors_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_cors_origins or ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, **cors_kwargs(["GET", "POST", "PATCH", "DELETE"]))
 
 
 app.include_router(health.router)

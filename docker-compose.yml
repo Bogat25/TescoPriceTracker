@@ -33,7 +33,10 @@ services:
       retries: 5
       start_period: 30s
 
+  # Admin tool, off unless the stack is deployed with COMPOSE_PROFILES=admin-tools.
+  # It reaches MongoDB with the root account, so it does not run day to day.
   mongo-express:
+    profiles: ["admin-tools"]
     image: mongo-express:latest
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     container_name: ${STACK_PREFIX}tesco-tracker-mongo-express
@@ -219,6 +222,7 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
       EMBEDDING_SERVICE_URL: http://embedding-service:8080
       SEMANTIC_MIN_SCORE: ${SEMANTIC_MIN_SCORE:-0.82}
+      ALLOWED_ORIGINS: ${API_ALLOWED_ORIGINS:-}
       INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
       GATEWAY_INTERNAL_TOKEN: ${GATEWAY_INTERNAL_TOKEN}
       KC_JWKS_URL: ${KC_JWKS_URL:-http://gavaller-backend-gateway:8080/internal/keycloak/be/certs}
@@ -329,6 +333,14 @@ services:
       MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
       MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
       MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
+      # Outgoing request pacing (scraper.RequestPacer): a floor between
+      # requests that doubles after every 429 and recovers on success.
+      TESCO_MIN_REQUEST_INTERVAL_SECONDS: ${TESCO_MIN_REQUEST_INTERVAL_SECONDS:-0.25}
+      TESCO_MAX_REQUEST_INTERVAL_SECONDS: ${TESCO_MAX_REQUEST_INTERVAL_SECONDS:-8}
+      TESCO_PACE_RECOVERY_REQUESTS: ${TESCO_PACE_RECOVERY_REQUESTS:-50}
+      # Metadata repair: products per pass whose fields are re-fetched in full.
+      TESCO_METADATA_REFRESH_PER_RUN: ${TESCO_METADATA_REFRESH_PER_RUN:-300}
+      TESCO_METADATA_MAX_AGE_DAYS: ${TESCO_METADATA_MAX_AGE_DAYS:-30}
       ALERT_SERVICE_TRIGGER_URL: ${ALERT_SERVICE_TRIGGER_URL:-http://alert-service:8080/internal/trigger}
       INTERNAL_TRIGGER_TOKEN: ${INTERNAL_TRIGGER_TOKEN:-}
       PYTHONPATH: /app
@@ -415,7 +427,8 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       RESEND_FROM: ${RESEND_FROM:-}
       RESEND_REPLY_TO: ${RESEND_REPLY_TO:-}
-      ALLOWED_ORIGINS: ${ALERTS_ALLOWED_ORIGINS:-*}
+      # Empty falls back to the site's own hostnames (cors_policy.py).
+      ALLOWED_ORIGINS: ${ALERTS_ALLOWED_ORIGINS:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PYTHONPATH: /app
       TZ: Europe/Budapest

@@ -165,7 +165,13 @@ def _get_http_session():
 
 def _post_tesco_request(*args, **kwargs):
     """Small seam around Session.post so request behavior stays testable."""
-    return _get_http_session().post(*args, **kwargs)
+    _pacer.wait()
+    response = _get_http_session().post(*args, **kwargs)
+    if getattr(response, "status_code", None) == 429:
+        _log_pace(_pacer.on_rate_limited(), "slowed after a rate limit")
+    else:
+        _log_pace(_pacer.on_success(), "recovered")
+    return response
 
 
 def _exception_chain(exc):
@@ -282,6 +288,122 @@ def _classify_graphql_errors(errors, operation_name):
 
     return GraphQLExecutionError(
         f"Tesco GraphQL execution failed for {operation_name}: {errors}"
+    )
+
+
+class RequestPacer:
+    """Keeps a minimum gap between requests, and widens it after a rate limit.
+
+    The retry ladder already recovers *after* Tesco answers 429, but by then
+    the penalty window is running. Pacing is the other half: requests leave at
+    a bounded rate, and every 429 doubles the gap, so a pass that starts being
+    throttled slows down instead of spending its attempts inside the window.
+    Successful requests shrink the gap back to the floor, so an isolated 429
+    does not slow the rest of the day.
+    """
+
+    def __init__(self, minimum, maximum, recovery_after):
+        self.minimum = max(0.0, minimum)
+        self.maximum = max(self.minimum, maximum)
+        self.recovery_after = max(1, recovery_after)
+        self.interval = self.minimum
+        self._next_slot = 0.0
+        self._successes = 0
+        self._lock = threading.Lock()
+
+    def wait(self):
+        """Block until this thread's turn; returns the seconds it waited."""
+        while True:
+            with self._lock:
+                now = time.monotonic()
+                slot = max(self._next_slot, now)
+                self._next_slot = slot + self.interval
+                delay = slot - now
+            if delay <= 0:
+                return 0.0
+            time.sleep(delay)
+            return delay
+
+    def on_success(self):
+        with self._lock:
+            if self.interval <= self.minimum:
+                return None
+            self._successes += 1
+            if self._successes < self.recovery_after:
+                return None
+            self._successes = 0
+            self.interval = max(self.minimum, self.interval / 2)
+            return self.interval
+
+    def on_rate_limited(self):
+        with self._lock:
+            self._successes = 0
+            if self.interval >= self.maximum:
+                return None
+            self.interval = min(self.maximum, max(self.minimum, self.interval) * 2)
+            return self.interval
+
+
+_pacer = RequestPacer(
+    minimum=float(os.getenv("TESCO_MIN_REQUEST_INTERVAL_SECONDS", "0.25")),
+    maximum=float(os.getenv("TESCO_MAX_REQUEST_INTERVAL_SECONDS", "8")),
+    recovery_after=int(os.getenv("TESCO_PACE_RECOVERY_REQUESTS", "50")),
+)
+
+
+class MetadataRefreshBudget:
+    """How many products may use the expensive full query in one pass.
+
+    Metadata (deposit, pack size, ingredients, images, …) is written on a
+    product's first fetch; every later day fetches prices only, so fields Tesco
+    added afterwards stay missing forever. Refreshing everything would double
+    the pass, so each pass repairs a bounded number of the oldest records —
+    the whole catalogue comes round in a few weeks at no extra rate-limit risk.
+    """
+
+    def __init__(self, limit):
+        self.limit = max(0, limit)
+        self.used = 0
+        self._lock = threading.Lock()
+
+    def take(self):
+        with self._lock:
+            if self.used >= self.limit:
+                return False
+            self.used += 1
+            return True
+
+    def reset(self):
+        with self._lock:
+            self.used = 0
+
+
+_metadata_budget = MetadataRefreshBudget(int(os.getenv("TESCO_METADATA_REFRESH_PER_RUN", "300")))
+# Metadata written before this many days ago is refreshed when the budget allows.
+METADATA_MAX_AGE_DAYS = int(os.getenv("TESCO_METADATA_MAX_AGE_DAYS", "30"))
+
+
+def _metadata_is_stale(product, now=None):
+    """True when a stored product has never recorded its metadata age, or it is old."""
+    if not product:
+        return False
+    stamped = product.get("metadata_at")
+    if not stamped:
+        return True
+    try:
+        written = datetime.fromisoformat(stamped)
+    except (TypeError, ValueError):
+        return True
+    return (now or datetime.now()) - written > timedelta(days=METADATA_MAX_AGE_DAYS)
+
+
+def _log_pace(interval, reason):
+    if interval is None:
+        return
+    logger.info(
+        "Tesco request pacing %s to %.2fs between requests.", reason, interval,
+        extra={"Action": "graphql.pace_changed", "Category": "upstream",
+               "RequestIntervalSeconds": round(interval, 3), "Reason": reason},
     )
 
 
@@ -556,6 +678,8 @@ def get_product_api(tpnc, query_type="full"):
         except (requests.RequestException, ValueError) as e:
             status_code, error_code = _request_failure_fields(e)
             retry_after = getattr(e, "retry_after", None)
+            if status_code == 429 or retry_after is not None:
+                _log_pace(_pacer.on_rate_limited(), "slowed after a rate limit")
             if retry_after is not None and retry_after > RATE_LIMIT_MAX_IN_PROCESS_WAIT_SECONDS:
                 # Every further request would land inside this penalty and
                 # extend it. Stop all admissions for its full length and let
@@ -651,7 +775,8 @@ def process_product(tpnc, force=False, progress_prefix=""):
     Returns a ProductResult so unavailable products and actual failures are not
     conflated with successful skips.
     """
-    exists = db.product_exists(tpnc)
+    stored = db.get_product(tpnc)
+    exists = bool(stored)
 
     if exists and not force and not needs_scraping(tpnc):
         logger.debug(f"{progress_prefix}Skipping {tpnc}: already up-to-date.")
@@ -659,8 +784,13 @@ def process_product(tpnc, force=False, progress_prefix=""):
 
     # A forced run refreshes metadata as well as prices. Previously --force
     # still selected the price-only query for existing products, so schema and
-    # metadata recovery could never repair them.
-    query_type = "full" if force or not exists else "price"
+    # metadata recovery could never repair them. Stored products whose metadata
+    # predates fields Tesco added later are refreshed within a per-pass budget.
+    refreshing_metadata = bool(exists and not force and _metadata_is_stale(stored)
+                               and _metadata_budget.take())
+    query_type = "full" if force or not exists or refreshing_metadata else "price"
+    if refreshing_metadata:
+        logger.debug("%sRefreshing stale metadata for %s.", progress_prefix, tpnc)
     data = get_product_api(tpnc, query_type)
     if data is None:
         # get_product_api already logged the cause (rate limit, timeout, ...).
@@ -738,7 +868,7 @@ def process_product(tpnc, force=False, progress_prefix=""):
                     "promo_end": promo_end,
                 }))
 
-    # ---- Build metadata dict on first fetch ----
+    # ---- Build metadata dict on a full fetch (first sighting or refresh) ----
     metadata = None
     if query_type == "full":
         name = product_data.get('title')

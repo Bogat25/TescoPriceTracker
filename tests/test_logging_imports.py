@@ -163,6 +163,7 @@ def test_entrypoint_import_block_resolves_under_container_conditions(
         "starlette", "starlette.concurrency",
         "services", "services.keycloak_admin", "services.user_repo",
         "auth", "routers", "routers.alerts", "routers.health",
+        "cors_policy",
         "routers.internal", "models", "db",
         # structlog-specific bits we need to attribute-access
     ]:
