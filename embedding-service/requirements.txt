@@ -1,6 +1,6 @@
 # torch is installed separately from the CPU-only wheel index (see Dockerfile).
 sentence-transformers==5.4.1
-transformers==5.7.0
+transformers==5.10.0
 tokenizers==0.22.2
 huggingface-hub==1.13.0
 fastapi==0.141.1
