@@ -54,7 +54,6 @@ frontend/node_modules/
 *.angular/
 STORE_LISTING.md
 scripts/
-recomendation-system/tests/
 tests/*.sh
 tests/*.ps1
 tests/README.md

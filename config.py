@@ -64,7 +64,8 @@ API_URL = 'https://xapi.tesco.com/v1/graphql'
 API_KEY = os.getenv('API_KEY')
 
 if API_KEY:
-    logger.info(f"API Key loaded: {API_KEY[:5]}..." if len(API_KEY) > 5 else "API Key loaded (too short)")
+    # Never log any part of the key: log lines are shipped to ClickHouse.
+    logger.info("Tesco API key loaded.")
 else:
     logger.warning("WARNING: API_KEY not found in environment variables or .env file!")
 

@@ -8,6 +8,7 @@ Secured via API Token in the Authorization header.
 Only accessible on the internal Docker network / admin_ingress.
 """
 
+import hmac
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -80,7 +81,8 @@ async def verify_api_token(authorization: str = Header(...)):
     if not settings.VECTOR_SYNC_API_TOKEN:
         raise HTTPException(status_code=500, detail="Server misconfigured: no API token set")
     expected = f"Bearer {settings.VECTOR_SYNC_API_TOKEN}"
-    if authorization != expected:
+    # Constant-time comparison so response timing does not leak the token.
+    if not hmac.compare_digest(authorization.encode(), expected.encode()):
         raise HTTPException(status_code=401, detail="Invalid or missing API token")
 
 
