@@ -4,7 +4,7 @@ from typing import Optional
 
 from stores import offers
 from stores.auchan import mapper, repository
-from stores.browse import browse_sort_spec, text_search
+from stores.browse import browse_sort_spec, narrow, text_search
 
 
 STORE_ID = mapper.STORE_ID
@@ -35,8 +35,9 @@ def get_history(store_product_id: str) -> Optional[list]:
     return rows
 
 
-def search(query: str, limit: int) -> dict:
-    docs = text_search(repository.products(), query, limit, _OFFER_PROJECTION, id_fields=("_id", "ean"))
+def search(query: str, limit: int, category_query: Optional[dict] = None) -> dict:
+    docs = text_search(repository.products(), query, limit, _OFFER_PROJECTION,
+                       id_fields=("_id", "ean"), extra=category_query)
     return {"results": [mapper.offer_from_doc(doc) for doc in docs], "total": len(docs)}
 
 
@@ -69,10 +70,17 @@ def iter_histories(gtin_norms: Optional[list] = None):
         yield f"{STORE_ID}:{doc['_id']}", doc.get("name"), categories[0], doc.get("gtin_norm"), rows
 
 
-def browse(limit: int, sort_by: str, sort_dir: str) -> dict:
+def browse(limit: int, sort_by: str, sort_dir: str, category_query: Optional[dict] = None) -> dict:
     coll = repository.products()
-    cursor = coll.find({}, _OFFER_PROJECTION).sort(browse_sort_spec(sort_by, sort_dir)).limit(limit)
+    selector = narrow({}, category_query)
+    cursor = coll.find(selector, _OFFER_PROJECTION).sort(browse_sort_spec(sort_by, sort_dir)).limit(limit)
     return {
         "results": [mapper.offer_from_doc(doc) for doc in cursor],
-        "total": coll.estimated_document_count(),
+        "total": coll.count_documents(selector) if category_query else coll.estimated_document_count(),
     }
+
+
+def iter_categories():
+    """Yield ``(gtin_norm, category_path)`` for every product, for the category mapping."""
+    for doc in repository.products().find({}, {"gtin_norm": 1, "category_path": 1}, batch_size=1000):
+        yield doc.get("gtin_norm"), doc.get("category_path") or []

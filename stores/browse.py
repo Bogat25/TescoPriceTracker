@@ -18,16 +18,23 @@ def browse_sort_spec(sort_by: str, sort_dir: str) -> list:
     return [("name", direction)]
 
 
-def text_search(collection, query: str, limit: int, projection: dict, id_fields=("_id",)) -> list:
+def narrow(base: dict, extra=None) -> dict:
+    """``base`` restricted by ``extra``, without either clause losing an operator."""
+    return {"$and": [base, extra]} if extra else base
+
+
+def text_search(collection, query: str, limit: int, projection: dict, id_fields=("_id",),
+                extra=None) -> list:
     """Mongo text search, falling back to a case-insensitive substring match.
 
     The fallback catches partial words and IDs the text index does not. The
     user's input is escaped so it can never be run as a regular expression.
+    ``extra`` narrows both passes, for example to one category.
     """
     limit = max(1, min(limit, SEARCH_MAX))
     scored = dict(projection, score={"$meta": "textScore"})
     docs = list(
-        collection.find({"$text": {"$search": query}}, scored)
+        collection.find(narrow({"$text": {"$search": query}}, extra), scored)
         .sort([("score", {"$meta": "textScore"})])
         .limit(limit)
     )
@@ -35,4 +42,4 @@ def text_search(collection, query: str, limit: int, projection: dict, id_fields=
         return docs
     pattern = {"$regex": re.escape(query), "$options": "i"}
     clauses = [{"name": pattern}] + [{field: pattern} for field in id_fields]
-    return list(collection.find({"$or": clauses}, projection).limit(limit))
+    return list(collection.find(narrow({"$or": clauses}, extra), projection).limit(limit))

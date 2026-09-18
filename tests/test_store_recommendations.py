@@ -25,7 +25,7 @@ class Adapter:
     def find_by_gtins(self, gtins):
         return [o for o in self.catalogue if o["gtin"] in gtins]
 
-    def browse(self, limit, sort_by, sort_dir):
+    def browse(self, limit, sort_by, sort_dir, category_query=None):
         return {"results": self.catalogue[:limit], "total": len(self.catalogue)}
 
 

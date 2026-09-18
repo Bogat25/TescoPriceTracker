@@ -40,10 +40,11 @@ def publish(state: dict, today, now: Callable[[], datetime]) -> dict:
     Prices are already saved when this runs, so a failure here only leaves the
     publication for the next pass (the scheduler retries an unfinished day).
     """
-    from stores import alerts_feed, insights  # imported here: both read every store adapter
+    from stores import alerts_feed, categories, insights  # imported here: all read every store adapter
 
     if not state.get("stats_rebuilt_at"):
         insights.rebuild_store(mapper.STORE_ID)
+        categories.rebuild_safely()
         state["stats_rebuilt_at"] = now().isoformat()
         repository.save_run(state)
     if not state.get("alerts_notified_at"):

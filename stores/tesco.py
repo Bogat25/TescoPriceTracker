@@ -8,7 +8,7 @@ from typing import Optional
 
 from mongo import database_manager as db
 from stores import offers
-from stores.browse import browse_sort_spec, text_search
+from stores.browse import browse_sort_spec, narrow, text_search
 
 
 STORE_ID = "tesco"
@@ -115,8 +115,8 @@ def get_history(store_product_id: str) -> Optional[list]:
     return history_from_doc(doc) if doc else None
 
 
-def search(query: str, limit: int) -> dict:
-    docs = text_search(_collection(), query, limit, _OFFER_PROJECTION)
+def search(query: str, limit: int, category_query: Optional[dict] = None) -> dict:
+    docs = text_search(_collection(), query, limit, _OFFER_PROJECTION, extra=category_query)
     return {"results": [offer_from_doc(doc) for doc in docs], "total": len(docs)}
 
 
@@ -163,10 +163,18 @@ def iter_histories(gtin_norms: Optional[list] = None):
         yield f"{STORE_ID}:{doc['_id']}", doc.get("name"), doc.get("super_department_name"), doc.get("gtin_norm"), rows
 
 
-def browse(limit: int, sort_by: str, sort_dir: str) -> dict:
+def browse(limit: int, sort_by: str, sort_dir: str, category_query: Optional[dict] = None) -> dict:
     collection = _collection()
-    cursor = collection.find({}, _OFFER_PROJECTION).sort(browse_sort_spec(sort_by, sort_dir)).limit(limit)
+    selector = narrow({}, category_query)
+    cursor = collection.find(selector, _OFFER_PROJECTION).sort(browse_sort_spec(sort_by, sort_dir)).limit(limit)
     return {
         "results": [offer_from_doc(doc) for doc in cursor],
-        "total": collection.estimated_document_count(),
+        "total": collection.count_documents(selector) if category_query else collection.estimated_document_count(),
     }
+
+
+def iter_categories():
+    """Yield ``(gtin_norm, category_path)`` for every product, for the category mapping."""
+    projection = {"gtin_norm": 1, "super_department_name": 1, "department_name": 1}
+    for doc in _collection().find({}, projection, batch_size=1000):
+        yield doc.get("gtin_norm"), [doc.get("super_department_name"), doc.get("department_name")]

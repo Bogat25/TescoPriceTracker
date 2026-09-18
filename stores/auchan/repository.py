@@ -43,6 +43,7 @@ def ensure_indexes() -> None:
     coll.create_index("gtin_norm", sparse=True)
     coll.create_index("last_seen")
     coll.create_index("needs_details", sparse=True)
+    coll.create_index("category_path")
     for name, fields in (
         ("browse_price_asc", [("browse_sort.has_price", DESCENDING), ("browse_sort.effective_price", ASCENDING), ("name", ASCENDING)]),
         ("browse_price_desc", [("browse_sort.has_price", DESCENDING), ("browse_sort.effective_price", DESCENDING), ("name", ASCENDING)]),

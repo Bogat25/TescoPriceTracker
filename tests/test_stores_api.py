@@ -40,16 +40,19 @@ class Queries:
 
     def __init__(self):
         self.calls = []
+        self.categories = []
         self.offers = {"tesco:1": make_offer("tesco", "1", "Tej"), "auchan:2": make_offer("auchan", "2", "Túró")}
 
-    def search(self, store_ids, q, skip, limit, mode="text", min_score=None):
+    def search(self, store_ids, q, skip, limit, mode="text", min_score=None, category=None):
         self.calls.append(("search", store_ids, q, skip, limit))
+        self.categories.append(category)
         if skip + limit > 1000:
             raise self.WindowTooLarge("too deep")
         return {"results": [], "total": 0, "skip": skip, "limit": limit, "stores": store_ids}
 
-    def browse(self, store_ids, skip, limit, sort_by, sort_dir):
+    def browse(self, store_ids, skip, limit, sort_by, sort_dir, category=None):
         self.calls.append(("browse", store_ids, skip, limit, sort_by, sort_dir))
+        self.categories.append(category)
         return {"results": [], "total": 0, "skip": skip, "limit": limit, "stores": store_ids}
 
     def get_offer(self, ref):
@@ -64,6 +67,28 @@ class Queries:
 
     def get_group_history(self, group_id, store_ids):
         return {"group_id": group_id, "series": []} if group_id == "g:5998200557699" else None
+
+
+class Categories:
+    """Stands in for the learned mapping; only one category exists here."""
+
+    KNOWN = "alapveto-elelmiszerek/tejtermekek"
+    UnknownCategory = stores_api.categories.UnknownCategory
+
+    def resolve(self, category):
+        if category is None or not str(category).strip():
+            return None
+        if str(category).strip() != self.KNOWN:
+            raise self.UnknownCategory(category)
+        return self.KNOWN
+
+    def mapping(self):
+        return self
+
+    def listing(self, store_ids=None):
+        counts = {store_id: 5 for store_id in store_ids or ["tesco"]}
+        return [{"id": self.KNOWN, "names": ["Alapvető élelmiszerek", "Tejtermékek"],
+                 "name": "Tejtermékek", "counts": counts, "products": sum(counts.values())}]
 
 
 class Insights:
@@ -90,6 +115,7 @@ def api(monkeypatch):
         monkeypatch.setattr(stores_api, "registry", registry)
         monkeypatch.setattr(stores_api, "queries", fake_queries)
         monkeypatch.setattr(stores_api, "insights", Insights())
+        monkeypatch.setattr(stores_api, "categories", Categories())
         app = FastAPI()
         app.include_router(stores_api.router)
         app.middleware("http")(stores_api.tesco_switch_middleware())
@@ -117,6 +143,33 @@ def test_search_defaults_to_all_enabled_stores(api):
     client, fake = api()
     assert client.get("/api/v1/search", params={"q": " tej "}).status_code == 200
     assert fake.calls == [("search", ["tesco", "auchan"], "tej", 0, 50)]
+
+
+def test_search_and_browse_pass_the_category_through(api):
+    client, fake = api()
+    assert client.get("/api/v1/search", params={"q": "tej", "category": Categories.KNOWN}).status_code == 200
+    assert client.get("/api/v1/browse", params={"category": Categories.KNOWN}).status_code == 200
+    assert fake.categories == [Categories.KNOWN, Categories.KNOWN]
+
+
+def test_no_category_means_no_filter(api):
+    client, fake = api()
+    client.get("/api/v1/search", params={"q": "tej"})
+    assert fake.categories == [None]
+
+
+def test_an_unknown_category_is_rejected(api):
+    client, _ = api()
+    assert client.get("/api/v1/search", params={"q": "tej", "category": "sajt"}).status_code == 400
+    assert client.get("/api/v1/browse", params={"category": "sajt"}).status_code == 400
+
+
+def test_categories_are_listed_for_the_selected_stores(api):
+    client, _ = api([{"_id": "tesco", "enabled": False}])
+    body = client.get("/api/v1/categories").json()
+    assert body["stores"] == ["auchan"]
+    assert body["categories"][0]["id"] == Categories.KNOWN
+    assert body["categories"][0]["counts"] == {"auchan": 5}
 
 
 def test_search_rejects_unknown_and_disabled_stores(api):

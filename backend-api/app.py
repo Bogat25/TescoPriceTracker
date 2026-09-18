@@ -15,6 +15,7 @@ from logging_setup import setup_logging, correlation_middleware
 from routers.internal_catalog import router as internal_catalog_router
 from routers.stores_api import resolve_stores, router as stores_router, tesco_switch_middleware
 from auth import current_user, optional_current_user
+from stores import categories
 from stores import recommendations as store_recommendations
 from stores.auchan import repository as auchan_repository
 from stores.registry import registry
@@ -37,6 +38,7 @@ def startup_event():
     db.init_db()
     registry.seed()
     auchan_repository.ensure_indexes()
+    categories.ensure_indexes()
 
 @app.get("/health")
 @app.get("/api/v1/health")

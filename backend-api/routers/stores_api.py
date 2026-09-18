@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from stores import insights, queries, semantic
+from stores import categories, insights, queries, semantic
 from stores.browse import SORT_FIELDS
 from stores.ids import InvalidReference, parse_ref
 from stores.registry import DisabledStore, UnknownStore, registry
@@ -47,6 +47,13 @@ def resolve_stores(stores: str) -> list:
         raise HTTPException(404, f"store not available: {exc.args[0]}") from exc
 
 
+def resolve_category(category: str):
+    try:
+        return categories.resolve(category)
+    except categories.UnknownCategory as exc:
+        raise HTTPException(400, f"unknown category: {exc.args[0]}") from exc
+
+
 def _enabled_ref(ref: str) -> str:
     try:
         store_id, _ = parse_ref(ref)
@@ -62,10 +69,22 @@ def list_stores():
     return {"stores": [store.public() for store in registry.enabled()]}
 
 
+@router.get("/categories")
+def list_categories(stores: str = Query(default="")):
+    """The shared category vocabulary, with how many products each store has in it.
+
+    Categories are Tesco's two top levels; another store's own categories are
+    mapped onto them from the products the stores share (docs/stores.md).
+    """
+    store_ids = resolve_stores(stores)
+    return {"stores": store_ids, "categories": categories.mapping().listing(store_ids)}
+
+
 @router.get("/search")
 def search(
     q: str = Query(min_length=1, max_length=200),
     stores: str = Query(default=""),
+    category: str = Query(default=""),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     mode: str = Query(default="hybrid", pattern="^(" + "|".join(queries.SEARCH_MODES) + ")$"),
@@ -75,7 +94,8 @@ def search(
     The response's ``mode`` says what answered: text when vectors are unavailable."""
     store_ids = resolve_stores(stores)
     try:
-        return queries.search(store_ids, q.strip(), skip, limit, mode, min_score)
+        return queries.search(store_ids, q.strip(), skip, limit, mode, min_score,
+                              resolve_category(category))
     except queries.WindowTooLarge as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -83,6 +103,7 @@ def search(
 @router.get("/browse")
 def browse(
     stores: str = Query(default=""),
+    category: str = Query(default=""),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=100),
     sort_by: str = Query(default="name", pattern="^(" + "|".join(SORT_FIELDS) + ")$"),
@@ -90,7 +111,7 @@ def browse(
 ):
     store_ids = resolve_stores(stores)
     try:
-        return queries.browse(store_ids, skip, limit, sort_by, sort_dir)
+        return queries.browse(store_ids, skip, limit, sort_by, sort_dir, resolve_category(category))
     except queries.WindowTooLarge as exc:
         raise HTTPException(400, str(exc)) from exc
 

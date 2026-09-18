@@ -18,7 +18,7 @@ class Adapter:
         self.text_hits = text_hits
         self.text_calls = 0
 
-    def search(self, query, limit):
+    def search(self, query, limit, category_query=None):
         self.text_calls += 1
         hits = [self.catalogue[i] for i in self.text_hits][:limit]
         return {"results": hits, "total": len(hits)}

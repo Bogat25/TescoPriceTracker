@@ -11,7 +11,7 @@ filled in by barcode, so a row shows every requested store that sells it.
 import logging
 from typing import Optional
 
-from stores import semantic, tesco
+from stores import categories, semantic, tesco
 from stores.auchan import adapter as auchan
 from stores.browse import SORT_FIELDS
 from stores.ids import parse_ref
@@ -160,7 +160,7 @@ def _is_code(query: str) -> bool:
 
 
 def search(store_ids: list, query: str, skip: int, limit: int, mode: str = "text",
-           min_score: Optional[float] = None) -> dict:
+           min_score: Optional[float] = None, category: Optional[str] = None) -> dict:
     """``min_score`` overrides ``SEMANTIC_MIN_SCORE`` (used by scripts/search_eval.py to calibrate it)."""
     if mode not in SEARCH_MODES:
         raise ValueError(f"mode must be one of {SEARCH_MODES}")
@@ -169,7 +169,7 @@ def search(store_ids: list, query: str, skip: int, limit: int, mode: str = "text
         try:
             threshold = semantic.MIN_SCORE if min_score is None else min_score
             candidates = min(max(window, CANDIDATES_MIN), CANDIDATES_MAX)
-            return _semantic_search(store_ids, query, skip, limit, mode, candidates, threshold)
+            return _semantic_search(store_ids, query, skip, limit, mode, candidates, threshold, category)
         except semantic.SemanticUnavailable as exc:
             logger.warning(
                 "Semantic search unavailable, answering with text search: %s", exc,
@@ -179,21 +179,24 @@ def search(store_ids: list, query: str, skip: int, limit: int, mode: str = "text
     text_lists = []
     total = 0
     for store_id in store_ids:
-        page = adapter_for(store_id).search(query, window)
+        page = adapter_for(store_id).search(query, window, categories.query_for(store_id, category))
         total += page["total"]
         text_lists.append(page["results"])
     return _page(_interleave(text_lists), total, store_ids, skip, limit, "text")
 
 
-def _semantic_search(store_ids: list, query: str, skip: int, limit: int, mode: str, window: int, min_score: float) -> dict:
+def _semantic_search(store_ids: list, query: str, skip: int, limit: int, mode: str, window: int,
+                     min_score: float, category: Optional[str] = None) -> dict:
+    """Vector hits carry no category, so they are filtered after the offers are read."""
     vector = semantic.embed_query(query)
     per_store = []
     for store_id in store_ids:
-        semantic_offers = _semantic_offers(store_id, vector, window, min_score)
+        semantic_offers = [offer for offer in _semantic_offers(store_id, vector, window, min_score)
+                           if categories.matches(store_id, offer["category_path"], category)]
         if mode == "semantic":
             per_store.append(semantic_offers)
         else:
-            text_offers = adapter_for(store_id).search(query, window)["results"]
+            text_offers = adapter_for(store_id).search(query, window, categories.query_for(store_id, category))["results"]
             per_store.append(fuse([text_offers, semantic_offers]))
     ranked = _interleave(per_store)
     return _page(ranked, len(ranked), store_ids, skip, limit, mode)
@@ -250,14 +253,15 @@ def _row_sort_key(sort_by: str, descending: bool):
     return key
 
 
-def browse(store_ids: list, skip: int, limit: int, sort_by: str = "name", sort_dir: str = "asc") -> dict:
+def browse(store_ids: list, skip: int, limit: int, sort_by: str = "name", sort_dir: str = "asc",
+           category: Optional[str] = None) -> dict:
     if sort_by not in SORT_FIELDS:
         raise ValueError(f"sort_by must be one of {SORT_FIELDS}")
     window = _window(skip, limit)
     merged = []
     total = 0
     for store_id in store_ids:
-        page = adapter_for(store_id).browse(window, sort_by, sort_dir)
+        page = adapter_for(store_id).browse(window, sort_by, sort_dir, categories.query_for(store_id, category))
         total += page["total"]
         merged.extend(page["results"])
 

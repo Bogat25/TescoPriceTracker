@@ -20,13 +20,20 @@ class FakeAdapter:
         self.total = len(results) if total is None else total
         self.calls = []
 
-    def search(self, query, limit):
+    def search(self, query, limit, category_query=None):
         self.calls.append(("search", query, limit))
-        return {"results": self.results[:limit], "total": self.total}
+        return {"results": self._filtered(category_query)[:limit], "total": self.total}
 
-    def browse(self, limit, sort_by, sort_dir):
+    def browse(self, limit, sort_by, sort_dir, category_query=None):
         self.calls.append(("browse", limit, sort_by, sort_dir))
-        return {"results": self.results[:limit], "total": self.total}
+        return {"results": self._filtered(category_query)[:limit], "total": self.total}
+
+    def _filtered(self, category_query):
+        """Stands in for the Mongo fragment: keep the offers whose path is listed."""
+        if not category_query:
+            return self.results
+        allowed = [list(path) for path in category_query["category_path"]["$in"]]
+        return [offer for offer in self.results if list(offer.get("category_path") or []) in allowed]
 
     def find_by_gtins(self, gtins):
         self.calls.append(("find_by_gtins", list(gtins)))

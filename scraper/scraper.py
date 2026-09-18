@@ -1393,9 +1393,12 @@ def _publish_run(state):
     if not state.get('stats_rebuilt_at'):
         logger.info("Rebuilding stats cache...")
         stats_manager.rebuild_all_cache()
-        # Store-neutral statistics; best effort, it logs its own failure.
-        from stores import insights
+        # Store-neutral statistics and the category mapping; best effort, both
+        # log their own failure. The mapping is rebuilt after either store's
+        # scrape because it is derived from both catalogues.
+        from stores import categories, insights
         insights.rebuild_store("tesco")
+        categories.rebuild_safely()
         state['stats_rebuilt_at'] = datetime.now().isoformat()
         db.save_run_state(state)
     if not state.get('alerts_notified_at'):
