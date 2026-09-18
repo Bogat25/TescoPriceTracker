@@ -24,10 +24,12 @@ without a redeploy.
 | Prices per product | regular, promotional and loyalty-card |
 
 **Features.** Search by words or by meaning (hybrid, Hungarian); a product row
-showing each store's price with the cheapest first; price history charts per
+showing each store's price with the cheapest first; filtering by a category
+vocabulary learned from the products the stores share; price history charts per
 store; price-drop and target-price alerts by e-mail, per store; cross-store
-comparison and per-store statistics; personal recommendations; a Chrome
-extension that shows the price history on a Tesco product page.
+comparison and per-store statistics; personal recommendations drawn from every
+store you have selected; a Chrome extension that shows the price history on a
+Tesco product page.
 
 ---
 
@@ -89,8 +91,8 @@ First run, in order of appearance:
 ## Tests
 
 ```bash
-python -m pytest -q                       # 362 unit tests, ~10 s
-cd frontend && npm test -- --watch=false  # 31 Angular tests
+python -m pytest -q                       # 381 unit tests, ~10 s
+cd frontend && npm test -- --watch=false  # 43 Angular tests
 ```
 
 The unit tests fake every service, so they need nothing running. The
@@ -119,6 +121,7 @@ against the live site.
 | [deployment.md](docs/deployment.md) | CI, GHCR, Portainer, SecretManager, rollback, runbooks |
 | [security.md](docs/security.md) | Trust boundaries, MongoDB accounts, CORS, the two realms |
 | [semantic-search.md](docs/semantic-search.md) | The model, indexing, fusion, operations |
+| [recommendations.md](docs/recommendations.md) | What gets recommended and why, the scoring, the limits |
 | [search-eval.md](docs/search-eval.md) | Measured search quality and the similarity threshold |
 | [store-spike.md](docs/store-spike.md) | Why Auchan, and why not Penny, Lidl, SPAR or Kifli |
 | [adr/](docs/adr/) | The decisions behind the design, one page each |

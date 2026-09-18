@@ -14,3 +14,4 @@ decision that no longer holds gets a new record that supersedes it.
 | [6](0006-store-neutral-naming.md) | Store-neutral naming, with the old route kept as an alias |
 | [7](0007-per-service-mongodb-accounts.md) | Per-service MongoDB accounts, with a visible fallback |
 | [8](0008-learned-category-mapping.md) | The cross-store category mapping is learned, not configured |
+| [9](0009-cross-store-recommendations.md) | Recommendations are content-based, and about products rather than listings |
