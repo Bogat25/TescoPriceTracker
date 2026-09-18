@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from mongo.products_catalog_manager import iter_changed_since, get_catalog_collection
+from mongo.products_catalog_manager import iter_changed_since
 
 logger = logging.getLogger(__name__)
 

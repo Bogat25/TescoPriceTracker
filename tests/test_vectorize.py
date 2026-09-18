@@ -1,6 +1,5 @@
 """The vectorizer embeds only new or changed products and removes stale points."""
 
-import os
 import time
 
 import pytest

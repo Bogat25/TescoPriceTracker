@@ -431,7 +431,7 @@ async def token(request: Request):
 async def account(request: Request):
     session = _read_session(request)
     if not session:
-        return RedirectResponse(f"/auth/login?returnUrl=/auth/account", status_code=302)
+        return RedirectResponse("/auth/login?returnUrl=/auth/account", status_code=302)
     return RedirectResponse(ACCOUNT_ENDPOINT_PUBLIC, status_code=302)
 
 

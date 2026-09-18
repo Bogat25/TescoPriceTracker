@@ -1,7 +1,6 @@
 """Alert-service FastAPI entrypoint."""
 
 import logging
-import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI

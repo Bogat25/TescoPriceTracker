@@ -21,7 +21,6 @@ from qdrant_client.models import (
     Distance,
     VectorParams,
     PointStruct,
-    CollectionInfo,
 )
 
 import settings

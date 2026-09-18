@@ -17,7 +17,6 @@ import importlib
 import sys
 from pathlib import Path
 
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ALERT_SERVICE = REPO_ROOT / "alert-service"

@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from fastapi import Depends, FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from cors_policy import cors_kwargs

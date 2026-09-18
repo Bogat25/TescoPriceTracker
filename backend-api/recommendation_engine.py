@@ -5,7 +5,6 @@ Implements the hybrid-search algorithm:
 - Logged-In: Semantic vector search via Qdrant + business logic sorting
 """
 
-import hashlib
 import logging
 import os
 from typing import Optional
