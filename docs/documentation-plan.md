@@ -1,5 +1,13 @@
 # Documentation plan (Phase 9)
 
+**Written, 2026-09-18.** This outline produced [../README.md](../README.md),
+[architecture.md](architecture.md), [stores.md](stores.md),
+[deployment.md](deployment.md) and [adr/](adr/). It is kept for the reasoning
+behind what each document covers; the documents themselves are the current
+source. The three open questions at the end were answered by writing: English
+throughout, the README for someone landing on the repository, architecture.md
+as the document the thesis leans on, and no separate thesis document here.
+
 Preparation only: what will be written, what each piece must contain, and where
 the facts come from. Nothing here is the documentation itself — it is the
 outline to write from, so no time is lost re-deriving facts that are already

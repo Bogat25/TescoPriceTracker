@@ -46,14 +46,23 @@ data/
 .vscode/
 *.zip
 test_data/
-DEPLOYMENT.md
+/DEPLOYMENT.md
 frontend/node_modules/
 
 
 .claude/
 *.angular/
 STORE_LISTING.md
-scripts/
+# Local scratch scripts only; the documented ones are tracked explicitly.
+scripts/*
+!scripts/api_smoke.py
+!scripts/search_eval.py
 tests/*.sh
 tests/*.ps1
 tests/README.md
+
+# Coverage reports (CI keeps them as build artifacts)
+.coverage
+coverage.xml
+htmlcov/
+frontend/coverage/

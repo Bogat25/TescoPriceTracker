@@ -1,7 +1,7 @@
 # Price tracker: upgrade plan (multi-store, store-neutral)
 
-Status: **Phases 0–8 done and deployed (2026-09-17). Phase 9 (tests and
-documentation) is what remains.**
+Status: **Done. Phases 0–8 deployed (2026-09-17), phase 9 finished
+(2026-09-18); the phase 9 work is committed but not yet pushed.**
 Background: [store-spike.md](store-spike.md). Security model:
 [security.md](security.md). Search: [semantic-search.md](semantic-search.md).
 
@@ -26,7 +26,7 @@ its own.
 | 6 | Semantic and hybrid search across stores (incl. Auchan vectors) | ✅ Done |
 | 7 | Neutral name and routes | ✅ Done |
 | 8 | Security hardening | ✅ Done |
-| 9 | Tests (cross-cutting) and documentation | |
+| 9 | Tests (cross-cutting), category mapping and documentation | ✅ Done |
 
 **Auchan card prices (decided, D3 = accept and label):** anonymous responses contain the
 card unit price only for products flagged with a card offer (~380), and those
@@ -405,7 +405,47 @@ image that could not start, and every service waiting for it stayed down
 
 ---
 
-## 11. Phase 9: tests and documentation
+## 11. Phase 9: tests and documentation (done 2026-09-18)
+
+What was built:
+
+1. **Integration tests** (`tests/integration/`, 18 tests) against a real
+   MongoDB, seeded with two overlapping catalogues: barcode linking, every
+   store combination, browse ordering, group history, the switches, the
+   category mapping and its filters, and the cross-store comparison. They seed
+   their own database and skip when no MongoDB answers, so a laptop run is
+   still ten seconds. A CI job starts MongoDB and runs them; images build only
+   after it passes.
+2. **Angular specs** for the store selector and the comparison chart, the two
+   least covered pieces (19 → 31 tests).
+3. **Coverage** from both suites, published as a CI artifact.
+4. **Category mapping** (see below), the last feature item.
+5. **Documentation**: `README.md`, `docs/architecture.md`, `docs/stores.md`,
+   `docs/deployment.md` and eight decision records in `docs/adr/`.
+6. **Clean-up**: `respond.json` removed, the empty `templates/` directory
+   removed, and `scripts/api_smoke.py` and `scripts/search_eval.py` are now
+   tracked — a blanket `scripts/` ignore rule had kept the two scripts the
+   documentation tells people to run out of the repository.
+
+Two things found on the way, both pre-existing: the suite's log assertions
+depended on whichever test had configured logging first (`pytest.ini` now pins
+the level), and six unused imports that `ruff` reports are still there,
+untouched, because CI does not run it.
+
+The category mapping replaced item 6 below: Tesco's two top levels are the
+canonical vocabulary and Auchan's paths are mapped onto them from the products
+both stores sell, one vote per barcode-linked pair, with unmapped paths left
+unmapped rather than guessed. See
+[adr/0008-learned-category-mapping.md](adr/0008-learned-category-mapping.md).
+
+Not built: the Playwright smoke test (item 3 of the original plan, always
+optional), and the alert create → trigger → digest integration path, which
+needs the alert service's own async stack and is still covered by its unit
+tests.
+
+---
+
+### The original phase 9 plan
 
 Tests (each phase also adds its own):
 
@@ -449,7 +489,7 @@ Documentation:
 | M5 | 5 | ✅ Store-aware alerts and recommendations |
 | M6 | 6 | ✅ Hybrid semantic search across stores, no laptop dependency (implemented) |
 | M7 | 7 | ✅ Neutral name and routes live; old routes still work |
-| M8 | 8–9 | Hardened, tested, documented; ready for the thesis |
+| M8 | 8–9 | ✅ Hardened, tested, documented; ready for the thesis |
 
 Deploy note: Portainer pulls images from GHCR. When an image changes, a
 controller reconcile alone does not pull it; redeploy the stack.
