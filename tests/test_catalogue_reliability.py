@@ -78,6 +78,45 @@ def test_current_browse_fields_capture_effective_price_and_discount():
     assert fields["discount_ratio"] == 0.25
 
 
+def test_a_clubcard_only_saving_is_a_discount():
+    """Most Tesco savings are Clubcard prices; counting only promotions hid them
+    from the catalogue's discount sort, and so from the recommendations."""
+    fields = db._build_browse_sort_fields({
+        "price_history": [{
+            "date": "2026-09-01",
+            "normal": {"price": 1000},
+            "discount": None,
+            "clubcard": {"price": 800},
+        }],
+    })
+
+    assert fields["effective_price"] == 800.0
+    assert fields["has_discount"] is True
+    assert fields["discount_ratio"] == pytest.approx(0.2)
+
+
+def test_the_cheapest_channel_sets_the_discount():
+    fields = db._build_browse_sort_fields({
+        "price_history": [{
+            "date": "2026-09-01",
+            "normal": {"price": 1000},
+            "discount": {"price": 900},
+            "clubcard": {"price": 600},
+        }],
+    })
+
+    assert fields["discount_ratio"] == pytest.approx(0.4)
+
+
+def test_no_saving_is_not_a_discount():
+    fields = db._build_browse_sort_fields({
+        "price_history": [{"date": "2026-09-01", "normal": {"price": 1000},
+                           "discount": None, "clubcard": None}],
+    })
+
+    assert fields["has_discount"] is False and fields["discount_ratio"] == 0.0
+
+
 def test_product_read_and_write_failures_propagate(monkeypatch):
     collection = Mock()
     collection.find_one.side_effect = mongo_errors.AutoReconnect("offline")

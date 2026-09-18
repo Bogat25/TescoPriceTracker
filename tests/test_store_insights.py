@@ -48,7 +48,9 @@ def test_store_insights_single_pass(monkeypatch):
     assert data["price_channels"]["avg_regular"] == pytest.approx((400 + 2100 + 50) / 3, abs=0.01)
     assert data["price_channels"]["products_with_promo"] == 1
     assert data["price_channels"]["products_with_loyalty"] == 1
-    assert data["top_discounts"] == [{"ref": "tesco:1", "name": "Tej", "regular": 400.0, "promo": 300.0, "pct_off": 25.0}]
+    assert data["top_discounts"] == [{"ref": "tesco:1", "name": "Tej", "regular": 400.0,
+                                      "promo": 300.0, "promo_price": 300.0, "loyalty_price": 350.0,
+                                      "pct_off": 25.0}]
     assert data["price_drops"][0]["ref"] == "tesco:1" and data["price_drops"][0]["drop_amount"] == 20.0
     assert data["best_shopping_day"] == {"date": "2026-09-17", "total_savings": 100.0}
     thursday = next(day for day in data["discount_by_weekday"] if day["weekday"] == "Thursday")
@@ -155,3 +157,31 @@ def test_rebuild_refreshes_store_and_drops_comparisons(monkeypatch, cache):
 
     monkeypatch.setattr(insights, "compute_store_insights", lambda store, day: 1 / 0)
     assert insights.rebuild_store("auchan", clock=lambda: TODAY) is False
+
+
+def test_a_loyalty_only_saving_counts_as_a_discount(monkeypatch):
+    """Tesco's savings are usually Clubcard prices, not promotions."""
+    install(monkeypatch, tesco=HistoryAdapter("tesco", [
+        ("1", "Sajt", "Tejtermék", None, [
+            ("2026-09-16", 1000.0, None, None),
+            ("2026-09-17", 1000.0, None, 750.0),      # Clubcard only, no promotion
+        ]),
+    ]))
+
+    data = insights.compute_store_insights("tesco", TODAY)
+
+    discount, = data["top_discounts"]
+    assert discount["pct_off"] == 25.0
+    assert discount["promo"] == 750.0 and discount["promo_price"] is None
+    assert data["best_shopping_day"] == {"date": "2026-09-17", "total_savings": 250.0}
+    thursday = next(day for day in data["discount_by_weekday"] if day["weekday"] == "Thursday")
+    assert thursday["avg_pct_off"] == 25.0
+
+
+def test_the_cheaper_channel_decides_the_discount(monkeypatch):
+    install(monkeypatch, tesco=HistoryAdapter("tesco", [
+        ("1", "Kefir", "Tejtermék", None, [("2026-09-17", 1000.0, 900.0, 600.0)]),
+    ]))
+
+    discount, = insights.compute_store_insights("tesco", TODAY)["top_discounts"]
+    assert discount["promo"] == 600.0 and discount["pct_off"] == 40.0

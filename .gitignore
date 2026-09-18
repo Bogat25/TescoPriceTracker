@@ -58,6 +58,7 @@ STORE_LISTING.md
 scripts/*
 !scripts/api_smoke.py
 !scripts/search_eval.py
+!scripts/recommendation_eval.py
 tests/*.sh
 tests/*.ps1
 tests/README.md

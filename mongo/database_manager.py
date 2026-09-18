@@ -309,16 +309,19 @@ def _build_browse_sort_fields(doc: dict) -> dict:
     ]
     numeric = [float(value) for value in candidates if isinstance(value, (int, float))]
     normal = details.get("last_scraped_price")
-    discount = details.get("discount_price")
+    # A saving is the regular price against the best price a shopper can get, which
+    # for Tesco is usually the Clubcard price rather than a promotion. Counting only
+    # the promotion hid nearly every Tesco discount from the catalogue sort.
+    best = min(numeric) if numeric else None
     has_discount = (
         isinstance(normal, (int, float))
         and normal > 0
-        and isinstance(discount, (int, float))
-        and discount < normal
+        and best is not None
+        and best < normal
     )
-    ratio = float((normal - discount) / normal) if has_discount else 0.0
+    ratio = float((normal - best) / normal) if has_discount else 0.0
     return {
-        "version": 1,
+        "version": 2,
         "has_price": bool(numeric),
         "effective_price": min(numeric) if numeric else None,
         "has_discount": has_discount,
@@ -332,7 +335,7 @@ def backfill_browse_sort_fields(coll=None, batch_size: int = 500) -> int:
     if coll is None:
         coll = get_db()
     cursor = coll.find(
-        {"browse_sort.version": {"$ne": 1}},
+        {"browse_sort.version": {"$ne": 2}},
         {"_id": 1, "price_history": 1},
     )
     operations = []

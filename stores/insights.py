@@ -48,8 +48,9 @@ def _tier(price: float) -> str:
     return PRICE_TIERS[-1][2]
 
 
-def _best(regular, promo, loyalty) -> Optional[float]:
-    values = [value for value in (regular, promo, loyalty) if isinstance(value, (int, float))]
+def _best(*prices) -> Optional[float]:
+    """The lowest of the prices given, ignoring the ones a product does not have."""
+    values = [value for value in prices if isinstance(value, (int, float))]
     return min(values) if values else None
 
 
@@ -94,10 +95,11 @@ def compute_store_insights(store_id: str, today: date) -> dict:
             daily_regular[day].append(regular)
             if day >= month_ago_s:
                 recent.append(regular)
-            if promo is not None and regular > 0 and promo < regular:
-                savings_by_date[day] += regular - promo
+            best_of_day = _best(promo, loyalty)
+            if best_of_day is not None and regular > 0 and best_of_day < regular:
+                savings_by_date[day] += regular - best_of_day
                 try:
-                    weekday_discounts[datetime.strptime(day, "%Y-%m-%d").weekday()].append((regular - promo) / regular * 100)
+                    weekday_discounts[datetime.strptime(day, "%Y-%m-%d").weekday()].append((regular - best_of_day) / regular * 100)
                 except ValueError:
                     pass
 
@@ -120,10 +122,14 @@ def compute_store_insights(store_id: str, today: date) -> dict:
         today_row, yesterday_row, month_row = by_date.get(today_s), by_date.get(yesterday_s), by_date.get(month_ago_s)
         if today_row and today_row[1] is not None:
             today_regular.append(today_row[1])
-            if today_row[2] is not None and today_row[1] > 0 and today_row[2] < today_row[1]:
+            best_today = _best(today_row[2], today_row[3])
+            if best_today is not None and today_row[1] > 0 and best_today < today_row[1]:
                 top_discounts.append({
-                    "ref": ref, "name": name, "regular": today_row[1], "promo": today_row[2],
-                    "pct_off": round((today_row[1] - today_row[2]) / today_row[1] * 100, 1),
+                    "ref": ref, "name": name, "regular": today_row[1],
+                    # ``promo`` is the discounted price the shopper pays, whichever
+                    # channel it comes from; the channels are listed separately.
+                    "promo": best_today, "promo_price": today_row[2], "loyalty_price": today_row[3],
+                    "pct_off": round((today_row[1] - best_today) / today_row[1] * 100, 1),
                 })
             if yesterday_row and yesterday_row[1] is not None and today_row[1] < yesterday_row[1]:
                 price_drops.append({
