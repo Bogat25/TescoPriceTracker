@@ -39,12 +39,13 @@
     "@angular/compiler-cli": "^21.2.20",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
+    "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.4.23",
     "daisyui": "^5.5.14",
+    "jsdom": "^29.1.1",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.2",
-    "vitest": "^4.1.10",
-    "jsdom": "^29.1.1"
+    "vitest": "^4.1.10"
   }
 }

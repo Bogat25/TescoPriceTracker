@@ -36,10 +36,15 @@ jobs:
           cache: pip
 
       - name: Install Python dependencies
-        run: python -m pip install --disable-pip-version-check -r requirements.txt pip-audit
+        run: python -m pip install --disable-pip-version-check -r requirements.txt pip-audit pytest-cov
 
       - name: Python tests
-        run: python -m pytest -q
+        run: >-
+          python -m pytest -q
+          --cov=stores --cov=backend-api --cov=scraper --cov=alert-service
+          --cov-report=term:skip-covered
+          --cov-report=xml:coverage.xml
+          --cov-report=html:htmlcov
 
       - name: Python dependency audit
         run: python -m pip_audit -r requirements.txt --progress-spinner off
@@ -57,7 +62,7 @@ jobs:
 
       - name: Frontend tests
         working-directory: frontend
-        run: npm test -- --watch=false
+        run: npm test -- --watch=false --coverage
 
       - name: Frontend production build
         working-directory: frontend
@@ -80,9 +85,52 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
+      # Kept whatever the tests did, so a drop in coverage is visible.
+      - name: Coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            coverage.xml
+            htmlcov/
+            frontend/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+  integration:
+    name: Two-store integration tests
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:8
+        ports: ["27017:27017"]
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand({ping:1})'"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      # The tests seed their own database on this server; they never touch the
+      # one the application is configured with.
+      MONGO_URI: mongodb://localhost:27017/
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install Python dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt
+
+      - name: Integration tests
+        run: python -m pytest -q -m integration tests/integration
+
   build:
     name: Build ${{ matrix.service }}
-    needs: quality
+    needs: [quality, integration]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
