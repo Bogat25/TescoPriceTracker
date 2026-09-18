@@ -1,0 +1,16 @@
+# The rules this repository enforces, chosen explicitly.
+#
+# Without this, `ruff check` uses whatever the installed version happens to
+# default to, and a new release turns a green build red over a style nobody
+# chose: the first CI run with an unpinned ruff reported 396 findings, 76 of
+# them import ordering. The set below is the historical default (pyflakes plus
+# the pycodestyle errors that catch real mistakes), which the codebase already
+# satisfies.
+#
+# Import sorting (I) is deliberately not enabled: turning it on rewrites the
+# import block of nearly every file, which is a decision to take on its own,
+# not a side effect of adding a linter.
+line-length = 120
+
+[lint]
+select = ["E4", "E7", "E9", "F"]
