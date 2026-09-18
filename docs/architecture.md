@@ -74,7 +74,7 @@ stack that plugs into them.
 | edge | `auth-gateway` | OIDC code flow against Keycloak, keeps the session cookie, hands the frontend a token |
 | application | `api` | The catalogue: search, browse, groups, offers, statistics, categories, recommendations |
 | application | `alert-service` | Price alerts: create, list, delete, evaluate, send the digest e-mail |
-| application | `recommendation-api` | Personal recommendations from the alert history and product vectors |
+| application | `recommendation-api` | Personal recommendations from the alert history and product vectors, across every selected store |
 | collection | `scheduler` | Runs the Tesco scrape once a day and retries an unfinished day |
 | collection | `auchan-scheduler` | The same for Auchan |
 | search | `embedding-service` | `multilingual-e5-small` behind a small HTTP API |
@@ -192,6 +192,13 @@ The stores are merged **by rank**, so no store is favoured; within a row the
 offers are ordered by price, so the cheapest is first. When the embedding
 service or Qdrant is unavailable, search answers from the text index and says
 so in the response's `mode` — a degraded answer, never an error.
+
+**Recommendations** start from what the visitor already watches: their alerted
+products are bucketed into the shared categories, each bucket's mean vector
+finds similar products in every selected store, and candidates are scored
+`0.5 x similarity + 0.5 x discount`. A product several stores sell is one pick
+carrying each store's price. Anything left over, and everything for a visitor
+with no alerts, is filled with the biggest current discounts.
 
 **Alert creation** goes to the alert service instead: the frontend sends the
 token it got from the auth gateway, the alert service verifies it against

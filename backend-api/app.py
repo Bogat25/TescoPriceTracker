@@ -353,15 +353,13 @@ def get_recommended_rows_personalized(
 ):
     """Picks similar to the user's alerts, then discounts, for the selected stores.
 
-    Kept outside /recommendations so it still answers while Tesco is disabled;
-    without Tesco vectors the picks fall back to discounts.
+    Kept outside /recommendations so it still answers while any single store is
+    disabled; without vectors the picks fall back to discounts.
     """
+    from recommendation_engine import get_user_alert_details
+
     store_ids = resolve_stores(stores)
-    personal_picks = None
-    if registry.is_enabled("tesco"):
-        def personal_picks():
-            return get_recommendations(db.get_db(), user_id=user["sub"], limit=limit)
-    result = store_recommendations.rows(store_ids, limit, personal_picks)
+    result = store_recommendations.rows(store_ids, limit, get_user_alert_details(user["sub"]))
     logger.info("store recommendations: type=%s personalized_count=%d count=%d",
                 result["type"], result["personalized_count"], len(result["results"]))
     return result

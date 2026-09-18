@@ -327,8 +327,9 @@ Host decision (D2): Intel Core i5-12500, `linux/amd64`.
    similar products, incremental vectorizing (unchanged, changed, model change,
    removal, batching), embedding texts, the embedding-service API.
 
-Not done: embedding + brand + pack-size linking without barcodes (optional);
-cross-store personal recommendations (need a category mapping, Phase 9).
+Not done: embedding + brand + pack-size linking without barcodes (optional).
+Cross-store personal recommendations were done on 2026-09-18, once the category
+mapping existed (Phase 10).
 
 ---
 
@@ -445,6 +446,39 @@ tests.
 
 ---
 
+## 12. Phase 10: recommendations across stores (2026-09-18)
+
+The one place the store-neutral design did not hold. Personal picks were
+generated from the Tesco catalogue alone: candidates came from the Tesco
+collection, the whole path was skipped while Tesco was disabled, and the
+categories used for bucketing were Tesco's own strings from the vector payload.
+Another store's prices were attached to a pick afterwards by barcode, so a
+visitor saw both stores but could never be recommended a product only the other
+store sells.
+
+Now, in `stores/recommendations.py`:
+
+1. The alerted products are resolved to offers in **every selected store** -
+   a barcode group resolves in each store, a store listing in its own.
+2. They are bucketed by the **shared category vocabulary**, not by one store's
+   category strings, which is what the Phase 9 mapping made possible.
+3. Each bucket's mean vector searches **every selected store's** vectors, and
+   hits are filtered back to the bucket's category through the same mapping.
+4. A product several stores sell is **one pick** carrying each store's price:
+   a recommendation is about a product, not about a listing.
+5. Scoring is unchanged, `0.5 x similarity + 0.5 x discount`, so a pick has to
+   be both relevant and worth buying.
+
+The Tesco-only gate is gone, so picks work with any store selection, including
+one that excludes Tesco. Without vectors, or with none of the watched products
+embedded, the answer falls back to the discount rows as before.
+
+The legacy `/api/v1/recommendations/*` endpoints still use the original
+Tesco-only engine; they are Tesco-only by definition and return 404 when Tesco
+is disabled.
+
+---
+
 ### The original phase 9 plan
 
 Tests (each phase also adds its own):
@@ -479,7 +513,7 @@ Documentation:
 
 ---
 
-## 12. Milestones
+## 13. Milestones
 
 | Milestone | Phases | Result |
 |---|---|---|
