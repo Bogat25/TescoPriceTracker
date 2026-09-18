@@ -117,8 +117,10 @@ export class CatalogService {
     return params;
   }
 
-  search(q: string, stores: string, skip = 0, limit = 50, mode: SearchMode = 'hybrid'): Observable<RowPage> {
-    return this.http.get<RowPage>(`${this.base}/search`, { params: this.params({ q, stores, skip, limit, mode }) });
+  search(q: string, stores: string, skip = 0, limit = 50, mode: SearchMode = 'hybrid', category = ''): Observable<RowPage> {
+    return this.http.get<RowPage>(`${this.base}/search`, {
+      params: this.params({ q, stores, skip, limit, mode, category }),
+    });
   }
 
   /** Products closest in meaning to a group (``g:…``) or an offer ref, excluding the product itself. */
@@ -129,9 +131,9 @@ export class CatalogService {
     });
   }
 
-  browse(stores: string, skip = 0, limit = 50, sortBy: SortBy = 'name', sortDir: SortDir = 'asc'): Observable<RowPage> {
+  browse(stores: string, skip = 0, limit = 50, sortBy: SortBy = 'name', sortDir: SortDir = 'asc', category = ''): Observable<RowPage> {
     return this.http.get<RowPage>(`${this.base}/browse`, {
-      params: this.params({ stores, skip, limit, sort_by: sortBy, sort_dir: sortDir }),
+      params: this.params({ stores, skip, limit, sort_by: sortBy, sort_dir: sortDir, category }),
     });
   }
 

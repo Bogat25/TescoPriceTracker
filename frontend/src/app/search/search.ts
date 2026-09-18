@@ -9,19 +9,22 @@ import { of } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { CatalogService, ProductRow, rowLink } from '../services/catalog.service';
 import { StoresService } from '../services/stores.service';
+import { CategoriesService } from '../services/categories.service';
 import { StoreSelector } from '../shared/store-selector/store-selector';
+import { CategoryFilter } from '../shared/category-filter/category-filter';
 import { ProductRowCard } from '../shared/product-row-card/product-row-card';
 import { TranslatePipe } from '../shared/translate.pipe';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, StoreSelector, ProductRowCard, TranslatePipe],
+  imports: [CommonModule, FormsModule, StoreSelector, CategoryFilter, ProductRowCard, TranslatePipe],
   templateUrl: './search.html',
   styleUrl: './search.scss',
 })
 export class Search implements OnInit {
   private catalog = inject(CatalogService);
   readonly stores = inject(StoresService);
+  readonly categories = inject(CategoriesService);
   private auth = inject(AuthService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
@@ -101,7 +104,10 @@ export class Search implements OnInit {
       this.query = q;
       this._lastQuery = q;
       // The remembered store selection is only known once the store list loaded.
-      this.stores.load().subscribe(() => this._doSearch(q, page));
+      this.stores.load().subscribe(() => {
+        this.categories.load(this.stores.storesParam()).subscribe();
+        this._doSearch(q, page);
+      });
     } else {
       // Load recommendations when user hasn't searched yet
       this._loadRecommendations();
@@ -116,6 +122,7 @@ export class Search implements OnInit {
     // user's picks when those are available. If personalization fails, keep the
     // already-rendered cold-start results instead of leaving the page blank.
     this.stores.load().pipe(
+      switchMap(() => this.categories.load(this.stores.storesParam())),
       switchMap(() => this.catalog.recommended(this.stores.storesParam(), false)),
       switchMap((coldStart) => {
         this.recommendations.set(coldStart.results ?? []);
@@ -154,8 +161,12 @@ export class Search implements OnInit {
     this.router.navigate(rowLink(row));
   }
 
-  /** Store chips changed: repeat the current search for the new selection. */
+  /** Store chips changed: the category list depends on the stores, so reload both. */
   onStoresChanged(): void {
+    this.categories.load(this.stores.storesParam()).subscribe(() => this.onCategoryChanged());
+  }
+
+  onCategoryChanged(): void {
     if (this._lastQuery) this._doSearch(this._lastQuery, 0);
     else this._loadRecommendations();
   }
@@ -196,7 +207,7 @@ export class Search implements OnInit {
     this.searched.set(true);
     const skip = page * this.pageSize();
     const limit = this.pageSize();
-    this.catalog.search(q, this.stores.storesParam(), skip, limit).subscribe({
+    this.catalog.search(q, this.stores.storesParam(), skip, limit, 'hybrid', this.categories.categoryParam()).subscribe({
       next: (response) => {
         this.allResults.set(response?.results ?? []);
         this.totalResults.set(response?.total ?? 0);

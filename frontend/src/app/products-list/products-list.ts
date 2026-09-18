@@ -9,10 +9,12 @@ import {
   CatalogService, Offer, ProductRow, RowPage, SortBy, SortDir, bestPriceKind, rowLink,
 } from '../services/catalog.service';
 import { StoresService } from '../services/stores.service';
+import { CategoriesService } from '../services/categories.service';
 import { TranslationService } from '../services/translation.service';
 import { TranslatePipe } from '../shared/translate.pipe';
 import { SecLabel } from '../shared/sec-label/sec-label';
 import { StoreSelector } from '../shared/store-selector/store-selector';
+import { CategoryFilter } from '../shared/category-filter/category-filter';
 import { storeAccent } from '../shared/store-accent';
 
 const PAGE_SIZE = 50;
@@ -20,7 +22,7 @@ const MAX_WINDOW = 1000; // the API serves at most the first 1000 results
 
 @Component({
   selector: 'app-products-list',
-  imports: [CommonModule, RouterLink, FormsModule, SecLabel, StoreSelector, TranslatePipe],
+  imports: [CommonModule, RouterLink, FormsModule, SecLabel, StoreSelector, CategoryFilter, TranslatePipe],
   templateUrl: './products-list.html',
   styleUrl: './products-list.scss',
 })
@@ -29,6 +31,7 @@ export class ProductsList implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   readonly stores = inject(StoresService);
+  readonly categories = inject(CategoriesService);
   readonly tl = inject(TranslationService);
 
   readonly rows = signal<ProductRow[]>([]);
@@ -62,7 +65,26 @@ export class ProductsList implements OnInit {
     if (sort === 'name' || sort === 'price' || sort === 'discount') this.sortField.set(sort);
     if (dir === 'asc' || dir === 'desc') this.sortDir.set(dir);
     this.query.set(params.get('q') ?? '');
-    this.stores.load().subscribe(() => this.reload());
+    const category = params.get('category') ?? '';
+    this.stores.load().subscribe(() => {
+      this.categories.load(this.stores.storesParam()).subscribe(() => {
+        if (category) this.categories.select(category);
+        this.reload();
+      });
+    });
+  }
+
+  /** The store selection changed: the category list depends on it. */
+  storesChanged(): void {
+    this.categories.load(this.stores.storesParam()).subscribe(() => {
+      this.pushUrlParams();
+      this.reload();
+    });
+  }
+
+  categoryChanged(): void {
+    this.pushUrlParams();
+    this.reload();
   }
 
   reload(): void {
@@ -82,9 +104,10 @@ export class ProductsList implements OnInit {
     const request = ++this.request;
     const q = this.query().trim();
     const stores = this.stores.storesParam();
+    const category = this.categories.categoryParam();
     const page$ = q
-      ? this.catalog.search(q, stores, this.skip, PAGE_SIZE)
-      : this.catalog.browse(stores, this.skip, PAGE_SIZE, this.sortField(), this.sortDir());
+      ? this.catalog.search(q, stores, this.skip, PAGE_SIZE, 'hybrid', category)
+      : this.catalog.browse(stores, this.skip, PAGE_SIZE, this.sortField(), this.sortDir(), category);
     page$.pipe(catchError(() => of(null as RowPage | null))).subscribe((page) => {
       if (request !== this.request) return; // a newer query or sort replaced this one
       this.loading.set(false);
@@ -150,6 +173,7 @@ export class ProductsList implements OnInit {
     if (this.query().trim()) queryParams['q'] = this.query().trim();
     if (this.sortField() !== 'name') queryParams['sort'] = this.sortField();
     if (this.sortDir() !== 'asc') queryParams['dir'] = this.sortDir();
+    if (this.categories.categoryParam()) queryParams['category'] = this.categories.categoryParam();
     this.router.navigate([], { queryParams, replaceUrl: true });
   }
 }

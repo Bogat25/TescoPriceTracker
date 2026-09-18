@@ -112,6 +112,9 @@
   "product.kpi.points":    "Adatpontok",
 
   "stores.label": "Áruházak",
+  "categories.label": "Kategória",
+  "categories.all": "Minden kategória",
+  "categories.clear": "Törlés",
   "price.regular": "Normál ár",
   "price.promo": "Akció",
   "price.loyalty": "Kártyás ár",

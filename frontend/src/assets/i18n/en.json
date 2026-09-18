@@ -112,6 +112,9 @@
   "product.kpi.points":    "Data points",
 
   "stores.label": "Stores",
+  "categories.label": "Category",
+  "categories.all": "All categories",
+  "categories.clear": "Clear",
   "price.regular": "Regular",
   "price.promo": "Promo",
   "price.loyalty": "Card price",

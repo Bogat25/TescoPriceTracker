@@ -59,6 +59,7 @@
   </form>
 
   <app-store-selector (changed)="onStoresChanged()"/>
+  <app-category-filter id="search-category" (changed)="onCategoryChanged()"/>
 
   @if (error()) {
     <div class="sr-error">{{ error() }}</div>

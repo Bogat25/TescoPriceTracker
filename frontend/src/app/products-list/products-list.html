@@ -24,7 +24,8 @@
     </div>
   </div>
 
-  <app-store-selector (changed)="reload()"/>
+  <app-store-selector (changed)="storesChanged()"/>
+  <app-category-filter id="catalogue-category" (changed)="categoryChanged()"/>
 
   @if (loading()) {
     <div class="pl-loading"><span class="loading loading-spinner loading-lg"></span></div>

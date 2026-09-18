@@ -6,6 +6,7 @@ import { Search } from './search';
 import { AuthService } from '../services/auth.service';
 import { CatalogService, RecommendedRows } from '../services/catalog.service';
 import { StoresService } from '../services/stores.service';
+import { CategoriesService } from '../services/categories.service';
 
 const COLD_START: RecommendedRows = {
   type: 'cold_start',
@@ -26,6 +27,7 @@ describe('Search recommendations', () => {
       providers: [
         { provide: CatalogService, useValue: { recommended } },
         { provide: StoresService, useValue: { load: () => of([]), storesParam: () => '' } },
+        { provide: CategoriesService, useValue: { load: () => of([]), categoryParam: () => '' } },
         { provide: AuthService, useValue: { checkSession: () => of({}), userId: () => 'user-1' } },
         { provide: Router, useValue: { navigate: vi.fn() } },
         {
