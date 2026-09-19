@@ -219,13 +219,48 @@ The recommender predicts a user's next alert a quarter of the time; the
 discount list never does. Twelve users is far too few to be conclusive, and it
 is reported as indicative.
 
-**What the measurement changed.** The three poor numbers share one cause: the
-candidate pool was 2.5 slots wide, a tight neighbourhood of near-identical
-products that rarely contains a saving — about two discounted candidates in
-sixty, which is exactly the 0.026 mean. `OVERSEARCH` went to 6.0 so the score
-has savings to promote, and `MAX_PER_BRAND` caps one brand's variants, which is
-what made the picks near-identical. Both are measurable again with the same
-script.
+### What changed, and how much it helped
+
+The three poor numbers share one cause: the candidate pool was 2.5 slots wide, a
+tight neighbourhood of near-identical products that rarely contains a saving —
+about two discounted candidates in sixty, which is exactly the 0.026 mean.
+`OVERSEARCH` went to 6.0 and `MAX_PER_BRAND` now caps one brand's variants.
+
+Measured before and after on the same 40 seeds, same random seed:
+
+| Measure | 2.5, no cap | 6.0, cap 3 |
+|---|---|---|
+| Seeds that produced picks | 37/40 | 38/40 |
+| Picks in the seed's category | 0.973 | 0.974 |
+| Picks from another store | 0.056 | 0.084 |
+| Mean discount of picks | 0.026 | 0.039 |
+| Intra-list diversity | 0.096 | 0.108 |
+| Distinct products reachable | 668 | 636 |
+| Median latency | 0.01 s | 0.02 s |
+
+**The change helped, and did not solve the problem.** Relevance held, three
+measures improved by roughly half, and the cost is a millisecond. But a 50 %
+improvement on a near-zero number is still a small number: picks carry 1.6x the
+catalogue's average discount, where the discount-only list carries 20x. Coverage
+even fell slightly, probably because a wider pool makes the top-scoring
+candidates more alike *between* seeds.
+
+The honest conclusion is that the neighbourhood of a product is genuinely sparse
+in savings, and no pool width fixes that. The settings were kept because they are
+free and strictly better, not because they solved anything.
+
+### What the benchmark does not measure
+
+Each seed simulates someone watching **exactly one product**, while real users
+average 2.8 alerts. A centroid of three products sits in a looser region than a
+centroid of one, so the diversity and coverage figures above are closer to a
+worst case than to what a real visitor sees. Measuring 2-3 watched products per
+seed would say how much of the weakness is real; until that is done, these two
+numbers should be read as a lower bound.
+
+If diversity is still low once the benchmark reflects real usage, the targeted
+fix is maximal marginal relevance — penalising a candidate by its similarity to
+what has already been picked — rather than another constant.
 
 **What the measurement did not change.** The scoring is still
 `0.5 x similarity + 0.5 x discount`. Rank fusion was tried, on the theory that a
@@ -255,5 +290,12 @@ signal is relevance and the other is desirability, and they are not equals.
    promotion is not detected.
 5. **Cold start ignores the visitor entirely.** Popularity, seasonality and the
    current basket are all unused.
-6. **No diversity guarantee beyond categories.** Within a bucket, five variants
-   of the same product can fill the slots.
+6. **Diversity is weak, and only partly addressed.** `MAX_PER_BRAND` stops one
+   brand filling a bucket, but variants of the same product under different
+   brands still crowd each other. Measured intra-list diversity is 0.108 on the
+   single-product benchmark. Maximal marginal relevance is the standard fix and
+   is not implemented.
+7. **Coverage is narrow.** About 640 distinct products are reachable over 40
+   single-product seeds, roughly 1.7 % of the catalogue. Some of that is
+   inherent - recommending near neighbours of what someone watches cannot reach
+   the whole catalogue - and some is the benchmark's single-seed design.
