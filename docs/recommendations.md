@@ -44,13 +44,13 @@ product, not about a listing.
    [4]  share the slots out evenly (3 categories, 100 slots -> 34, 33, 33)
         v
    [5]  per category: mean vector of the watched products in it
-        |     -> nearest neighbours across EVERY selected store (2.5x oversearch)
+        |     -> nearest neighbours across EVERY selected store (6x oversearch)
         |     -> drop hits outside the category, and anything already watched
         v
    [6]  group the hits by barcode, score each row
         |     0.5 x similarity + 0.5 x discount
         v
-   [7]  merge the buckets, deduplicate by product, best score first
+   [7]  cap one brand's variants, merge the buckets, deduplicate, best first
         v
    [8]  fill any remaining slots with the biggest discounts
 ```
@@ -77,15 +77,18 @@ bucket's high similarity scores would take the whole page and the result would
 read as "more of the same".
 
 **[5] Mean vector, and oversearch.** The mean of a user's watched products in a
-category is a cheap centroid of that interest. Searching 2.5x the slots leaves
-room for the filters that follow, so a bucket rarely comes back short.
+category is a cheap centroid of that interest. Searching 6x the slots leaves room
+for the filters that follow, and - the reason it is not smaller - gives the
+discount half of the score some savings to actually promote (section 8).
 
 **[6] Two signals.** Similarity alone recommends near-duplicates of what the user
 already has; discount alone is just the cold start. Equal weights keep a pick
 both relevant and worth acting on.
 
-**[7] One row per product.** The same barcode found in two stores is one
-recommendation with two prices, never two entries.
+**[7] One row per product, and no brand takeover.** The same barcode found in two
+stores is one recommendation with two prices, never two entries. At most
+`MAX_PER_BRAND` of a bucket's picks share a brand, because the nearest neighbours
+of a product are usually the same product in another size.
 
 **[8] Filling.** A short personal list is padded rather than shown half empty. The
 response reports `personalized_count`, so a caller can tell the two apart.
@@ -160,12 +163,14 @@ The constants are at the top of `stores/recommendations.py`:
 | Constant | Value | Effect of raising it |
 |---|---|---|
 | `TOP_CATEGORIES` | 5 | More of the user's interests represented, fewer slots each |
-| `OVERSEARCH` | 2.5 | Fewer short buckets after filtering, more Qdrant work per request |
+| `OVERSEARCH` | 6.0 | More savings in the pool to promote, more Qdrant work per request |
+| `MAX_PER_BRAND` | 3 | More of one brand's variants allowed in a bucket |
 | `SIMILARITY_WEIGHT` | 0.5 | More "like what I watch", less "worth buying" |
 
-None of them is calibrated against a measured target — unlike the search
-threshold, which was ([search-eval.md](search-eval.md)). They are defensible
-defaults, and section 8 says what measuring them would take.
+`OVERSEARCH` and `MAX_PER_BRAND` were set from the measurement in section 8;
+the other two are reasoned, not calibrated. `scripts/recommendation_eval.py`
+takes `--oversearch` and `--max-per-brand`, so a change can be measured against
+the current setting before it is adopted.
 
 ---
 
@@ -186,13 +191,60 @@ What to look for when recommendations seem wrong:
 
 ---
 
-## 8. Limitations, and what would improve it
+## 8. What it measures (2026-09-19)
 
-1. **Not evaluated.** There is no offline measurement of recommendation quality,
-   no held-out set and no click-through data. The weights are reasoned, not
-   measured. An honest evaluation would need logged impressions and a decision
-   about what counts as success — an alert created on a recommended product is
-   the obvious candidate.
+`scripts/recommendation_eval.py`, 40 synthetic seeds of one watched product
+each, 24 recommendations, against the live catalogue:
+
+| Measure | Value | Reading |
+|---|---|---|
+| Seeds that produced picks | 37/40 | The path works for most products |
+| Picks in the seed's category | 0.973 | Topically accurate |
+| Overlap with the discount-only list | 0.005 | Personalisation is doing something distinct |
+| Mean discount of picks | 0.026 | **Barely above the catalogue's 0.024** |
+| Intra-list diversity | 0.096 | **Picks were near-identical to each other** |
+| Distinct products reachable | 668 | **1.8 % of the catalogue** |
+| Picks from another store | 0.056 | Low, but only 6,228 products are linked at all |
+| Median latency | 0.01 s | |
+
+Leave-one-out over the 12 users who watch more than one product, hiding each
+one's newest alert:
+
+| | Content-based | Discount-only baseline |
+|---|---|---|
+| Hit rate @24 | **0.250** | 0.000 |
+| MRR | 0.091 | — |
+
+The recommender predicts a user's next alert a quarter of the time; the
+discount list never does. Twelve users is far too few to be conclusive, and it
+is reported as indicative.
+
+**What the measurement changed.** The three poor numbers share one cause: the
+candidate pool was 2.5 slots wide, a tight neighbourhood of near-identical
+products that rarely contains a saving — about two discounted candidates in
+sixty, which is exactly the 0.026 mean. `OVERSEARCH` went to 6.0 so the score
+has savings to promote, and `MAX_PER_BRAND` caps one brand's variants, which is
+what made the picks near-identical. Both are measurable again with the same
+script.
+
+**What the measurement did not change.** The scoring is still
+`0.5 x similarity + 0.5 x discount`. Rank fusion was tried, on the theory that a
+cosine and a ratio are not comparable, and rejected: the arithmetic shows the
+weighted sum already gives a discount a 0.25 spread against similarity's 0.055,
+so the saving was never being drowned out, and fusing by rank would have let a
+barely relevant product outrank a close match for being the only one on offer.
+The search fuses two *relevance* signals, where equal footing is right; here one
+signal is relevance and the other is desirability, and they are not equals.
+
+---
+
+## 9. Limitations, and what would improve it
+
+1. **Thinly evaluated.** Section 8 measures the shape of the results and a
+   leave-one-out hit rate over twelve users. There is still no click-through
+   data, so nothing measures whether a recommendation was *wanted* rather than
+   merely predictable. Logged impressions would fix that, with "an alert created
+   on a recommended product" as the success signal.
 2. **Alerts are the only signal.** Views, searches and comparisons are not used,
    so a visitor who browses heavily but alerts on nothing gets a cold start.
 3. **The centroid flattens taste.** One mean vector per category treats a user

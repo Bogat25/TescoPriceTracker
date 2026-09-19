@@ -167,6 +167,29 @@ def test_relevance_and_discount_both_count(catalogue):
     assert [refs_of(row)[0] for row in result["results"][:2]] == ["auchan:a3", "auchan:a2"]
 
 
+def test_one_brand_cannot_fill_the_page(catalogue, monkeypatch):
+    """The nearest neighbours of a product are usually the same brand in another size."""
+    variants = []
+    for index in range(6):
+        variant = offer("auchan", f"v{index}", f"Teszt tej {index} l", 300 - index,
+                        AUCHAN_DAIRY, gtin=f"599000000{index:04d}")
+        variant["brand"] = "Teszt"
+        variants.append(variant)
+    monkeypatch.setitem(queries.ADAPTERS, "auchan", Adapter(AUCHAN + variants))
+    catalogue([(f"auchan:v{index}", 0.9 - index / 100) for index in range(6)])
+
+    result = recommendations.rows(["auchan"], 6, [alert("auchan:a1", 1)])
+    picks = result["results"][: result["personalized_count"]]
+
+    assert [row["brand"] for row in picks].count("Teszt") <= recommendations.MAX_PER_BRAND
+
+
+def test_a_row_without_a_brand_is_never_capped(catalogue):
+    catalogue([("auchan:a3", 0.9), ("auchan:a2", 0.8)])
+    result = recommendations.rows(["tesco", "auchan"], 4, [alert("tesco:1", 1)])
+    assert result["personalized_count"] >= 2
+
+
 # -- falling back -------------------------------------------------------------------
 
 def test_no_alerts_is_the_discount_listing(catalogue):

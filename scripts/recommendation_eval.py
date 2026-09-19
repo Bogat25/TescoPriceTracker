@@ -13,6 +13,12 @@ Three modes, because they need different access:
     # inside the api container - leave-one-out over real alerts
     docker exec tesco-price-tracker-api python /app/scripts/recommendation_eval.py holdout
 
+Settings can be overridden per run, so a change can be measured before it is
+adopted. The random seed is fixed, so two runs compare like for like:
+
+    ... recommendation_eval.py seeds --oversearch 2.5 --max-per-brand 99   # as it was
+    ... recommendation_eval.py seeds --oversearch 6                        # as it is
+
 Everything is read-only. The holdout mode reads alerts, which are user data, so
 it reports aggregates only: no user id, no watched product, ever leaves it.
 
@@ -151,9 +157,14 @@ def pick_seeds(categories_module, queries_module, store_ids: list, wanted: int) 
     return seeds
 
 
-def evaluate_seeds(limit: int, count: int) -> int:
+def evaluate_seeds(limit: int, count: int, oversearch=None, per_brand=None) -> int:
     """Recommend for a synthetic watcher of one product, and see what comes back."""
     categories, queries, recommendations, semantic, registry = load_engine()
+    if oversearch is not None:
+        recommendations.OVERSEARCH = oversearch
+    if per_brand is not None:
+        recommendations.MAX_PER_BRAND = per_brand
+    print(f"oversearch={recommendations.OVERSEARCH} max_per_brand={recommendations.MAX_PER_BRAND}")
     store_ids = [store.id for store in registry.enabled()]
     seeds = pick_seeds(categories, queries, store_ids, count)
     if not seeds:
@@ -284,13 +295,15 @@ def main(argv=None) -> int:
     parser.add_argument("--limit", type=int, default=LIMIT)
     parser.add_argument("--seeds", type=int, default=SEEDS)
     parser.add_argument("--seed", type=int, default=20260918, help="random seed, so runs compare")
+    parser.add_argument("--oversearch", type=float, help="override, to compare settings without a deploy")
+    parser.add_argument("--max-per-brand", type=int, dest="per_brand", help="override the brand cap")
     args = parser.parse_args(argv)
     random.seed(args.seed)
 
     if args.mode == "api":
         return evaluate_api(args.base)
     if args.mode == "seeds":
-        return evaluate_seeds(args.limit, args.seeds)
+        return evaluate_seeds(args.limit, args.seeds, args.oversearch, args.per_brand)
     return evaluate_holdout(args.limit)
 
 

@@ -20,7 +20,13 @@ from stores.ids import parse_ref
 logger = logging.getLogger(__name__)
 
 TOP_CATEGORIES = 5
-OVERSEARCH = 2.5          # candidates per slot, before category and watch filtering
+# Candidates per slot, before the category and watched filters. It has to be
+# generous: the score can only promote a saving that is in the pool, and a tight
+# neighbourhood of near-identical products rarely holds one. Measured at 2.5,
+# picks averaged a 0.026 discount against a catalogue average of 0.024 - roughly
+# two discounted candidates in a pool of sixty.
+OVERSEARCH = 6.0
+MAX_PER_BRAND = 3         # per bucket, so one brand's variants cannot fill the page
 SIMILARITY_WEIGHT = 0.5   # the rest is the discount; a pick should be relevant and worth buying
 UNCATEGORISED = ""
 
@@ -148,7 +154,27 @@ def _candidate_rows(category: str, refs: list, store_ids: list, slots: int, watc
         discount = max((offer.get("discount_ratio") or 0.0 for offer in selected), default=0.0)
         scored.append((SIMILARITY_WEIGHT * similarity + (1 - SIMILARITY_WEIGHT) * discount, row))
     scored.sort(key=lambda item: item[0], reverse=True)
-    return scored[:slots]
+    return _limit_per_brand(scored, slots)
+
+
+def _limit_per_brand(scored: list, slots: int) -> list:
+    """Keep one brand's variants from filling the page.
+
+    The nearest neighbours of a product are usually the same product in another
+    size, which measured as an intra-list diversity of 0.096: the picks were
+    near-identical to each other.
+    """
+    kept, seen = [], {}
+    for score, row in scored:
+        brand = (row.get("brand") or "").strip().casefold()
+        if brand:
+            seen[brand] = seen.get(brand, 0) + 1
+            if seen[brand] > MAX_PER_BRAND:
+                continue
+        kept.append((score, row))
+        if len(kept) >= slots:
+            break
+    return kept
 
 
 def personal_rows(alerts: list, store_ids: list, limit: int) -> list:
