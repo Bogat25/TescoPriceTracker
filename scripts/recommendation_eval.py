@@ -5,11 +5,13 @@ Three modes, because they need different access:
     # anywhere, against the live site - no database needed
     python scripts/recommendation_eval.py api
 
-    # inside the api container - the engine itself, with synthetic seeds
-    docker exec tesco-price-tracker-api python scripts/recommendation_eval.py seeds
+    # inside the api container - the engine itself, with synthetic seeds.
+    # The absolute path matters: that container's working directory is
+    # /app/backend-api, so a relative scripts/... path misses.
+    docker exec tesco-price-tracker-api python /app/scripts/recommendation_eval.py seeds
 
     # inside the api container - leave-one-out over real alerts
-    docker exec tesco-price-tracker-api python scripts/recommendation_eval.py holdout
+    docker exec tesco-price-tracker-api python /app/scripts/recommendation_eval.py holdout
 
 Everything is read-only. The holdout mode reads alerts, which are user data, so
 it reports aggregates only: no user id, no watched product, ever leaves it.
