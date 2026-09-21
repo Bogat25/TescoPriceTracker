@@ -154,6 +154,12 @@ identity is always the token's `sub`; no endpoint takes a user ID from a query
 parameter (the legacy `/recommendations?userId=` is checked against the token
 and rejected with 403 on a mismatch).
 
+### Session and token lifetimes (LOG-BB-008)
+
+- **Access tokens**: Short-lived (15 minutes). Services verify expiration strictly.
+- **Session cookies**: 30-day sliding persistent cookies (`GavallerAuthCookie`). When rewriting cookies upon token refresh, the expiration preserves the refresh token's lifetime rather than resetting to the 15-minute access token window.
+- **Keycloak SSO**: Reconciled to 30-day idle and 90-day maximum session durations across retained realms.
+
 ---
 
 ## 6. Upstream data collection

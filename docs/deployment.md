@@ -40,6 +40,10 @@ a deliberate action after CI is green.
 
 ## 2. Deploying
 
+> [!NOTE]
+> **Canonical Platform Deployment Pipeline**:
+> The unified deployment pipeline, Portainer Git-stack rules, and controller reconciliation lifecycle are documented in the central platform repository: [`deploy-pipeline.md`](../../AgentContext/corpus/platform/deploy-pipeline.md).
+
 Through the SecretManager controller, which owns the stack environment:
 
 1. `reconcile_deployments` — writes the current secrets and configuration into
@@ -74,8 +78,8 @@ compose model still resolves with it.
 Portainer does not ship repository files to the host. A relative bind mount in
 `docker-compose.yml` becomes an empty directory on the server, not your file.
 Anything a container needs at startup — a Keycloak realm, an init script — must
-be **baked into the image**. This is why `keycloak` and `mongo-users` are built
-images rather than stock ones with a mount.
+be **baked into the image**. This is why `tesco-tracker-keycloak` and `mongo-users` are built
+images rather than stock ones with a file mount (resolves LOG-BB-001).
 
 ---
 
@@ -154,6 +158,16 @@ model in memory and unloads when idle) and `qdrant`.
 The vectorizer runs after each scrape and embeds only what changed. Check its
 logs and `embedding_state`. A full re-index of ~38,000 products takes 4–8
 minutes.
+
+To diagnose or drain backlogs directly using the recommendation worker:
+
+```bash
+# Check connectivity and Infisical token authentication without loading the ML model:
+python -m recommendation_worker --check
+
+# Process batches continuously until the backlog is empty:
+python -m recommendation_worker --drain
+```
 
 ### MongoDB accounts are missing
 
