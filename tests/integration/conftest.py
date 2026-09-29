@@ -13,6 +13,7 @@ configured with, so pointing ``MONGO_URI`` at a real server cannot damage it.
 """
 
 import importlib.util
+from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,11 @@ from stores import categories
 from stores.auchan import repository as auchan_repository
 from stores.registry import registry
 
+
+# The catalogue only counts prices scraped in the last couple of days, so the
+# seeded history follows the clock instead of a date frozen when this was written.
+TODAY = date.today().isoformat()
+YESTERDAY = (date.today() - timedelta(days=1)).isoformat()
 
 TEST_DATABASE = "tesco_tracker_integration"
 CONNECT_TIMEOUT_MS = 3000
@@ -86,10 +92,10 @@ def tesco_product(product_id, name, gtin, super_department, department, price, p
         "pack_size_value": "1",
         "pack_size_unit": "l",
         "is_for_sale": True,
-        "last_scraped_price": "2026-09-17T05:12:00",
+        "last_scraped_price": f"{TODAY}T05:12:00",
         "price_history": [
-            {"date": "2026-09-16", "normal": {"price": price}, "discount": None, "clubcard": None},
-            {"date": "2026-09-17", "normal": {"price": price},
+            {"date": YESTERDAY, "normal": {"price": price}, "discount": None, "clubcard": None},
+            {"date": TODAY, "normal": {"price": price},
              "discount": {"price": promo} if promo else None,
              "clubcard": {"price": loyalty} if loyalty else None},
         ],
@@ -100,7 +106,7 @@ def auchan_product(product_id, name, ean, category_path, price, promo=None):
     from stores.auchan import repository
     from stores.ids import normalize_gtin
 
-    current = {"date": "2026-09-17", "regular": float(price),
+    current = {"date": TODAY, "regular": float(price),
                "promo": float(promo) if promo else None, "loyalty": None,
                "unit_price": None, "unit": None}
     return {
