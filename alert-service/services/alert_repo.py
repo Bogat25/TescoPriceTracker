@@ -156,3 +156,13 @@ async def mark_trigger_run_completed(run_key: str, summary: dict) -> None:
         {"$set": {**summary, "status": "completed", "completedAt": datetime.now(timezone.utc)}},
         upsert=True,
     )
+
+
+async def erase_users(user_ids: list[str]) -> dict:
+    """Delete every alert and email preference of the given accounts."""
+    ids = [uid for uid in set(user_ids) if uid]
+    if not ids:
+        return {"alerts": 0, "preferences": 0}
+    alerts = await _coll().delete_many({"userId": {"$in": ids}})
+    prefs = await _prefs_coll().delete_many({"userId": {"$in": ids}})
+    return {"alerts": alerts.deleted_count, "preferences": prefs.deleted_count}

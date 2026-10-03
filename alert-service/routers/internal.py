@@ -1,4 +1,7 @@
-"""Internal scraper-to-alerts trigger. Authenticated by a shared X-Internal-Token."""
+"""Internal endpoints: the scraper-to-alerts trigger and account erasure.
+
+Authenticated by a shared X-Internal-Token.
+"""
 
 import hmac
 import logging
@@ -6,7 +9,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, status
 
-from models import TriggerPayload, TriggerResponse
+from models import EraseUsersPayload, EraseUsersResponse, TriggerPayload, TriggerResponse
 from services import alert_repo, evaluator, notifier, user_repo
 from stores.offers import parse_group_id
 import settings
@@ -137,3 +140,28 @@ async def trigger(
         },
     )
     return response
+
+
+@router.post("/users/erase", response_model=EraseUsersResponse)
+async def erase_users(
+    payload: EraseUsersPayload,
+    x_internal_token: Optional[str] = Header(default=None, alias="X-Internal-Token"),
+) -> EraseUsersResponse:
+    """Remove everything stored for accounts deleted from the Gavaller account.
+
+    RefDataSync sends the complete list of deleted accounts on every run, so a
+    missed call is repaired by the next one and erasing twice is harmless. Only
+    confirmed deletions are ever sent: an outage cannot empty the alert store.
+    """
+    _check_token(x_internal_token)
+    ids = [uid for uid in payload.userIds if uid]
+    removed = await alert_repo.erase_users(ids)
+    users = await user_repo.erase(ids)
+    if users or removed["alerts"] or removed["preferences"]:
+        logger.info(
+            "Erased data of deleted accounts: %s cached emails, %s alerts, %s preferences.",
+            users, removed["alerts"], removed["preferences"],
+            extra={"Action": "alerts.accounts_erased", "Category": "privacy",
+                   "Context": {"users": users, **removed}},
+        )
+    return EraseUsersResponse(users=users, **removed)

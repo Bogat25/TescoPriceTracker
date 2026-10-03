@@ -92,3 +92,16 @@ class TriggerResponse(BaseModel):
     emailsSent: int
     skipped: int
     duplicate: bool = False
+
+
+class EraseUsersPayload(BaseModel):
+    """Accounts deleted in Keycloak, sent by RefDataSync on every run."""
+
+    userIds: list[str] = Field(default_factory=list, max_length=10000)
+
+
+class EraseUsersResponse(BaseModel):
+    users: int
+    alerts: int
+    preferences: int
+

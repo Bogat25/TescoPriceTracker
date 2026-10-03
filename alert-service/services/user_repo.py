@@ -34,3 +34,12 @@ async def emails_for(user_ids: Iterable[str]) -> dict[str, str]:
         if email:
             out[doc["_id"]] = email
     return out
+
+
+async def erase(user_ids: Iterable[str]) -> int:
+    """Forget the cached email of the given accounts."""
+    ids = [uid for uid in set(user_ids) if uid]
+    if not ids:
+        return 0
+    result = await _coll().delete_many({"_id": {"$in": ids}})
+    return result.deleted_count
