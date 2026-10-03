@@ -67,12 +67,24 @@ mTLS becomes necessary.
 | `MONGO_API/SCRAPER/ALERTS_PASSWORD` | The per-service MongoDB accounts | one service group each (§3) |
 | `MONGO_INITDB_ROOT_PASSWORD` | MongoDB root | MongoDB itself, the account creator, mongo-express |
 | `SESSION_SECRET` | The auth gateway's session cookie | auth gateway |
-| `KC_ADMIN_CLIENT_SECRET` | Keycloak admin API (user sync) | alert-service Keycloak sync job |
+| `KC_BOOTSTRAP_ADMIN_PASSWORD` | The `tesco-tracker` Keycloak's master-realm admin | keycloak-config job |
+| `KC_ADMIN_CLIENT_SECRET` | Keycloak admin API (user sync) | alert-service Keycloak sync job, keycloak-config job |
 | `ME_CONFIG_BASICAUTH_PASSWORD` | mongo-express basic auth | mongo-express |
 
 All of them live in Infisical and reach the stack as environment variables
 through the SecretManager controller. No secret is committed; `.env` exists
-only for local runs. The embedding service deliberately has **no** token: it
+only for local runs.
+
+Every one of them is replaced the same way: generate a new value, reconcile,
+redeploy. Three need help from the deploy, because MongoDB and Keycloak read
+them only on their very first start: the MongoDB root password, the Keycloak
+admin password and the admin client secret. The `mongo-users` and
+`keycloak-config` jobs apply them. Each keeps the last password that logged in
+on a volume only it mounts (`mongo-credential-state`, and `keycloak-data` next
+to Keycloak's own database), logs in with it when the configured one is
+refused, and changes it. That copy is the same value the stack's environment
+already holds on the host. The procedure is in
+[deployment.md](deployment.md#rotating-the-infrastructure-credentials). The embedding service deliberately has **no** token: it
 holds no data and only turns text into vectors, and it is reachable only from
 the internal network (see [semantic-search.md](semantic-search.md) §7.4).
 
@@ -91,10 +103,12 @@ alert database. Now:
 | `svc_alerts` | `readWrite` on the alert database, `read` on the catalogue | alert-service, alert-keycloak-sync |
 | root | everything | MongoDB itself, the account creator, mongo-express (admin profile only) |
 
-`mongo/init-users.js` runs on every deploy in the one-shot `mongo-users`
+`mongo/init_users.py` runs on every deploy in the one-shot `mongo-users`
 container, with the root account, and creates or updates the three accounts
 from the Infisical passwords. It is idempotent, so a password rotation is just
-a reconcile. An account whose password is not configured is **skipped**, and
+a reconcile. It applies a new root password first (§2), and MongoDB's health
+check pings without logging in, so a new root password cannot make the
+database look unhealthy before the job has applied it. An account whose password is not configured is **skipped**, and
 the service keeps working with whatever `MONGO_URI` holds while logging
 `mongo.root_credentials` — a half-finished rollout is visible in Grafana
 instead of failing or silently staying on root.

@@ -66,7 +66,7 @@ stack that plugs into them.
 
 ## 3. Services
 
-17 containers, 5 networks, 4 volumes. Grouped by what they are for:
+17 containers, 5 networks, 5 volumes. Grouped by what they are for:
 
 | Group | Service | Does |
 |---|---|---|
@@ -81,9 +81,9 @@ stack that plugs into them.
 | search | `vectorizer` | Embeds new and changed products, removes stale points |
 | search | `qdrant` | Vector store, one point per offer |
 | data | `mongo` | Products, prices, alerts, run states, caches |
-| data | `mongo-users` | One-shot: creates the per-service MongoDB accounts, then exits |
+| data | `mongo-users` | One-shot: applies a changed root password, creates the per-service MongoDB accounts, then exits |
 | identity | `keycloak` | The `tesco-tracker` realm |
-| identity | `keycloak-init`, `keycloak-session-config` | One-shot: data directory ownership, then realm session settings |
+| identity | `keycloak-init`, `keycloak-config` | One-shot: data directory ownership, then a changed admin password or client secret and the realm session settings |
 | identity | `alert-keycloak-sync` | Keeps the alert service's user cache in step with Keycloak |
 | admin | `mongo-express` | Database console on the admin network; off unless explicitly enabled |
 

@@ -21,10 +21,10 @@ def test_realm_has_long_lived_refresh_session_policy() -> None:
 
 def test_retained_realm_is_updated_after_keycloak_starts() -> None:
     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
-    service = compose["services"]["keycloak-session-config"]
+    service = compose["services"]["keycloak-config"]
     assert service["restart"] == "no"
     assert service["depends_on"]["keycloak"]["condition"] == "service_healthy"
-    script = (ROOT / "keycloak" / "configure-session-lifetimes.sh").read_text()
+    script = (ROOT / "keycloak" / "configure-keycloak.sh").read_text()
     assert 'update "realms/$REALM"' in script
     assert "ssoSessionIdleTimeout=2592000" in script
 

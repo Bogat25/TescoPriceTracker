@@ -27,7 +27,9 @@ services:
         aliases:
           - ${STACK_PREFIX}tesco-tracker-mongo
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh -u "$$MONGO_INITDB_ROOT_USERNAME" -p "$$MONGO_INITDB_ROOT_PASSWORD" localhost:27017/admin --quiet || exit 1
+      # ping needs no login. With the root password in here, a new password in
+      # Infisical would make MongoDB unhealthy before mongo-users could apply it.
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ping: 1}).ok' localhost:27017 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -36,7 +38,8 @@ services:
   # ── Least-privilege MongoDB accounts ─────────────────────────────────────────
   # Runs once per deploy with the root account and creates (or updates) one
   # account per service, so no application connects as root. Idempotent, and a
-  # service whose password is unset keeps its previous credentials.
+  # service whose password is unset keeps its previous credentials. It also
+  # applies a new root password: the volume keeps the last one that worked.
   mongo-users:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
     pull_policy: always
@@ -57,8 +60,11 @@ services:
       MONGO_SCRAPER_PASSWORD: ${MONGO_SCRAPER_PASSWORD:-}
       MONGO_ALERTS_USERNAME: ${MONGO_ALERTS_USERNAME:-svc_alerts}
       MONGO_ALERTS_PASSWORD: ${MONGO_ALERTS_PASSWORD:-}
+      CREDENTIAL_STATE_DIR: /var/lib/credential-state
       PYTHONPATH: /app
       TZ: Europe/Budapest
+    volumes:
+      - mongo-credential-state:/var/lib/credential-state
     labels:
     - vector.enable=true
     networks:
@@ -168,19 +174,28 @@ services:
         aliases:
           - tesco-tracker-keycloak
 
-  keycloak-session-config:
+  # Runs once per deploy: applies a changed admin password and admin client
+  # secret, which the realm import cannot, and the session lifetimes. The
+  # keycloak-data volume keeps the last admin password that worked.
+  keycloak-config:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-keycloak:${TESCO_IMAGE_TAG:-latest}
     pull_policy: always
     platform: ${DOCKER_PLATFORM:-linux/amd64}
-    container_name: ${STACK_PREFIX}tesco-tracker-keycloak-session-config
+    container_name: ${STACK_PREFIX}tesco-tracker-keycloak-config
     restart: "no"
     profiles: ["auth"]
-    entrypoint: ["/bin/sh", "/opt/keycloak/bin/configure-session-lifetimes.sh"]
+    labels:
+      - "vector.enable=true"
+    entrypoint: ["/bin/sh", "/opt/keycloak/bin/configure-keycloak.sh"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
+      KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
+      KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
       KEYCLOAK_INTERNAL_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
+    volumes:
+      - keycloak-data:/opt/keycloak/data
     networks:
       - tesco-tracker-internal
     depends_on:
@@ -687,6 +702,8 @@ networks:
 volumes:
   mongo-data:
     name: ${STACK_PREFIX}tesco-tracker-mongo-data
+  mongo-credential-state:
+    name: ${STACK_PREFIX}tesco-tracker-mongo-credential-state
   keycloak-data:
     name: ${STACK_PREFIX}tesco-tracker-keycloak-data
   qdrant-storage:
