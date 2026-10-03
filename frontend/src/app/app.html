@@ -9,6 +9,13 @@
     <app-beehive-bg [opacity]="0.12"></app-beehive-bg>
     <div class="hex-scroll">
       <router-outlet></router-outlet>
+      <footer class="hex-legal-footer">
+        <a routerLink="/privacy">{{ 'footer.privacy' | translate }}</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://gavaller.com/privacy">{{ 'footer.platformPrivacy' | translate }}</a>
+        <span aria-hidden="true">·</span>
+        <a href="https://gavaller.com/terms">{{ 'footer.terms' | translate }}</a>
+      </footer>
     </div>
   </div>
 

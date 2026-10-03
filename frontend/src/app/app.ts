@@ -6,10 +6,11 @@ import { TranslationService } from './services/translation.service';
 import { SeoService } from './services/seo.service';
 import { Sidebar } from './sidebar/sidebar';
 import { BeehiveBg } from './shared/beehive-bg/beehive-bg';
+import { TranslatePipe } from './shared/translate.pipe';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Sidebar, BeehiveBg],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Sidebar, BeehiveBg, TranslatePipe],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })

@@ -31,6 +31,11 @@
       Google Chrome, Microsoft Edge, and Mozilla Firefox.
     </p>
     <p class="pp-lead">
+      This policy covers what is specific to Price Tracker. Your Gavaller account, server logs,
+      security monitoring, cookies and your rights are described in the <a href="https://gavaller.com/privacy" class="pp-link">Gavaller Privacy Policy</a>, which applies to
+      Price Tracker as well.
+    </p>
+    <p class="pp-lead">
       By using the Service you acknowledge that you have read and understood this policy.
       If you do not agree with any part of it, please discontinue use of the Service.
     </p>
@@ -48,8 +53,8 @@
           <tr><td>Name</td><td><strong>Gavallér Bogát Bendegúz</strong></td></tr>
           <tr><td>Project</td><td>Price Tracker (independent, non-commercial)</td></tr>
           <tr><td>Website</td><td><a href="https://price-tracker.gavaller.com" class="pp-link">price-tracker.gavaller.com</a></td></tr>
-          <tr><td>Contact</td><td><a href="mailto:support@gavaller.com" class="pp-link">support&#64;gavaller.com</a></td></tr>
-          <tr><td>Infrastructure</td><td>Gavaller private server (EU-hosted)</td></tr>
+          <tr><td>Contact</td><td><a href="mailto:contact@gavaller.com" class="pp-link">contact&#64;gavaller.com</a></td></tr>
+          <tr><td>Infrastructure</td><td>Our own server in the European Union</td></tr>
         </tbody>
       </table>
       <p class="pp-note">
@@ -68,12 +73,15 @@
 
     <h3 class="pp-h3">2.1 &nbsp; Account &amp; Authentication Information</h3>
     <div class="pp-card">
-      <p>When you register or sign in we collect and store:</p>
+      <p>
+        You sign in with your shared Gavaller account (see §2 of the <a href="https://gavaller.com/privacy" class="pp-link">Gavaller Privacy Policy</a>).
+        Price Tracker uses from it:
+      </p>
       <ul class="pp-list">
-        <li><strong>Email address</strong> — used as your account identifier and to deliver price-drop notifications.</li>
-        <li><strong>Display name / username</strong> — shown in the interface.</li>
-        <li><strong>User ID</strong> — an internal identifier used to link your alerts to your account. Never shared externally.</li>
-        <li><strong>Authentication tokens</strong> — stored locally in your browser and used solely to keep you signed in. Never transmitted to third parties.</li>
+        <li><strong>Email address</strong> — to deliver price-drop notifications.</li>
+        <li><strong>Username</strong> — shown in the interface.</li>
+        <li><strong>Account ID</strong> — an internal identifier used to link your alerts to your account. Never shared externally.</li>
+        <li><strong>Sign-in session</strong> — on the website, a secure cookie (§10); in the Extension, tokens kept in extension storage (§2.5). Never transmitted to third parties.</li>
       </ul>
       <div class="pp-badge pp-badge--auth">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -90,7 +98,10 @@
         <li><strong>Alert status</strong> — whether the alert is active or paused.</li>
         <li><strong>Your account ID</strong> — to link the alert to your account.</li>
       </ul>
-      <p>This data is stored on our private server.</p>
+      <p>
+        The alert service also keeps a copy of your account ID and email address, refreshed daily from your
+        account, so it can send notifications. This data is stored on our own server.
+      </p>
     </div>
 
     <h3 class="pp-h3">2.3 &nbsp; Email Notification Content</h3>
@@ -151,13 +162,21 @@
   <section class="pp-section">
     <h2 class="pp-h2">
       <span class="pp-h2-num">4</span>
-      Standard Server Logs
+      Server Logs and Security Monitoring
     </h2>
     <div class="pp-card">
       <p>
-        Like all web servers, ours automatically records basic request logs for security and
-        maintenance purposes. These logs are retained for a maximum of <strong>30 days</strong>
-        and are then deleted automatically. They are never used for tracking or advertising.
+        Requests to the website and the API pass through the Gavaller gateway, which records for each one:
+        the time, the requested path, the response, your IP address, browser, country and city, your account
+        ID if you are signed in, and for some features the search text, the product viewed or the settings of
+        a price alert. These logs are kept for up to <strong>180 days</strong>.
+      </p>
+      <p>
+        They are used to run and troubleshoot the Service and for the platform's security monitoring, which
+        recognises crawlers, scrapers and attackers. A person reviews its results; nothing acts against anyone
+        automatically. The logs are never used for advertising. Sections 3 and 4 of the
+        <a href="https://gavaller.com/privacy" class="pp-link">Gavaller Privacy Policy</a> describe both in full, including your right
+        to object.
       </p>
     </div>
   </section>
@@ -177,7 +196,7 @@
           <tr><td>Account &amp; authentication data</td><td>Performance of contract — necessary to provide the Service</td></tr>
           <tr><td>Price alert data</td><td>Performance of contract — the core function of the Service</td></tr>
           <tr><td>Email address for notifications</td><td>Performance of contract — requested by you when creating an alert</td></tr>
-          <tr><td>Server logs</td><td>Legitimate interests — security and service maintenance</td></tr>
+          <tr><td>Server logs and security monitoring</td><td>Legitimate interests — security, abuse prevention and service maintenance</td></tr>
         </tbody>
       </table>
     </div>
@@ -197,8 +216,13 @@
         <tbody>
           <tr>
             <td><strong>Keycloak</strong> (self-hosted)</td>
-            <td>User authentication and account management</td>
+            <td>The shared Gavaller account: authentication and account management</td>
             <td>Email, username, user ID — all stored on our own infrastructure</td>
+          </tr>
+          <tr>
+            <td><strong>Cloudflare</strong></td>
+            <td>Network, DDoS protection and delivery of the website</td>
+            <td>The traffic passing through it, including your IP address; governed by <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer" class="pp-link">Cloudflare's Privacy Policy</a></td>
           </tr>
           <tr>
             <td><strong>Resend</strong> (email delivery)</td>
@@ -231,10 +255,11 @@
           <tr><th>Data type</th><th>Retention period</th></tr>
         </thead>
         <tbody>
-          <tr><td>Account &amp; authentication data</td><td>Retained while your account is active. Deleted within 30 days of account deletion request.</td></tr>
-          <tr><td>Price alerts</td><td>Retained while your account is active or until you delete them. Automatically purged within 30 days after account deletion.</td></tr>
+          <tr><td>Gavaller account</td><td>Until you delete the account (see the Gavaller Privacy Policy).</td></tr>
+          <tr><td>Price alerts and the alert service's copy of your email address</td><td>Until you delete them. Deleting your Gavaller account does not yet remove them automatically: delete your alerts first, or email us and we will remove them within 30 days.</td></tr>
           <tr><td>Email delivery logs</td><td>Up to 30 days, per our email provider's data policy.</td></tr>
-          <tr><td>Server access logs</td><td>Maximum 30 days, then automatically rotated and deleted.</td></tr>
+          <tr><td>Server logs</td><td>Up to 180 days.</td></tr>
+          <tr><td>Security monitoring</td><td>As set out in section 7 of the Gavaller Privacy Policy.</td></tr>
           <tr><td>Product price history</td><td>Retained indefinitely — this is anonymised public data, not personal data.</td></tr>
           <tr><td>Extension local storage</td><td>Stored on your device only; cleared when you uninstall the extension or clear browser data.</td></tr>
         </tbody>
@@ -261,7 +286,7 @@
       </ul>
       <p>
         To exercise any of these rights, contact us at
-        <a href="mailto:support@gavaller.com" class="pp-link">support&#64;gavaller.com</a>.
+        <a href="mailto:contact@gavaller.com" class="pp-link">contact&#64;gavaller.com</a>.
         We will respond within <strong>30 days</strong>. You may also lodge a complaint with the
         Hungarian National Authority for Data Protection and Freedom of Information
         (<a href="https://www.naih.hu" target="_blank" rel="noopener noreferrer" class="pp-link">NAIH</a>).
@@ -299,17 +324,40 @@
         </thead>
         <tbody>
           <tr>
-            <td>Auth session cookie</td>
-            <td>Session / functional</td>
-            <td>Keeps you signed in. Required for authenticated features.</td>
-            <td>Session (cleared on logout or browser close)</td>
+            <td><code>GavallerAuthCookie</code></td>
+            <td>Strictly necessary</td>
+            <td>Keeps you signed in on the Gavaller websites.</td>
+            <td>30 days, renewed while you use the site; removed when you sign out</td>
+          </tr>
+          <tr>
+            <td><code>.AspNetCore.Correlation.*</code>, <code>.AspNetCore.OpenIdConnect.Nonce.*</code></td>
+            <td>Strictly necessary</td>
+            <td>Protect the sign-in process against forgery.</td>
+            <td>About 15 minutes, only while signing in</td>
+          </tr>
+          <tr>
+            <td><code>tpt_lang</code></td>
+            <td>Preference</td>
+            <td>Remembers the language you chose (English or Hungarian).</td>
+            <td>1 year</td>
+          </tr>
+          <tr>
+            <td><code>tpt_chart_range</code></td>
+            <td>Preference</td>
+            <td>Remembers the time range you chose for price charts.</td>
+            <td>1 year</td>
           </tr>
         </tbody>
       </table>
+      <p>
+        The website also keeps your theme and the stores you selected in your browser's local storage.
+        The identity service at auth.gavaller.com and Cloudflare set their own strictly necessary cookies,
+        listed in section 5 of the <a href="https://gavaller.com/privacy" class="pp-link">Gavaller Privacy Policy</a>.
+      </p>
       <p class="pp-note">
         We use <strong>no advertising cookies, no analytics cookies, and no third-party tracking cookies</strong>.
-        The single cookie above is strictly necessary to provide the authenticated features of the Service.
-        No cookie consent banner is required for strictly-necessary cookies under ePrivacy Directive Art. 5(3).
+        The cookies above either keep the Service working or store a setting you chose, and contain no
+        identifier, so no consent banner is required (ePrivacy Directive Art. 5(3); Hungarian Act C of 2003, §155(4)).
       </p>
     </div>
   </section>
@@ -367,7 +415,7 @@
       <p>
         The Service is not directed at persons under 16 years of age. We do not knowingly collect
         personal data from children. If you believe a child has provided us with personal data,
-        please contact us at <a href="mailto:support@gavaller.com" class="pp-link">support&#64;gavaller.com</a>
+        please contact us at <a href="mailto:contact@gavaller.com" class="pp-link">contact&#64;gavaller.com</a>
         and we will delete it promptly.
       </p>
     </div>
@@ -403,7 +451,7 @@
       <table class="pp-table">
         <tbody>
           <tr><td>Name</td><td><strong>Gavallér Bogát Bendegúz</strong></td></tr>
-          <tr><td>Email</td><td><a href="mailto:support@gavaller.com" class="pp-link">support&#64;gavaller.com</a></td></tr>
+          <tr><td>Email</td><td><a href="mailto:contact@gavaller.com" class="pp-link">contact&#64;gavaller.com</a></td></tr>
           <tr><td>Website</td><td><a href="https://price-tracker.gavaller.com" class="pp-link">price-tracker.gavaller.com</a></td></tr>
         </tbody>
       </table>

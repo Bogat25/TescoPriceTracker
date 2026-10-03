@@ -179,5 +179,8 @@
   "alertform.err.login": "Jelentkezz be az árértesítők mentéséhez.",
   "alertform.err.save": "Az értesítőt nem sikerült menteni.",
   "compare.similar.title": "Hasonló termékek",
-  "compare.similar.sub": "Leírásuk alapján legközelebbi termékek a kiválasztott áruházakban (jelentés, nem név szerint)."
+  "compare.similar.sub": "Leírásuk alapján legközelebbi termékek a kiválasztott áruházakban (jelentés, nem név szerint).",
+  "footer.privacy": "Price Tracker adatkezelés",
+  "footer.platformPrivacy": "Gavaller adatkezelési tájékoztató",
+  "footer.terms": "Felhasználási feltételek"
 }

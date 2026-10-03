@@ -179,5 +179,8 @@
   "alertform.err.login": "Log in to save price alerts.",
   "alertform.err.save": "Could not save the alert.",
   "compare.similar.title": "Similar products",
-  "compare.similar.sub": "Closest in description, in the selected stores (found by meaning, not by name)."
+  "compare.similar.sub": "Closest in description, in the selected stores (found by meaning, not by name).",
+  "footer.privacy": "Price Tracker privacy",
+  "footer.platformPrivacy": "Gavaller privacy policy",
+  "footer.terms": "Terms of use"
 }
