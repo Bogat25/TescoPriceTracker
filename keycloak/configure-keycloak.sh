@@ -6,7 +6,7 @@
 #
 #   1. the master-realm admin password: when the configured one is refused, log
 #      in with the last one that worked and change it to the configured one
-#   2. the admin client's secret
+#   2. the admin client's secret, and its permission to list users
 #   3. the session lifetimes
 #
 # No credential is ever printed. They reach kcadm through KC_CLI_PASSWORD or
@@ -98,6 +98,20 @@ else
       echo "Changed the $ADMIN_CLIENT secret to the configured one."
     fi
   fi
+fi
+
+# -- 2b. The admin client may list users -----------------------------------------
+# The realm template grants realm-management/view-users to the client's service
+# account, but an import never touches an existing realm: without this the
+# alert service's nightly user sync is refused with 403. Adding a role the
+# account already has is a no-op.
+if "$KCADM" get users -r "$REALM" --config "$CONFIG" -q exact=true \
+    -q username="service-account-$ADMIN_CLIENT" --fields id --format csv --noquotes | grep -q .; then
+  "$KCADM" add-roles -r "$REALM" --config "$CONFIG" \
+    --uusername "service-account-$ADMIN_CLIENT" --cclientid realm-management --rolename view-users
+  echo "The $ADMIN_CLIENT service account may list users."
+else
+  echo "warning: $ADMIN_CLIENT has no service account in realm $REALM; user listing not granted." >&2
 fi
 
 # -- 3. Session lifetimes ------------------------------------------------------
