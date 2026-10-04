@@ -1,7 +1,7 @@
 import logging
 import os
 from datetime import datetime
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from cors_policy import cors_kwargs
@@ -13,7 +13,7 @@ import uvicorn
 
 from logging_setup import setup_logging, correlation_middleware
 from routers.internal_catalog import router as internal_catalog_router
-from routers.stores_api import resolve_stores, router as stores_router, tesco_switch_middleware
+from routers.stores_api import report_results, resolve_stores, router as stores_router, tesco_switch_middleware
 from auth import current_user, optional_current_user
 from stores import categories
 from stores import recommendations as store_recommendations
@@ -85,12 +85,13 @@ def browse_products(
 
 @app.get("/api/v1/products/search")
 def search_products(
+    response: Response,
     q: str = Query(default="", min_length=1),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=500),
 ):
     """Full-text / regex search. Returns paged results with current price."""
-    return db.search_products(q, skip=skip, limit=limit)
+    return report_results(response, db.search_products(q, skip=skip, limit=limit))
 
 
 _SLIM_FIELDS = {"tpnc", "name", "default_image_url", "last_scraped_price",
@@ -99,6 +100,7 @@ _SLIM_FIELDS = {"tpnc", "name", "default_image_url", "last_scraped_price",
 
 @app.get("/api/v1/products/search/slim")
 def search_products_slim(
+    response: Response,
     q: str = Query(default="", min_length=1),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=500),
@@ -106,11 +108,12 @@ def search_products_slim(
     """Like /search but returns only the fields needed to render search-result cards."""
     full = db.search_products(q, skip=skip, limit=limit)
     slim_results = [{k: v for k, v in r.items() if k in _SLIM_FIELDS} for r in full["results"]]
-    return {"results": slim_results, "total": full["total"], "skip": full["skip"], "limit": full["limit"]}
+    return report_results(response, {"results": slim_results, "total": full["total"], "skip": full["skip"], "limit": full["limit"]})
 
 
 @app.get("/api/v1/products/catalogue/search")
 def catalogue_search_products(
+    response: Response,
     q: str = Query(default="", min_length=1),
     super_department: str = Query(default=""),
     department: str = Query(default=""),
@@ -122,13 +125,13 @@ def catalogue_search_products(
     Respects the active super_department / department filter pills so results
     stay within the currently selected category.
     """
-    return db.search_products_with_category(
+    return report_results(response, db.search_products_with_category(
         q,
         super_department=super_department or None,
         department=department or None,
         skip=skip,
         limit=limit,
-    )
+    ))
 
 
 @app.get("/api/v1/products/{tpnc}/trend")

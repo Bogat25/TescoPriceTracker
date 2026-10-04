@@ -8,6 +8,6 @@ import { RouterLink } from '@angular/router';
   styleUrl: './privacy-policy.scss',
 })
 export class PrivacyPolicy {
-  readonly effectiveDate = 'October 3, 2026';
+  readonly effectiveDate = 'October 4, 2026';
   readonly currentYear   = new Date().getFullYear();
 }

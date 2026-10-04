@@ -7,7 +7,7 @@ store. A disabled store behaves as if it did not exist for users.
 import logging
 import re
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -80,8 +80,18 @@ def list_categories(stores: str = Query(default="")):
     return {"stores": store_ids, "categories": categories.mapping().listing(store_ids)}
 
 
+def report_results(response: Response, page: dict) -> dict:
+    """Tell the gateway how the search went: it logs the result count and the
+    engine that answered next to the search text, for search analysis."""
+    response.headers["X-Result-Count"] = str(page.get("total", 0))
+    if page.get("mode"):
+        response.headers["X-Search-Mode"] = str(page["mode"])
+    return page
+
+
 @router.get("/search")
 def search(
+    response: Response,
     q: str = Query(min_length=1, max_length=200),
     stores: str = Query(default=""),
     category: str = Query(default=""),
@@ -94,8 +104,8 @@ def search(
     The response's ``mode`` says what answered: text when vectors are unavailable."""
     store_ids = resolve_stores(stores)
     try:
-        return queries.search(store_ids, q.strip(), skip, limit, mode, min_score,
-                              resolve_category(category))
+        return report_results(response, queries.search(store_ids, q.strip(), skip, limit, mode, min_score,
+                                                       resolve_category(category)))
     except queries.WindowTooLarge as exc:
         raise HTTPException(400, str(exc)) from exc
 

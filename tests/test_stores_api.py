@@ -145,6 +145,16 @@ def test_search_defaults_to_all_enabled_stores(api):
     assert fake.calls == [("search", ["tesco", "auchan"], "tej", 0, 50)]
 
 
+def test_search_reports_its_result_count_to_the_gateway(api):
+    client, _ = api()
+    response = client.get("/api/v1/search", params={"q": "tej"})
+    # The gateway logs these next to the search text.
+    assert response.headers["X-Result-Count"] == "0"
+    assert "X-Search-Mode" not in response.headers
+    page = stores_api.report_results(stores_api.Response(), {"total": 7, "mode": "hybrid"})
+    assert page == {"total": 7, "mode": "hybrid"}
+
+
 def test_search_and_browse_pass_the_category_through(api):
     client, fake = api()
     assert client.get("/api/v1/search", params={"q": "tej", "category": Categories.KNOWN}).status_code == 200
