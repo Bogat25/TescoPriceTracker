@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { defer, of } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { CatalogService, ProductRow, rowLink } from '../services/catalog.service';
 import { StoresService } from '../services/stores.service';
@@ -123,11 +123,13 @@ export class Search implements OnInit {
     // let that older, wider answer land last and replace the category's rows.
     this.recsSub?.unsubscribe();
 
-    // Cold-start recommendations are public and should never be held hostage by
-    // session/token state. Render them first, then replace them with the signed-in
-    // user's picks when those are available. If personalization fails, keep the
-    // already-rendered cold-start results instead of leaving the page blank.
-    // Both stay inside the chosen category, like a shop's category page.
+    // One list, the right one: decide who is asking before fetching anything, so
+    // a signed-in user never sees the generic deals flash up and then get
+    // replaced by their picks. The personal answer already ends with the deals,
+    // so it is the whole page. The deals are fetched only for a signed-out
+    // visitor, or when personalization fails, so the page is never left blank.
+    // The session check is cached by AuthService, so this costs at most one
+    // request on the first load. Both stay inside the chosen category.
     let category = '';
     this.recsSub = this.stores.load().pipe(
       switchMap(() => this.categories.load(this.stores.storesParam())),
@@ -135,20 +137,13 @@ export class Search implements OnInit {
         // Read after the category list loaded: a category the stores do not
         // offer has been cleared by then.
         category = this.categories.categoryParam();
-        return this.catalog.recommended(this.stores.storesParam(), false, category);
-      }),
-      switchMap((coldStart) => {
-        this.recommendations.set(coldStart.results ?? []);
-        this.recommendationType.set(coldStart.type);
-        this.recsCategory.set(category);
-        this.loadingRecs.set(false);
-
+        const stores = this.stores.storesParam();
+        const deals$ = defer(() => this.catalog.recommended(stores, false, category));
         return this.auth.checkSession().pipe(
+          catchError(() => of(null)),
           switchMap(() => this.auth.userId()
-            ? this.catalog.recommended(this.stores.storesParam(), true, category)
-                .pipe(catchError(() => of(coldStart)))
-            : of(coldStart)),
-          catchError(() => of(coldStart)),
+            ? this.catalog.recommended(stores, true, category).pipe(catchError(() => deals$))
+            : deals$),
         );
       }),
     ).subscribe({

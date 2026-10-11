@@ -46,32 +46,51 @@ function setUp(
 }
 
 describe('Search recommendations', () => {
-  it('keeps cold-start results when personalized recommendations fail', () => {
+  it('falls back to the deals when personalized recommendations fail', () => {
     const recommended = vi.fn((_stores: string, personalized: boolean) =>
       personalized ? throwError(() => new Error('token unavailable')) : of(COLD_START));
 
     const component = setUp(recommended);
     component.ngOnInit();
 
-    expect(recommended).toHaveBeenNthCalledWith(1, '', false, '');
-    expect(recommended).toHaveBeenNthCalledWith(2, '', true, '');
+    expect(recommended).toHaveBeenNthCalledWith(1, '', true, '');
+    expect(recommended).toHaveBeenNthCalledWith(2, '', false, '');
     expect(component.recommendations()).toEqual(COLD_START.results);
     expect(component.recommendationType()).toBe('cold_start');
     expect(component.recsCategory()).toBe('');
     expect(component.loadingRecs()).toBe(false);
   });
 
-  it('asks for suggestions inside the chosen category, for a signed-in user too', () => {
+  it('a signed-in user never sees the deals flash up before their picks', () => {
+    const picks = new Subject<RecommendedRows>();
     const recommended = vi.fn((_stores: string, personalized: boolean) =>
-      of(personalized ? rows('Picked cola', 'personalized') : rows('Cheap cola')));
+      personalized ? picks : of(rows('Generic deal')));
 
     const component = setUp(recommended, () => DRINKS);
     component.ngOnInit();
 
-    expect(recommended).toHaveBeenNthCalledWith(1, '', false, DRINKS);
-    expect(recommended).toHaveBeenNthCalledWith(2, '', true, DRINKS);
+    // While the picks are on their way: a spinner, not the generic deals.
+    expect(component.loadingRecs()).toBe(true);
+    expect(component.recommendations()).toEqual([]);
+
+    picks.next(rows('Picked cola', 'personalized'));
+
+    expect(recommended).toHaveBeenCalledTimes(1);
+    expect(recommended).toHaveBeenCalledWith('', true, DRINKS);
     expect(component.recommendations()[0].name).toBe('Picked cola');
     expect(component.recsCategory()).toBe(DRINKS);
+    expect(component.loadingRecs()).toBe(false);
+  });
+
+  it('a signed-out visitor gets the category deals only', () => {
+    const recommended = vi.fn(() => of(rows('Cheap cola')));
+
+    const component = setUp(recommended, () => DRINKS, () => null);
+    component.ngOnInit();
+
+    expect(recommended).toHaveBeenCalledTimes(1);
+    expect(recommended).toHaveBeenCalledWith('', false, DRINKS);
+    expect(component.recommendations()[0].name).toBe('Cheap cola');
   });
 
   it('a slower answer for the previous category never replaces the new one', () => {
