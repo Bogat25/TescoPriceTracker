@@ -13,7 +13,8 @@ import uvicorn
 
 from logging_setup import setup_logging, correlation_middleware
 from routers.internal_catalog import router as internal_catalog_router
-from routers.stores_api import report_results, resolve_stores, router as stores_router, tesco_switch_middleware
+from routers.stores_api import (report_results, resolve_category, resolve_stores, router as stores_router,
+                                tesco_switch_middleware)
 from auth import current_user, optional_current_user
 from stores import categories
 from stores import recommendations as store_recommendations
@@ -342,29 +343,33 @@ def stats_price_drops_today():
 @app.get("/api/v1/recommended/cold")
 def get_recommended_rows_cold(
     stores: str = Query(default=""),
+    category: str = Query(default=""),
     limit: int = Query(default=48, ge=1, le=100),
 ):
-    """The biggest current discounts across the selected stores, as product rows."""
-    return store_recommendations.rows(resolve_stores(stores), limit)
+    """The biggest current discounts across the selected stores (and category), as product rows."""
+    return store_recommendations.rows(resolve_stores(stores), limit, category=resolve_category(category))
 
 
 @app.get("/api/v1/recommended/personalized")
 def get_recommended_rows_personalized(
     stores: str = Query(default=""),
+    category: str = Query(default=""),
     limit: int = Query(default=48, ge=1, le=100),
     user: dict = Depends(current_user),
 ):
     """Picks similar to the user's alerts, then discounts, for the selected stores.
 
-    Kept outside /recommendations so it still answers while any single store is
+    With a category, both the picks and the discounts stay inside it. Kept
+    outside /recommendations so it still answers while any single store is
     disabled; without vectors the picks fall back to discounts.
     """
     from recommendation_engine import get_user_alert_details
 
     store_ids = resolve_stores(stores)
-    result = store_recommendations.rows(store_ids, limit, get_user_alert_details(user["sub"]))
-    logger.info("store recommendations: type=%s personalized_count=%d count=%d",
-                result["type"], result["personalized_count"], len(result["results"]))
+    category_id = resolve_category(category)
+    result = store_recommendations.rows(store_ids, limit, get_user_alert_details(user["sub"]), category_id)
+    logger.info("store recommendations: type=%s personalized_count=%d count=%d category=%s",
+                result["type"], result["personalized_count"], len(result["results"]), category_id or "-")
     return result
 
 

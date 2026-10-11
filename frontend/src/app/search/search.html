@@ -78,16 +78,21 @@
         <div class="sr-recs-header">
           <h2 class="sr-recs-title">
             @if (recommendationType() === 'personalized') {
-              Recommended for you
+              {{ 'search.recs.forYou' | translate }}
+            } @else if (recsCategory()) {
+              {{ 'search.recs.bestDeals' | translate }}
             } @else {
-              Trending deals
+              {{ 'search.recs.trending' | translate }}
+            }
+            @if (recsCategory()) {
+              <span class="sr-recs-category">· {{ categories.name(recsCategory()) }}</span>
             }
           </h2>
           <p class="sr-recs-subtitle">
             @if (recommendationType() === 'personalized') {
-              Based on your tracked products
+              {{ (recsCategory() ? 'search.recs.forYouInCategory.sub' : 'search.recs.forYou.sub') | translate }}
             } @else {
-              Today's best discounts
+              {{ (recsCategory() ? 'search.recs.bestDealsInCategory.sub' : 'search.recs.trending.sub') | translate }}
             }
           </p>
         </div>
@@ -96,6 +101,17 @@
             <li><app-product-row-card [row]="row"/></li>
           }
         </ul>
+        @if (recsCategory()) {
+          <a class="sr-recs-all" [routerLink]="['/products']" [queryParams]="{ category: recsCategory() }">
+            {{ 'search.recs.allInCategory' | translate }} →
+          </a>
+        }
+      </div>
+    }
+    @if (!loadingRecs() && !recommendations().length && recsCategory()) {
+      <div class="sr-empty">
+        <div class="sr-empty-title">{{ 'search.recs.emptyCategory.title' | translate }}</div>
+        <p class="sr-empty-sub">{{ 'search.recs.emptyCategory.sub' | translate }}</p>
       </div>
     }
   }

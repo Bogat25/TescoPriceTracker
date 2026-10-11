@@ -60,8 +60,19 @@ class Adapter:
         return [o for o in self.catalogue if o["gtin"] in gtins]
 
     def browse(self, limit, sort_by, sort_dir, category_query=None):
-        ordered = sorted(self.catalogue, key=lambda o: -(o["discount_ratio"] or 0))
+        ordered = sorted((o for o in self.catalogue if _in_category(o, category_query)),
+                         key=lambda o: -(o["discount_ratio"] or 0))
         return {"results": ordered[:limit], "total": len(ordered)}
+
+
+def _in_category(offer, category_query):
+    """What the real adapters' Mongo fragment (categories.query_for) selects."""
+    if category_query is None:
+        return True
+    if "category_path" in category_query:
+        return list(offer["category_path"]) in category_query["category_path"]["$in"]
+    return list(offer["category_path"][:2]) == [category_query["super_department_name"],
+                                                 category_query["department_name"]]
 
 
 class FakeSemantic:
@@ -74,6 +85,7 @@ class FakeSemantic:
         self.missing_vectors = missing_vectors
         self.unavailable = unavailable
         self.searched_stores = None
+        self.searches = 0
 
     def vectors_for(self, refs):
         if self.unavailable:
@@ -85,6 +97,7 @@ class FakeSemantic:
 
     def nearest(self, vector, store_ids, limit, **_):
         self.searched_stores = list(store_ids)
+        self.searches += 1
         return [(ref, score) for ref, score in self.hits if ref.split(":")[0] in store_ids][:limit]
 
 
@@ -221,6 +234,67 @@ def test_filler_never_repeats_a_pick(catalogue):
 
     keys = [row["group_id"] or refs_of(row)[0] for row in result["results"]]
     assert len(keys) == len(set(keys))
+
+
+# -- inside one category ------------------------------------------------------------
+
+def _categories_of(result):
+    return {categories.mapping().category_for(o["store"], o["category_path"])
+            for row in result["results"] for o in row["offers"]}
+
+
+def test_a_category_keeps_the_picks_and_the_filler_inside_it(catalogue):
+    """Choosing a category must not answer with suggestions from everywhere else."""
+    catalogue([("auchan:a3", 0.9), ("auchan:a4", 0.8)])
+    result = recommendations.rows(["tesco", "auchan"], 10, [alert("tesco:1", 1)], DAIRY)
+
+    assert result["type"] == "personalized"
+    assert refs_of(result["results"][0]) == ["auchan:a3"]
+    assert _categories_of(result) == {DAIRY}
+    assert result["category"] == DAIRY
+
+
+def test_a_category_the_user_watches_nothing_in_is_its_best_deals(catalogue):
+    """Watching only dairy says nothing about drinks: no picks, the drinks' discounts."""
+    fake = catalogue([("auchan:a3", 0.9)])
+    result = recommendations.rows(["tesco", "auchan"], 10, [alert("tesco:1", 1)], DRINKS)
+
+    assert result["type"] == "cold_start" and result["personalized_count"] == 0
+    assert _categories_of(result) == {DRINKS}
+    assert refs_of(result["results"][0]) == ["tesco:4", "auchan:a4"]   # the Kóla, cheapest first
+    assert fake.searches == 0                                            # no vector search was wasted
+
+
+def test_a_category_only_uses_what_is_watched_in_it(catalogue):
+    """Alerts in two categories: with one chosen, only that category is searched."""
+    alerts = [alert("tesco:1", 1), alert("tesco:4", 2)]   # dairy and drinks
+    everything = catalogue([("auchan:a3", 0.9), ("tesco:2", 0.8)])
+    recommendations.personal_rows(alerts, ["tesco", "auchan"], 10)
+    assert everything.searches == 2                       # one search per watched category
+
+    dairy_only = catalogue([("auchan:a3", 0.9), ("tesco:2", 0.8)])
+    personal = recommendations.personal_rows(alerts, ["tesco", "auchan"], 10, DAIRY)
+
+    assert dairy_only.searches == 1
+    assert personal and all(
+        categories.mapping().category_for(o["store"], o["category_path"]) == DAIRY
+        for row in personal for o in row["offers"])
+
+
+def test_the_cold_start_respects_the_category(catalogue):
+    catalogue([])
+    result = recommendations.rows(["tesco", "auchan"], 10, [], DRINKS)
+
+    assert result["type"] == "cold_start"
+    assert _categories_of(result) == {DRINKS}
+
+
+def test_no_category_is_the_unfiltered_answer(catalogue):
+    catalogue([])
+    result = recommendations.rows(["tesco", "auchan"], 10, [])
+
+    assert _categories_of(result) == {DAIRY, DRINKS}
+    assert result["category"] == ""
 
 
 # -- the pieces ---------------------------------------------------------------------

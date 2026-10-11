@@ -331,6 +331,19 @@
   color: var(--text-muted);
   margin-top: 4px;
 }
+.sr-recs-category {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+.sr-recs-all {
+  display: inline-block;
+  margin-top: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-decoration: underline;
+}
+.sr-recs-all:hover { color: var(--text-primary); }
 .sr-recs-loading {
   display: flex;
   align-items: center;

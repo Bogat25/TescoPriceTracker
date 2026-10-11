@@ -2,8 +2,8 @@ import { Component, OnInit, inject, signal, computed, HostListener } from '@angu
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { AuthService } from '../services/auth.service';
@@ -17,7 +17,7 @@ import { TranslatePipe } from '../shared/translate.pipe';
 
 @Component({
   selector: 'app-search',
-  imports: [CommonModule, FormsModule, StoreSelector, CategoryFilter, ProductRowCard, TranslatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, StoreSelector, CategoryFilter, ProductRowCard, TranslatePipe],
   templateUrl: './search.html',
   styleUrl: './search.scss',
 })
@@ -44,6 +44,9 @@ export class Search implements OnInit {
   readonly recommendations    = signal<ProductRow[]>([]);
   readonly recommendationType = signal<'cold_start' | 'personalized'>('cold_start');
   readonly loadingRecs        = signal(false);
+  /** The category the shown recommendations were asked for ('' = every category). */
+  readonly recsCategory       = signal('');
+  private recsSub?: Subscription;
 
   /** Pagination state */
   readonly pageSize    = signal(this._calcPageSize());
@@ -116,22 +119,33 @@ export class Search implements OnInit {
 
   private _loadRecommendations(): void {
     this.loadingRecs.set(true);
+    // A category change while the previous answer is still on its way must not
+    // let that older, wider answer land last and replace the category's rows.
+    this.recsSub?.unsubscribe();
 
     // Cold-start recommendations are public and should never be held hostage by
     // session/token state. Render them first, then replace them with the signed-in
     // user's picks when those are available. If personalization fails, keep the
     // already-rendered cold-start results instead of leaving the page blank.
-    this.stores.load().pipe(
+    // Both stay inside the chosen category, like a shop's category page.
+    let category = '';
+    this.recsSub = this.stores.load().pipe(
       switchMap(() => this.categories.load(this.stores.storesParam())),
-      switchMap(() => this.catalog.recommended(this.stores.storesParam(), false)),
+      switchMap(() => {
+        // Read after the category list loaded: a category the stores do not
+        // offer has been cleared by then.
+        category = this.categories.categoryParam();
+        return this.catalog.recommended(this.stores.storesParam(), false, category);
+      }),
       switchMap((coldStart) => {
         this.recommendations.set(coldStart.results ?? []);
         this.recommendationType.set(coldStart.type);
+        this.recsCategory.set(category);
         this.loadingRecs.set(false);
 
         return this.auth.checkSession().pipe(
           switchMap(() => this.auth.userId()
-            ? this.catalog.recommended(this.stores.storesParam(), true)
+            ? this.catalog.recommended(this.stores.storesParam(), true, category)
                 .pipe(catchError(() => of(coldStart)))
             : of(coldStart)),
           catchError(() => of(coldStart)),
@@ -141,6 +155,7 @@ export class Search implements OnInit {
       next: (res) => {
         this.recommendations.set(res.results ?? []);
         this.recommendationType.set(res.type);
+        this.recsCategory.set(category);
         this.loadingRecs.set(false);
       },
       error: () => {

@@ -138,9 +138,19 @@ a degraded answer is visible rather than silent.
 
 | Endpoint | Answers |
 |---|---|
-| `GET /api/prices/recommended/cold?stores=&limit=` | Cold start: the biggest discounts across the selected stores |
-| `GET /api/prices/recommended/personalized?stores=&limit=` | Personal picks, then discounts. Needs a Bearer token; 401 without one |
+| `GET /api/prices/recommended/cold?stores=&category=&limit=` | Cold start: the biggest discounts across the selected stores |
+| `GET /api/prices/recommended/personalized?stores=&category=&limit=` | Personal picks, then discounts. Needs a Bearer token; 401 without one |
 | `GET /api/prices/recommendations/*` | **Legacy, Tesco only.** The original engine in `backend-api/recommendation_engine.py`; 404 while Tesco is disabled |
+
+**`category`** (a shared category id, as `/categories` lists them) keeps the
+whole answer inside that category, the way a shop's category page does. The
+personal picks then come only from what the user watches *in that category*,
+which gets every slot; the filler is that category's biggest discounts. A
+category the user watches nothing in has no personal picks - the centroid of
+another category's products would land outside it - so the answer is its best
+deals, `type: "cold_start"`. An unknown category is a 400. The search page sends
+the category chosen in its filter, so choosing one no longer leaves the
+unfiltered suggestions on screen.
 
 Response shape:
 
@@ -149,6 +159,7 @@ Response shape:
   "type": "personalized",
   "personalized_count": 7,
   "stores": ["tesco", "auchan"],
+  "category": "",
   "results": [ { "group_id": "g:5998200557001", "name": "...", "best_price": 379.0,
                  "cheapest_stores": ["auchan"], "store_count": 2, "offers": [ ... ] } ]
 }

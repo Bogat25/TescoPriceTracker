@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 
 import { Search } from './search';
 import { AuthService } from '../services/auth.service';
@@ -18,32 +18,76 @@ const COLD_START: RecommendedRows = {
   }],
 };
 
+const DRINKS = 'italok/uditok';
+
+function rows(name: string, type: RecommendedRows['type'] = 'cold_start'): RecommendedRows {
+  return { ...COLD_START, type, results: [{ ...COLD_START.results[0], name }] };
+}
+
+function setUp(
+  recommended: (stores: string, personalized: boolean, category?: string) => Observable<RecommendedRows>,
+  category: () => string = () => '',
+  userId: () => string | null = () => 'user-1',
+): Search {
+  TestBed.configureTestingModule({
+    providers: [
+      { provide: CatalogService, useValue: { recommended } },
+      { provide: StoresService, useValue: { load: () => of([]), storesParam: () => '' } },
+      { provide: CategoriesService, useValue: { load: () => of([]), categoryParam: category, name: (id: string) => id } },
+      { provide: AuthService, useValue: { checkSession: () => of({}), userId } },
+      { provide: Router, useValue: { navigate: vi.fn() } },
+      {
+        provide: ActivatedRoute,
+        useValue: { snapshot: { queryParamMap: { get: () => null } } },
+      },
+    ],
+  });
+  return TestBed.runInInjectionContext(() => new Search());
+}
+
 describe('Search recommendations', () => {
   it('keeps cold-start results when personalized recommendations fail', () => {
     const recommended = vi.fn((_stores: string, personalized: boolean) =>
       personalized ? throwError(() => new Error('token unavailable')) : of(COLD_START));
 
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: CatalogService, useValue: { recommended } },
-        { provide: StoresService, useValue: { load: () => of([]), storesParam: () => '' } },
-        { provide: CategoriesService, useValue: { load: () => of([]), categoryParam: () => '' } },
-        { provide: AuthService, useValue: { checkSession: () => of({}), userId: () => 'user-1' } },
-        { provide: Router, useValue: { navigate: vi.fn() } },
-        {
-          provide: ActivatedRoute,
-          useValue: { snapshot: { queryParamMap: { get: () => null } } },
-        },
-      ],
-    });
-
-    const component = TestBed.runInInjectionContext(() => new Search());
+    const component = setUp(recommended);
     component.ngOnInit();
 
-    expect(recommended).toHaveBeenNthCalledWith(1, '', false);
-    expect(recommended).toHaveBeenNthCalledWith(2, '', true);
+    expect(recommended).toHaveBeenNthCalledWith(1, '', false, '');
+    expect(recommended).toHaveBeenNthCalledWith(2, '', true, '');
     expect(component.recommendations()).toEqual(COLD_START.results);
     expect(component.recommendationType()).toBe('cold_start');
+    expect(component.recsCategory()).toBe('');
     expect(component.loadingRecs()).toBe(false);
+  });
+
+  it('asks for suggestions inside the chosen category, for a signed-in user too', () => {
+    const recommended = vi.fn((_stores: string, personalized: boolean) =>
+      of(personalized ? rows('Picked cola', 'personalized') : rows('Cheap cola')));
+
+    const component = setUp(recommended, () => DRINKS);
+    component.ngOnInit();
+
+    expect(recommended).toHaveBeenNthCalledWith(1, '', false, DRINKS);
+    expect(recommended).toHaveBeenNthCalledWith(2, '', true, DRINKS);
+    expect(component.recommendations()[0].name).toBe('Picked cola');
+    expect(component.recsCategory()).toBe(DRINKS);
+  });
+
+  it('a slower answer for the previous category never replaces the new one', () => {
+    let category = '';
+    const stale = new Subject<RecommendedRows>();
+    const recommended = vi.fn((_stores: string, _personalized: boolean, asked?: string) =>
+      asked === DRINKS ? of(rows('Cola')) : stale);
+
+    const component = setUp(recommended, () => category, () => null);
+    component.ngOnInit();                    // every category: still on its way
+
+    category = DRINKS;
+    component.onCategoryChanged();           // the user picks drinks meanwhile
+    stale.next(rows('Everything'));          // the old answer arrives late
+
+    expect(component.recommendations()[0].name).toBe('Cola');
+    expect(component.recsCategory()).toBe(DRINKS);
   });
 });

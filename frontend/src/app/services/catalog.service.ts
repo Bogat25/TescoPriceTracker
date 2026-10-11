@@ -76,6 +76,8 @@ export interface RecommendedRows {
   personalized_count: number;
   results: ProductRow[];
   stores: string[];
+  /** The category the rows were limited to ('' = every category). */
+  category?: string;
 }
 
 export type SortBy = 'name' | 'price' | 'discount';
@@ -147,10 +149,15 @@ export class CatalogService {
     });
   }
 
-  /** Picks for the signed-in user (identity from the Bearer token), or today's best deals. */
-  recommended(stores: string, personalized: boolean, limit = 48): Observable<RecommendedRows> {
+  /**
+   * Picks for the signed-in user (identity from the Bearer token), or today's best deals.
+   * A ``category`` keeps both the picks and the deals inside it.
+   */
+  recommended(stores: string, personalized: boolean, category = '', limit = 48): Observable<RecommendedRows> {
     const path = personalized ? 'personalized' : 'cold';
-    return this.http.get<RecommendedRows>(`${this.base}/recommended/${path}`, { params: this.params({ stores, limit }) });
+    return this.http.get<RecommendedRows>(`${this.base}/recommended/${path}`, {
+      params: this.params({ stores, category, limit }),
+    });
   }
 
   offer(ref: string): Observable<Offer> {

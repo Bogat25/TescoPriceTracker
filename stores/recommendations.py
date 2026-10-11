@@ -8,6 +8,9 @@ rather than about a listing.
 
 Remaining slots are filled with the biggest current discounts across the
 selected stores, which is also the whole answer for a visitor with no alerts.
+
+With a category, both halves stay inside it: the picks come only from what the
+user watches in that category, and the filler is that category's discounts.
 """
 
 import logging
@@ -177,12 +180,14 @@ def _limit_per_brand(scored: list, slots: int) -> list:
     return kept
 
 
-def personal_rows(alerts: list, store_ids: list, limit: int) -> list:
+def personal_rows(alerts: list, store_ids: list, limit: int, category: Optional[str] = None) -> list:
     """Products similar to what the user watches, from every selected store.
 
-    Returns an empty list when the user watches nothing, when none of it has a
-    vector yet, or when the vector store is unavailable - the caller then falls
-    back to the discount rows, which is a worse answer but always an answer.
+    With a category, only what the user watches in that category is a source,
+    and it gets every slot. Returns an empty list when the user watches nothing
+    (there), when none of it has a vector yet, or when the vector store is
+    unavailable - the caller then falls back to the discount rows, which is a
+    worse answer but always an answer.
     """
     if not alerts or not store_ids:
         return []
@@ -191,7 +196,14 @@ def personal_rows(alerts: list, store_ids: list, limit: int) -> list:
         if not buckets:
             return []
         watched = {group for bucket in buckets.values() for group in bucket["groups"]}
-        chosen = rank_categories(buckets)
+        if category:
+            # The centroid of another category's products would land outside
+            # this one, so a category the user watches nothing in has no picks.
+            if category not in buckets:
+                return []
+            chosen = [category]
+        else:
+            chosen = rank_categories(buckets)
         picks = []
         seen = set()
         for category, slots in zip(chosen, allocate(len(chosen), limit)):
@@ -215,15 +227,18 @@ def personal_rows(alerts: list, store_ids: list, limit: int) -> list:
 
 # -- the response -------------------------------------------------------------------
 
-def rows(store_ids: list, limit: int, alerts: Optional[list] = None) -> dict:
-    """Personal picks first, then the biggest discounts, as product rows."""
-    results = personal_rows(alerts or [], store_ids, limit)[:limit]
+def rows(store_ids: list, limit: int, alerts: Optional[list] = None, category: Optional[str] = None) -> dict:
+    """Personal picks first, then the biggest discounts, as product rows.
+
+    ``category`` (a resolved canonical id) keeps both inside one category.
+    """
+    results = personal_rows(alerts or [], store_ids, limit, category)[:limit]
     personalized = len(results)
     seen = {_row_key(row) for row in results}
 
     if len(results) < limit and store_ids:
         window = min(limit * 2, queries.MAX_WINDOW)
-        for row in queries.browse(store_ids, 0, window, "discount", "desc")["results"]:
+        for row in queries.browse(store_ids, 0, window, "discount", "desc", category)["results"]:
             if _row_key(row) in seen:
                 continue
             seen.add(_row_key(row))
@@ -236,4 +251,5 @@ def rows(store_ids: list, limit: int, alerts: Optional[list] = None) -> dict:
         "personalized_count": personalized,
         "results": results,
         "stores": store_ids,
+        "category": category or "",
     }
