@@ -1,4 +1,4 @@
-﻿<!-- agent-context:kernel:start sha=47d012fe5e1a9714ad2854b41669f83f177ab11ac16e41048c14ad5eea875afd -->
+﻿<!-- agent-context:kernel:start sha=a5893754536e5d1e3c7a91f59b8ce4d390600e608ed938e65676d53c3b260c13 -->
 # User repository preferences
 
 - Create commits locally when requested or when completing repository changes.
@@ -11,6 +11,7 @@
 - Keep commits few per feature (1-2 clean conventional commits); squash or amend unpushed fixups.
 - Never read, print, echo, substring, or output plaintext secret values or token fragments anywhere. Test existence only (`Test-Path Env:NAME` or `[bool]$env:NAME`).
 - Maintain strict isolation between AI agents (`codex`, `claude`, `gemini`): separate service accounts, tokens, and endpoints.
+- Write reports, plans and other documents as Markdown (`.md`) files in the relevant repository or folder. Never publish them as hosted pages (claude.ai Artifacts, Claude Docs or any other agent's equivalent) unless strictly necessary or the user explicitly asks for one.
 <!-- agent-context:kernel:end -->
 
 ## This repository
