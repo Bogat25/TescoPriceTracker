@@ -68,3 +68,8 @@ tests/README.md
 coverage.xml
 htmlcov/
 frontend/coverage/
+.venv-linux/
+.artifacts/
+*.pyc
+!scripts/linux.sh
+!scripts/test_linux_integration.py

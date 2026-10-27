@@ -1,0 +1,4 @@
+
+*.sh text eol=lf
+/Makefile text eol=lf
+/linux.json text eol=lf

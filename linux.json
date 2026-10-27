@@ -1,0 +1,150 @@
+{
+  "tools": [
+    "uv",
+    "node",
+    "npm",
+    "docker"
+  ],
+  "python_install": [
+    [
+      "-r",
+      "requirements.txt",
+      "pytest-cov",
+      "ruff==0.12.4",
+      "PyYAML"
+    ]
+  ],
+  "node": [
+    {
+      "path": "frontend",
+      "playwright": false,
+      "ci_args": [
+        "--legacy-peer-deps"
+      ]
+    }
+  ],
+  "lint": [
+    {
+      "cmd": [
+        "{python}",
+        "-c",
+        "import pathlib,subprocess,yaml; files=subprocess.check_output(['git','ls-files','-z','*.yml','*.yaml']).decode().split('\\0'); [yaml.safe_load(pathlib.Path(p).read_text(encoding='utf-8-sig')) for p in files if p and 'evidence/' not in p and 'submission-archives/' not in p]; print('Tracked YAML parses')"
+      ],
+      "cwd": "."
+    },
+    {
+      "cmd": [
+        "{python}",
+        "-m",
+        "ruff",
+        "check",
+        "."
+      ],
+      "cwd": "."
+    }
+  ],
+  "test": [
+    {
+      "cmd": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q"
+      ],
+      "cwd": "."
+    },
+    {
+      "cmd": [
+        "npm",
+        "test",
+        "--",
+        "--watch=false"
+      ],
+      "cwd": "frontend"
+    }
+  ],
+  "build": [
+    {
+      "cmd": [
+        "{python}",
+        "-m",
+        "compileall",
+        "-q",
+        "backend-api",
+        "auth-gateway",
+        "alert-service",
+        "scraper",
+        "scheduler"
+      ],
+      "cwd": "."
+    },
+    {
+      "cmd": [
+        "npm",
+        "run",
+        "build"
+      ],
+      "cwd": "frontend"
+    }
+  ],
+  "integration": [
+    {
+      "cmd": [
+        "{python}",
+        "scripts/test_linux_integration.py"
+      ],
+      "requires_docker_engine": true
+    }
+  ],
+  "schema": 1,
+  "images": [
+    {
+      "cmd": [
+        "docker",
+        "build",
+        "-f",
+        "./Dockerfile",
+        "-t",
+        "arkplus-linux/tescopricetracker-0:local",
+        "."
+      ],
+      "cwd": "."
+    },
+    {
+      "cmd": [
+        "docker",
+        "build",
+        "-f",
+        "./frontend/Dockerfile",
+        "-t",
+        "arkplus-linux/tescopricetracker-1:local",
+        "./frontend"
+      ],
+      "cwd": "."
+    },
+    {
+      "cmd": [
+        "docker",
+        "build",
+        "-f",
+        "./embedding-service/Dockerfile",
+        "-t",
+        "arkplus-linux/tescopricetracker-2:local",
+        "./embedding-service"
+      ],
+      "cwd": "."
+    },
+    {
+      "cmd": [
+        "docker",
+        "build",
+        "-f",
+        "./keycloak/Dockerfile",
+        "-t",
+        "arkplus-linux/tescopricetracker-3:local",
+        "."
+      ],
+      "cwd": "."
+    }
+  ]
+}
