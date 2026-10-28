@@ -31,14 +31,13 @@ deployment mechanics are in [upgrade-plan.md](upgrade-plan.md).
    └───────────┴───────────┴────────────┴──────────────┴───────────────┘
 
    admin_ingress (tailnet only, via the infrastructure nginx):
-       mongo (direct), qdrant, mongo-express*, recommendation-api,
-       tesco-price-tracker-health (the frontend, for deploy health checks)
+       mongo (direct), qdrant, mongo-express*, recommendation-api
        * mongo-express only runs with COMPOSE_PROFILES=admin-tools
 ```
 
 | Boundary | Enforced by | Notes |
 |---|---|---|
-| Internet → site | Cloudflare Tunnel | The host has no inbound ports open. Cloudflare answers non-browser clients (scripts, bots) with 403, which is why deploy health checks use an internal address. |
+| Internet → site | Cloudflare Tunnel | The host has no inbound ports open. Cloudflare answers non-browser clients (scripts, bots) with 403, which is why deploy health checks read container health through Portainer instead. |
 | Site → services | YARP gateway | Single entry for `/api/*` and `/auth/*`. It owns the session cookie and forwards a Bearer token downstream. |
 | Service → service | Docker networks | `tesco-tracker-internal` has no route from the internet. A container must be on the network to reach MongoDB, Qdrant or the embedding service. |
 | Admin access | Tailnet (`admin_ingress`) | Reachable only from the owner's tailnet, never from the internet. |

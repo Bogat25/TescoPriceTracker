@@ -65,7 +65,7 @@ The main technical document; the one the thesis leans on.
 6. **Observability**: the log contract (52 distinct `Action` values), Vector,
    ClickHouse, the dashboards and the alert rules; what "healthy" looks like.
 7. **Deployment**: CI → GHCR → Portainer git stacks → SecretManager reconcile;
-   the health-check rule (internal address, because the edge blocks scripts).
+   the health-check rule (container health through Portainer, because the edge blocks scripts).
 
 Diagrams needed (ASCII, like the existing docs, so they survive in git):
 context, container, daily flow, search request, auth sequence (already in
