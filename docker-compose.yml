@@ -168,17 +168,10 @@ services:
       tesco-tracker-internal: {}
       public_ingress:
         aliases:
-          - ${STACK_PREFIX}tesco-tracker-keycloak
-      admin_ingress:
-        aliases:
-          - ${STACK_PREFIX}tesco-tracker-keycloak
+        - ${STACK_PREFIX}tesco-tracker-keycloak
       gavaller-backend-internal:
         aliases:
-          - tesco-tracker-keycloak
-
-  # Runs once per deploy: applies a changed admin password and admin client
-  # secret, which the realm import cannot, and the session lifetimes. The
-  # keycloak-data volume keeps the last admin password that worked.
+        - tesco-tracker-keycloak
   keycloak-config:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-keycloak:${TESCO_IMAGE_TAG:-latest}
     pull_policy: always
@@ -194,6 +187,7 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       KC_ADMIN_CLIENT_ID: ${KC_ADMIN_CLIENT_ID:-tesco-alert-admin}
       KC_ADMIN_CLIENT_SECRET: ${KC_ADMIN_CLIENT_SECRET:-}
+      KC_CLIENT_ID: ${KC_CLIENT_ID:-tesco-frontend}
       KEYCLOAK_INTERNAL_URL: http://keycloak:8080
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
     volumes:
@@ -237,7 +231,8 @@ services:
       PYTHONPATH: /app
       TZ: Europe/Budapest
     networks:
-      - tesco-tracker-internal
+      tesco-tracker-internal: {}
+      frontend-api: {}
     depends_on:
       keycloak:
         condition: service_started
@@ -287,10 +282,11 @@ services:
       tesco-tracker-internal: {}
       gavaller-backend-internal:
         aliases:
-          - tesco-price-tracker-api
+        - tesco-price-tracker-api
       tesco-internal:
         aliases:
-          - tesco-backend-api
+        - tesco-backend-api
+      frontend-api: {}
     depends_on:
       mongo-users:
         condition: service_completed_successfully
@@ -505,7 +501,8 @@ services:
       tesco-tracker-internal: {}
       gavaller-backend-internal:
         aliases:
-          - gavaller-backend-tesco-alert-service
+        - gavaller-backend-tesco-alert-service
+      frontend-api: {}
     depends_on:
       mongo-users:
         condition: service_completed_successfully
@@ -655,17 +652,13 @@ services:
       AUTH_TOKEN_URL: ${AUTH_TOKEN_URL:-/auth/token}
       NGINX_ENVSUBST_TEMPLATE_VARS: TESCO_API_UPSTREAM,AUTH_UPSTREAM,ALERTS_API_UPSTREAM,AUTH_BASE_URL,AUTH_LOGIN_URL,AUTH_LOGOUT_URL,AUTH_USERINFO_URL,AUTH_ACCOUNT_URL,AUTH_TOKEN_URL
     networks:
-      tesco-tracker-internal: {}
       gavaller-backend-internal:
         aliases:
-          - tesco-tracker-frontend
+        - tesco-tracker-frontend
       public_ingress:
         aliases:
-          - ${STACK_PREFIX}price-tracker
-      # Deployment health check of the secret controller (it cannot reach the public hostname).
-      admin_ingress:
-        aliases:
-          - ${STACK_PREFIX}tesco-price-tracker-health
+        - ${STACK_PREFIX}price-tracker
+      frontend-api: {}
     depends_on:
       api:
         condition: service_started
@@ -678,6 +671,8 @@ services:
 
 # ── Networks ─────────────────────────────────────────────────────────────────
 networks:
+  frontend-api:
+    internal: true
   tesco-tracker-internal:
     name: ${STACK_PREFIX}tesco-tracker-internal
   public_ingress:

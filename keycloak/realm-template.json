@@ -42,6 +42,12 @@
       },
       "protocolMappers": [
         {
+          "name": "gavaller-api-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": { "included.custom.audience": "gavaller-api", "access.token.claim": "true", "id.token.claim": "false" }
+        },
+        {
           "name": "sub",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-property-mapper",

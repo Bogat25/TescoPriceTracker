@@ -29,6 +29,7 @@ KC_ISSUER = os.environ.get(
     "KC_ISSUER", "https://auth.gavaller.com/realms/backend-ecosystem"
 ).rstrip("/")
 KC_CLIENT_ID = os.environ.get("KC_CLIENT_ID", "gateway-client")
+KC_AUDIENCE = os.environ.get("KC_AUDIENCE", "gavaller-api")
 
 KC_ADMIN_BASE_URL = os.environ.get(
     "KC_ADMIN_BASE_URL", GATEWAY_INTERNAL_URL

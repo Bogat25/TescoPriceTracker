@@ -85,6 +85,16 @@ USERINFO_ENDPOINT_INTERNAL = f"{KC_INTERNAL_BASE_URL}/protocol/openid-connect/us
 _EXT_CODES: dict = {}
 _EXT_CODE_TTL = 90  # seconds
 
+# Each transaction has a host-only correlation cookie. Separate cookie names
+# preserve concurrent login tabs; PKCE verifiers never travel in the URL.
+_LOGIN_TRANSACTIONS: dict = {}
+_LOGIN_TTL = 600
+_MAX_PENDING_LOGINS = 1024
+
+
+def _login_cookie(transaction: str) -> str:
+    return ("__Host-" if COOKIE_SECURE else "") + "oidc_" + transaction
+
 
 def _b64url_no_pad(b: bytes) -> str:
     return base64.urlsafe_b64encode(b).rstrip(b"=").decode("ascii")
@@ -109,7 +119,7 @@ def _unseal(token: str, max_age: Optional[int] = None) -> Optional[dict]:
 
 
 def _safe_return_url(url: Optional[str], default: str) -> str:
-    if not url:
+    if not url or "\\" in url or any(ord(c) < 32 or ord(c) == 127 for c in url):
         return default
     try:
         p = urlparse(url)
@@ -118,10 +128,10 @@ def _safe_return_url(url: Optional[str], default: str) -> str:
     # Allow root-relative paths (/auth/extension-relay etc.)
     # Guard against protocol-relative URLs (//evil.com) by requiring no netloc.
     if not p.scheme and not p.netloc:
-        return url if url.startswith("/") else default
-    if p.scheme not in ("http", "https"):
+        return url if url.startswith("/") and not url.startswith("//") else default
+    if p.scheme != "https" and not (p.scheme == "http" and p.hostname in {"localhost", "127.0.0.1"}):
         return default
-    if RETURN_URL_ALLOWED_HOSTS and p.hostname not in RETURN_URL_ALLOWED_HOSTS:
+    if not RETURN_URL_ALLOWED_HOSTS or p.hostname not in RETURN_URL_ALLOWED_HOSTS:
         return default
     return url
 
@@ -197,7 +207,17 @@ async def health():
 async def login(returnUrl: Optional[str] = None, prompt: Optional[str] = None):
     verifier, challenge = _make_pkce()
     return_to = _safe_return_url(returnUrl, POST_LOGIN_REDIRECT_DEFAULT)
-    state = _seal({"v": verifier, "r": return_to, "t": int(time.time())})
+    now = time.time()
+    for transaction in list(_LOGIN_TRANSACTIONS):
+        if _LOGIN_TRANSACTIONS[transaction]["expires"] <= now:
+            del _LOGIN_TRANSACTIONS[transaction]
+    if len(_LOGIN_TRANSACTIONS) >= _MAX_PENDING_LOGINS:
+        raise HTTPException(429, "too many pending logins")
+    state = secrets.token_urlsafe(32)
+    binding = secrets.token_urlsafe(32)
+    _LOGIN_TRANSACTIONS[state] = {
+        "v": verifier, "r": return_to, "binding": binding, "expires": now + _LOGIN_TTL
+    }
 
     params = {
         "client_id": KC_CLIENT_ID,
@@ -211,24 +231,32 @@ async def login(returnUrl: Optional[str] = None, prompt: Optional[str] = None):
     # Only "login" is accepted as a prompt value (whitelist); prevents open-redirect abuse.
     if prompt == "login":
         params["prompt"] = "login"
-    return RedirectResponse(f"{AUTH_ENDPOINT_PUBLIC}?{urlencode(params)}", status_code=302)
+    response = RedirectResponse(f"{AUTH_ENDPOINT_PUBLIC}?{urlencode(params)}", status_code=302)
+    response.set_cookie(_login_cookie(state), binding, max_age=_LOGIN_TTL,
+                        secure=COOKIE_SECURE, httponly=True, samesite="lax", path="/")
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.get("/auth/callback")
 async def callback(
+    request: Request,
     code: Optional[str] = None,
     state: Optional[str] = None,
     error: Optional[str] = None,
     error_description: Optional[str] = None,
 ):
-    if error:
-        raise HTTPException(400, detail={"error": error, "description": error_description})
-    if not code or not state:
-        raise HTTPException(400, "missing code or state")
-
-    state_data = _unseal(state, max_age=600)
-    if not state_data:
+    if not state or len(state) > 64:
         raise HTTPException(400, "invalid or expired state")
+    state_data = _LOGIN_TRANSACTIONS.get(state)
+    binding = request.cookies.get(_login_cookie(state), "")
+    if (not state_data or state_data["expires"] <= time.time()
+            or not secrets.compare_digest(binding, state_data["binding"])):
+        raise HTTPException(400, "invalid or expired state")
+    # Consume before any network await: a second callback cannot reuse it.
+    del _LOGIN_TRANSACTIONS[state]
+    if error or not code:
+        raise HTTPException(400, "login was not completed")
 
     payload = {
         "grant_type": "authorization_code",
@@ -247,7 +275,7 @@ async def callback(
             headers={"Accept": "application/json"},
         )
     if r.status_code != 200:
-        logger.warning("token exchange failed: %s %s", r.status_code, r.text)
+        logger.warning("token exchange failed: HTTP %s", r.status_code)
         raise HTTPException(400, "token exchange failed")
 
     tokens = r.json()
@@ -284,6 +312,8 @@ async def callback(
     }
 
     resp = RedirectResponse(state_data["r"], status_code=302)
+    resp.delete_cookie(_login_cookie(state), path="/", secure=COOKIE_SECURE, httponly=True, samesite="lax")
+    resp.headers["Cache-Control"] = "no-store"
     _set_session_cookie(resp, _seal(session), max_age=_session_cookie_max_age(session))
     return resp
 
@@ -613,7 +643,7 @@ async def extension_refresh(request: Request):
             headers={"Accept": "application/json"},
         )
     if r.status_code != 200:
-        logger.warning("extension token refresh failed: %s %s", r.status_code, r.text)
+        logger.warning("extension token refresh failed: HTTP %s", r.status_code)
         raise HTTPException(401, "refresh failed")
 
     tokens = r.json()

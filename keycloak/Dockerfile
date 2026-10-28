@@ -1,4 +1,4 @@
-FROM quay.io/keycloak/keycloak:26.0.5
+FROM quay.io/keycloak/keycloak:26.8.1
 
 # Portainer Git deployments do not reliably materialize repository-relative
 # bind-mounted files. Bake both startup inputs into the immutable image so a

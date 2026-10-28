@@ -139,7 +139,8 @@ def _decode(token: str) -> dict:
         key=key,
         algorithms=["RS256", "RS384", "RS512"],
         issuer=settings.KC_ISSUER,
-        options={"verify_aud": False, "require": ["exp", "iat", "sub", "iss"]},
+        audience=settings.KC_AUDIENCE,
+        options={"require": ["exp", "iat", "sub", "iss", "azp", "aud", "typ"]},
     )
 
 
@@ -182,7 +183,7 @@ def _validate_bearer(token: str) -> dict:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
 
     azp = claims.get("azp")
-    if azp and azp != settings.KC_CLIENT_ID:
+    if azp != settings.KC_CLIENT_ID or claims.get("typ") != "Bearer":
         logger.warning(
             "JWT azp mismatch: token azp=%r, expected KC_CLIENT_ID=%r",
             azp, settings.KC_CLIENT_ID,

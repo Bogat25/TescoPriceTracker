@@ -34,3 +34,13 @@ def test_refreshed_cookie_uses_refresh_token_lifetime() -> None:
     assert '"rt_exp": int(time.time()) + refresh_expires_in' in source
     assert source.count("max_age=_session_cookie_max_age(") == 3
     assert "max_age=max(expires_in, 60)" not in source
+
+
+def test_public_services_cannot_join_admin_or_frontend_database_networks() -> None:
+    services = yaml.safe_load((ROOT / 'docker-compose.yml').read_text())['services']
+    for service in ('keycloak', 'frontend'):
+        assert 'admin_ingress' not in services[service]['networks']
+    assert 'tesco-tracker-internal' not in services['frontend']['networks']
+    assert 'frontend-api' in services['api']['networks']
+    assert 'gavaller-api-audience' in (ROOT / 'keycloak/realm-template.json').read_text()
+    assert 'gavaller-api-audience' in (ROOT / 'keycloak/configure-keycloak.sh').read_text()

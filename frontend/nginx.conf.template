@@ -77,6 +77,8 @@ server {
     # /auth/<path>  →  ${AUTH_UPSTREAM}/auth/<path>
     # Gateway.API handles OIDC login/logout/userinfo/token endpoints.
     location /auth/ {
+        # OAuth codes and extension capabilities must never enter access logs.
+        access_log off;
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $auth_upstream ${AUTH_UPSTREAM};
         # See note above: no path suffix when proxy_pass uses a variable.

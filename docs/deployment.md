@@ -266,3 +266,27 @@ python -m pytest -q                      # unit tests; integration tests skip
 MONGO_URI=mongodb://localhost:27017/ python -m pytest -q -m integration tests/integration
 cd frontend && npm test -- --watch=false
 ```
+
+## Authentication and network security rollout (2026-10-28)
+
+Stage the `gavaller-api` audience mapper in the shared backend-ecosystem Keycloak
+before deploying the new API/alert validators. Both services require that
+audience, access-token purpose `typ=Bearer` and the configured `KC_CLIENT_ID` as
+`azp`. Standalone Keycloak imports and its retained-realm config job also install
+the mapper for the browser client. Confirm browser, extension and alert requests
+with real issuer-signed tokens after rollout. The Keycloak image is 26.8.1;
+back up its retained data and rehearse the upgrade before production.
+
+The standalone Python auth gateway now binds each login to a secure, host-only,
+HttpOnly correlation cookie and a one-use server-side PKCE transaction. Pending
+transactions expire after ten minutes and are bounded to 1,024. Run a single
+worker/instance or add shared transaction storage before scaling this optional
+standalone mode. A restart cancels pending logins. Configure an explicit
+`RETURN_URL_ALLOWED_HOSTS`; an empty list permits only local relative returns.
+
+Public frontend/Keycloak containers no longer join `admin_ingress`. The frontend
+uses `frontend-api` for application upstreams and cannot directly reach the
+MongoDB bridge. It retains the shared gateway network required for the default
+central auth routes. Verify these links after redeploy, especially when using
+the standalone profile. Auth proxy locations disable nginx access logs because
+OAuth callback and extension query parameters can contain capabilities.

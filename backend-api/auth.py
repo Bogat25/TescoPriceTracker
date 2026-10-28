@@ -34,9 +34,9 @@ def _validate_bearer(token: str) -> dict:
                 "KC_ISSUER",
                 "https://auth.gavaller.com/realms/backend-ecosystem",
             ).rstrip("/"),
+            audience=os.environ.get("KC_AUDIENCE", "gavaller-api"),
             options={
-                "verify_aud": False,
-                "require": ["exp", "iat", "iss", "sub", "azp"],
+                "require": ["exp", "iat", "iss", "sub", "azp", "aud", "typ"],
             },
         )
     except (jwt.PyJWTError, OSError) as exc:
@@ -44,7 +44,7 @@ def _validate_bearer(token: str) -> dict:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token") from exc
 
     expected_client = os.environ.get("KC_CLIENT_ID", "gateway-client")
-    if claims.get("azp") != expected_client:
+    if claims.get("azp") != expected_client or claims.get("typ") != "Bearer":
         logger.warning("Recommendation JWT rejected due to authorized-party mismatch")
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token audience")
     return claims

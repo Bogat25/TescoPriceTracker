@@ -114,6 +114,19 @@ else
   echo "warning: $ADMIN_CLIENT has no service account in realm $REALM; user listing not granted." >&2
 fi
 
+# The retained browser client needs the same API audience as a fresh import.
+frontend_id=$("$KCADM" get clients -r "$REALM" --config "$CONFIG" \
+  -q "clientId=${KC_CLIENT_ID:-tesco-frontend}" --fields id --format csv --noquotes)
+[ -n "$frontend_id" ] || { echo "error: required browser client is missing" >&2; exit 1; }
+if ! "$KCADM" get "clients/$frontend_id/protocol-mappers/models" -r "$REALM" --config "$CONFIG" \
+    | grep -q 'gavaller-api-audience'; then
+  "$KCADM" create "clients/$frontend_id/protocol-mappers/models" -r "$REALM" --config "$CONFIG" \
+    -s name=gavaller-api-audience -s protocol=openid-connect \
+    -s protocolMapper=oidc-audience-mapper \
+    -s 'config."included.custom.audience"=gavaller-api' \
+    -s 'config."access.token.claim"=true' -s 'config."id.token.claim"=false'
+fi
+
 # -- 3. Session lifetimes ------------------------------------------------------
 # Realm imports deliberately do not replace an existing realm. Reapply these
 # mutable settings through the Admin API on every deployment so retained
