@@ -44,3 +44,10 @@ def test_public_services_cannot_join_admin_or_frontend_database_networks() -> No
     assert 'frontend-api' in services['api']['networks']
     assert 'gavaller-api-audience' in (ROOT / 'keycloak/realm-template.json').read_text()
     assert 'gavaller-api-audience' in (ROOT / 'keycloak/configure-keycloak.sh').read_text()
+
+
+def test_keycloak_keeps_legacy_h2_credentials_for_retained_data() -> None:
+    # Keycloak 26.8 changed the implicit dev-file credentials; the retained
+    # volume was created with the 26.0 defaults and fails to open without them.
+    env = yaml.safe_load((ROOT / "docker-compose.yml").read_text())["services"]["keycloak"]["environment"]
+    assert (env["KC_DB"], env["KC_DB_USERNAME"], env["KC_DB_PASSWORD"]) == ("dev-file", "sa", "password")

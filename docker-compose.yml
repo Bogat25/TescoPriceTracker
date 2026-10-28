@@ -139,6 +139,13 @@ services:
       - "8080"
     environment:
       JAVA_OPTS_APPEND: ${KEYCLOAK_JAVA_OPTS_APPEND:--Xms64m -Xmx384m -XX:+UseG1GC}
+      # The retained H2 file in keycloak-data was created by Keycloak 26.0.5 with
+      # its implicit dev-file defaults. Newer releases changed those defaults and
+      # cannot open the file without them ("Wrong user name or password"). This
+      # is the embedded database's well-known default, not a managed credential.
+      KC_DB: dev-file
+      KC_DB_USERNAME: sa
+      KC_DB_PASSWORD: password
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:-admin}
       KEYCLOAK_REALM: ${KEYCLOAK_REALM:-tesco-tracker}
