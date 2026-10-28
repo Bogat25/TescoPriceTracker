@@ -1,4 +1,6 @@
 import importlib.util
+import json
+import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
@@ -73,7 +75,8 @@ def test_concurrent_tabs_and_expiry(gateway):
     app, idp = gateway
     with TestClient(app.app, base_url="https://site.invalid") as client:
         first, second = start(client), start(client)
-        app._LOGIN_TRANSACTIONS[first]["expires"] = 0
+        payload = json.dumps(app._unseal(first)).encode()
+        first = app._fernet.encrypt_at_time(payload, int(time.time()) - app._LOGIN_TTL - 1).decode()
         assert client.get("/auth/callback", params={"state": first, "code": "synthetic"}).status_code == 400
         assert (
             client.get(
@@ -84,12 +87,34 @@ def test_concurrent_tabs_and_expiry(gateway):
         assert idp.calls == 1
 
 
+def test_anonymous_logins_need_no_server_state(gateway):
+    app, _ = gateway
+    with TestClient(app.app, base_url="https://site.invalid") as client:
+        for _ in range(1100):
+            assert client.get("/auth/login", follow_redirects=False).status_code == 302
+        client.cookies.clear()
+        assert client.get("/auth/callback", params={"state": "forged", "code": "synthetic"}).status_code == 400
+
+
 @pytest.mark.parametrize(
     "url",
     ["//external.invalid", "/\\external.invalid", "https://external.invalid", "ftp://site.invalid", "/ok\r\nother"],
 )
 def test_unsafe_return_urls_are_rejected(gateway, url):
     assert gateway[0]._safe_return_url(url, "/default") == "/default"
+
+
+def test_gateway_access_log_omits_query_capabilities(gateway):
+    import logging
+
+    record = logging.LogRecord(
+        "uvicorn.access", logging.INFO, __file__, 1, '%s - "%s %s HTTP/%s" %d',
+        ("192.0.2.1:1", "GET", "/auth/extension-token?code=synthetic-capability", "1.1", 200), None,
+    )
+    for log_filter in logging.getLogger("uvicorn.access").filters:
+        log_filter.filter(record)
+    assert "synthetic-capability" not in record.getMessage()
+    assert "/auth/extension-token" in record.getMessage()
 
 
 def test_frontend_does_not_access_log_authentication_queries():

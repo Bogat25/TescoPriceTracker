@@ -37,6 +37,18 @@ setup_logging()
 logger = logging.getLogger("auth-gateway")
 
 
+class _DropAccessQuery(logging.Filter):
+    """Auth query strings carry OAuth codes and extension capabilities."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple) and len(record.args) >= 3 and isinstance(record.args[2], str):
+            record.args = (*record.args[:2], record.args[2].split("?", 1)[0], *record.args[3:])
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(_DropAccessQuery())
+
+
 def _required(name: str) -> str:
     v = os.environ.get(name)
     if not v:
@@ -86,10 +98,9 @@ _EXT_CODES: dict = {}
 _EXT_CODE_TTL = 90  # seconds
 
 # Each transaction has a host-only correlation cookie. Separate cookie names
-# preserve concurrent login tabs; PKCE verifiers never travel in the URL.
-_LOGIN_TRANSACTIONS: dict = {}
+# preserve concurrent login tabs. The PKCE verifier travels only inside the
+# encrypted state, so no server-side store can be exhausted by anonymous logins.
 _LOGIN_TTL = 600
-_MAX_PENDING_LOGINS = 1024
 
 
 def _login_cookie(transaction: str) -> str:
@@ -207,17 +218,9 @@ async def health():
 async def login(returnUrl: Optional[str] = None, prompt: Optional[str] = None):
     verifier, challenge = _make_pkce()
     return_to = _safe_return_url(returnUrl, POST_LOGIN_REDIRECT_DEFAULT)
-    now = time.time()
-    for transaction in list(_LOGIN_TRANSACTIONS):
-        if _LOGIN_TRANSACTIONS[transaction]["expires"] <= now:
-            del _LOGIN_TRANSACTIONS[transaction]
-    if len(_LOGIN_TRANSACTIONS) >= _MAX_PENDING_LOGINS:
-        raise HTTPException(429, "too many pending logins")
-    state = secrets.token_urlsafe(32)
+    transaction = secrets.token_urlsafe(16)
     binding = secrets.token_urlsafe(32)
-    _LOGIN_TRANSACTIONS[state] = {
-        "v": verifier, "r": return_to, "binding": binding, "expires": now + _LOGIN_TTL
-    }
+    state = _seal({"v": verifier, "r": return_to, "n": transaction, "b": binding})
 
     params = {
         "client_id": KC_CLIENT_ID,
@@ -232,7 +235,7 @@ async def login(returnUrl: Optional[str] = None, prompt: Optional[str] = None):
     if prompt == "login":
         params["prompt"] = "login"
     response = RedirectResponse(f"{AUTH_ENDPOINT_PUBLIC}?{urlencode(params)}", status_code=302)
-    response.set_cookie(_login_cookie(state), binding, max_age=_LOGIN_TTL,
+    response.set_cookie(_login_cookie(transaction), binding, max_age=_LOGIN_TTL,
                         secure=COOKIE_SECURE, httponly=True, samesite="lax", path="/")
     response.headers["Cache-Control"] = "no-store"
     return response
@@ -246,15 +249,14 @@ async def callback(
     error: Optional[str] = None,
     error_description: Optional[str] = None,
 ):
-    if not state or len(state) > 64:
+    state_data = _unseal(state, max_age=_LOGIN_TTL) if state and len(state) <= 2048 else None
+    if not isinstance(state_data, dict) or not all(isinstance(state_data.get(k), str) for k in "vrnb"):
         raise HTTPException(400, "invalid or expired state")
-    state_data = _LOGIN_TRANSACTIONS.get(state)
-    binding = request.cookies.get(_login_cookie(state), "")
-    if (not state_data or state_data["expires"] <= time.time()
-            or not secrets.compare_digest(binding, state_data["binding"])):
+    # Only the browser that started this login holds the binding cookie. It is
+    # deleted on success, and Keycloak accepts each authorization code once.
+    cookie = _login_cookie(state_data["n"])
+    if not secrets.compare_digest(request.cookies.get(cookie, ""), state_data["b"]):
         raise HTTPException(400, "invalid or expired state")
-    # Consume before any network await: a second callback cannot reuse it.
-    del _LOGIN_TRANSACTIONS[state]
     if error or not code:
         raise HTTPException(400, "login was not completed")
 
@@ -312,7 +314,7 @@ async def callback(
     }
 
     resp = RedirectResponse(state_data["r"], status_code=302)
-    resp.delete_cookie(_login_cookie(state), path="/", secure=COOKIE_SECURE, httponly=True, samesite="lax")
+    resp.delete_cookie(cookie, path="/", secure=COOKIE_SECURE, httponly=True, samesite="lax")
     resp.headers["Cache-Control"] = "no-store"
     _set_session_cookie(resp, _seal(session), max_age=_session_cookie_max_age(session))
     return resp

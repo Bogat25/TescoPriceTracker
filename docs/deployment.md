@@ -278,10 +278,11 @@ with real issuer-signed tokens after rollout. The Keycloak image is 26.8.1;
 back up its retained data and rehearse the upgrade before production.
 
 The standalone Python auth gateway now binds each login to a secure, host-only,
-HttpOnly correlation cookie and a one-use server-side PKCE transaction. Pending
-transactions expire after ten minutes and are bounded to 1,024. Run a single
-worker/instance or add shared transaction storage before scaling this optional
-standalone mode. A restart cancels pending logins. Configure an explicit
+HttpOnly correlation cookie. The PKCE verifier and return URL travel only in the
+encrypted ten-minute state, so anonymous login starts allocate no server memory
+and pending logins survive restarts and additional instances. The cookie is
+deleted after a successful callback; Keycloak accepts each code once. Its
+uvicorn access log omits query strings. Configure an explicit
 `RETURN_URL_ALLOWED_HOSTS`; an empty list permits only local relative returns.
 
 Public frontend/Keycloak containers no longer join `admin_ingress`. The frontend
