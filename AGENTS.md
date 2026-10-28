@@ -1,4 +1,4 @@
-﻿<!-- agent-context:kernel:start sha=a5893754536e5d1e3c7a91f59b8ce4d390600e608ed938e65676d53c3b260c13 -->
+﻿<!-- agent-context:kernel:start sha=bc480b1655265682a15a137e9090cd0029723794c5b82eeb54c4cdc7f1eff76f -->
 # User repository preferences
 
 - Create commits locally when requested or when completing repository changes.
@@ -10,7 +10,9 @@
 - Never add `Co-Authored-By` trailers or any AI attribution lines/footers to commits, PRs, files, or documentation.
 - Keep commits few per feature (1-2 clean conventional commits); squash or amend unpushed fixups.
 - Never read, print, echo, substring, or output plaintext secret values or token fragments anywhere. Test existence only (`Test-Path Env:NAME` or `[bool]$env:NAME`).
-- Maintain strict isolation between AI agents (`codex`, `claude`, `gemini`): separate service accounts, tokens, and endpoints.
+- Maintain separate MCP service accounts, tokens, and endpoints for `codex`, `claude`, and `gemini`.
+- GitHub exception: all three agents intentionally share one Linux/T3 security boundary. Use your own GitHub App by convention: Codex = `codex` (5516570), Claude = `claude` (5516624), Gemini/Antigravity = `antigravity` (5517659). Never select another agent's App or fall back to a personal GitHub credential. This is an instruction, not enforced isolation between agents.
+- For authenticated Git or GitHub CLI commands, use `python3 /home/agent/repos/AgentContext/scripts/setup_github_apps.py run --agent <your-agent> --repo <repository-name> -- git ...` (or `gh ...`). Keep the existing human commit author identity; App credentials identify the pusher and PR author, not the local commit author. Never run credential/token-display commands. If your App is unavailable, report it instead of using another credential. This does not authorize GitHub writes prohibited above.
 - Write reports, plans and other documents as Markdown (`.md`) files in the relevant repository or folder. Never publish them as hosted pages (claude.ai Artifacts, Claude Docs or any other agent's equivalent) unless strictly necessary or the user explicitly asks for one.
 <!-- agent-context:kernel:end -->
 
