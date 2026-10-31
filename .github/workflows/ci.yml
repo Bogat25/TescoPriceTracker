@@ -15,7 +15,6 @@ on:
 
 permissions:
   contents: read
-  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -135,6 +134,8 @@ jobs:
     name: Build ${{ matrix.service }}
     needs: [quality, integration]
     runs-on: ubuntu-latest
+    # Only the default branch and release tags can use this environment and its publish token.
+    environment: ${{ github.event_name != 'pull_request' && 'publish' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -178,8 +179,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
 
       - name: Metadata
         id: meta
