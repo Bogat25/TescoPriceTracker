@@ -1,18 +1,20 @@
-﻿<!-- agent-context:kernel:start sha=638d3971408a7a2b28bed262cba3483fc90272990f39ea4fd65350ead0f48945 -->
+﻿<!-- agent-context:kernel:start sha=d2abd15be96cb334d3b01dee03064a09896b387d0eec8f6603ea26567293ddea -->
 # User repository preferences
 
-- Never commit on a default branch (`main`, or `master` where applicable). Create a feature branch named `<your-agent>/<short-topic>` from the latest `origin` default branch and commit there.
-- Push only your own feature branches. When the work is ready and its tests pass, open one pull request against the default branch and give the user its link. Opening it is the handover; do not wait to be asked.
+- Check where you are running. Under `/home/agent/repos` you are on `dev`. Anywhere else you are on the user's laptop.
+- On the laptop, GitHub is strictly read-only, whatever credentials exist there: never push, open or change pull requests, or otherwise write to GitHub. Commit locally on the default branch or a local feature branch, as the user prefers, then tell the user what is ready to push. The `dev`-only rules below do not apply there, and neither does the App helper.
+- On `dev`, never commit on a default branch (`main`, or `master` where applicable). Create a feature branch named `<your-agent>/<short-topic>` from the latest `origin` default branch and commit there.
+- On `dev`, push only your own feature branches. When the work is ready and its tests pass, open one pull request against the default branch and give the user its link. Opening it is the handover; do not wait to be asked.
 - Never merge or approve a pull request. Only the user merges. Never push to a default branch, create or move tags, publish releases, trigger workflows, or change repository settings, rules, environments or secrets.
 - If GitHub or a tool blocks an action, stop and report it. Never look for another route around a block, and never use another credential to get past it.
-- The Apps cannot push `.github/workflows/` changes. Commit such a change on a feature branch without pushing it, and tell the user the branch name so they can push it from their own PC.
+- On `dev`, a pushed workflow runs before review, so workflow changes are for the task's purpose only. Never add a workflow or job to reach secrets, tokens or other repositories, and call out every `.github/workflows/` change in the pull request.
 - After the user merges and the build passes, deploy without asking when the task involves deploying: `reconcile_deployments` if the environment changed, then `redeploy_deployment`.
 - Never add `Co-Authored-By` trailers or any AI attribution lines/footers to commits, PRs, files, or documentation.
-- Keep commits few per feature (1-2 clean conventional commits); squash or amend fixups before opening the pull request. Force-push only your own unmerged feature branch, using `--force-with-lease`.
+- Keep commits few per feature (1-2 clean conventional commits); squash or amend fixups before opening the pull request. On `dev`, force-push only your own unmerged feature branch, using `--force-with-lease`.
 - Never read, print, echo, substring, or output plaintext secret values or token fragments anywhere. Test existence only (`Test-Path Env:NAME` or `[bool]$env:NAME`).
 - Maintain separate MCP service accounts, tokens, and endpoints for `codex`, `claude`, and `gemini`.
-- GitHub exception: all three agents intentionally share one Linux/T3 security boundary. Use your own GitHub App by convention: Codex = `codex` (5516570), Claude = `claude` (5516624), Gemini/Antigravity = `antigravity` (5517659). Never select another agent's App or fall back to a personal GitHub credential. This is an instruction, not enforced isolation between agents.
-- For authenticated Git or GitHub CLI commands, use `python3 /home/agent/repos/AgentContext/scripts/setup_github_apps.py run --agent <your-agent> --repo <repository-name> -- git ...` (or `gh ...`). Keep the existing human commit author identity; App credentials identify the pusher and PR author, not the local commit author. Never run credential/token-display commands. If your App is unavailable, report it instead of using another credential.
+- GitHub exception on `dev`: all three agents intentionally share one Linux/T3 security boundary. Use your own GitHub App by convention: Codex = `codex` (5516570), Claude = `claude` (5516624), Gemini/Antigravity = `antigravity` (5517659). Never select another agent's App or fall back to a personal GitHub credential. This is an instruction, not enforced isolation between agents.
+- For authenticated Git or GitHub CLI commands on `dev`, use `python3 /home/agent/repos/AgentContext/scripts/setup_github_apps.py run --agent <your-agent> --repo <repository-name> -- git ...` (or `gh ...`). Keep the existing human commit author identity; App credentials identify the pusher and PR author, not the local commit author. Never run credential/token-display commands. If your App is unavailable, report it instead of using another credential.
 - Write reports, plans and other documents as Markdown (`.md`) files in the relevant repository or folder. Never publish them as hosted pages (claude.ai Artifacts, Claude Docs or any other agent's equivalent) unless strictly necessary or the user explicitly asks for one.
 - Full workflow: `read("agent-delivery-workflow")` on the agent-context server.
 <!-- agent-context:kernel:end -->
