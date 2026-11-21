@@ -16,11 +16,13 @@ How a change reaches production, and what to do when something is wrong.
         |                npm audit, compose model, Trivy (vuln, secret, config)
         +-- integration  the two-store tests against a real MongoDB
         |
-        +-- build        four images, only after both jobs pass:
+        +-- build        the changed images, only after both jobs pass:
         |                  tescopricetracker          (api, schedulers, jobs)
         |                  tesco-tracker-frontend     (Angular + nginx)
         |                  tesco-tracker-embedding    (multilingual-e5-small)
         |                  tesco-tracker-keycloak     (realm baked in)
+        +-- retag        unchanged images: :master and :sha-<commit> pointed
+        |                at their current image (registry-side, no rebuild)
         v
   GHCR  ghcr.io/<owner>/<image>:master, :sha-<commit>, :latest
         |
@@ -31,7 +33,16 @@ How a change reaches production, and what to do when something is wrong.
   SecretManager controller  (Infisical -> stack environment -> redeploy)
 ```
 
-A pull request runs the same tests and builds the images, but pushes nothing.
+A pull request runs the same tests and builds the changed images, but pushes
+nothing.
+
+**Which images build.** `.github/ci/images.json` lists each image's inputs. The
+backend copies the whole repository, so it builds on every change; the other
+three build only when their own folder changes. Pushes compare with the last
+successful run on `master`, so a change from a failed run is never skipped.
+Release tags, manual runs and a weekly schedule (Monday 03:47 UTC, which keeps
+base layers fresh) build all four. Every image carries every `master` commit's
+tags either way.
 
 **The push is the release gate.** Nothing deploys on its own; the deploy step is
 a deliberate action after CI is green.

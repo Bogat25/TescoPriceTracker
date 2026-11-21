@@ -6,6 +6,10 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: ["master"]
+  # Weekly full rebuild: pushes and PRs build only the images whose files
+  # changed, so this keeps every image on fresh base layers and dependencies.
+  schedule:
+    - cron: "47 3 * * 1"
   workflow_dispatch:
     inputs:
       platforms:
@@ -16,6 +20,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same PR cancels the superseded run. Runs on master and on
+# tags are never cancelled mid-way, so a publish is never cut off.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   REGISTRY: ghcr.io
   BUILD_PLATFORMS: ${{ github.event.inputs.platforms || vars.BUILD_PLATFORMS || 'linux/amd64' }}
@@ -24,9 +34,44 @@ jobs:
   quality:
     name: Tests and security gates
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read # find the last successful run on master
+    outputs:
+      build_matrix: ${{ steps.images.outputs.build_matrix }}
+      has_build: ${{ steps.images.outputs.has_build }}
+      retag: ${{ steps.images.outputs.retag }}
+      has_retag: ${{ steps.images.outputs.has_retag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Build only the images whose inputs changed (.github/ci/images.json).
+      # PRs compare with their base, pushes to master with the last successful
+      # run on master (so a change from a failed run is never skipped). Tags,
+      # the weekly schedule, manual runs and an unknown base build every image.
+      # The check fails if a Dockerfile copies a file the config does not list.
+      - name: Select changed images
+        id: images
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python3 .github/ci/changed_images.py check
+          case "$EVENT/$REF" in
+            pull_request/*) python3 .github/ci/changed_images.py select --base "$PR_BASE" ;;
+            push/refs/heads/master)
+              base="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+                --branch master --status success --limit 1 --json headSha \
+                --jq '.[0].headSha // ""' || true)"
+              python3 .github/ci/changed_images.py select --base "$base" ;;
+            *) python3 .github/ci/changed_images.py select --all ;;
+          esac
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -103,6 +148,7 @@ jobs:
   integration:
     name: Two-store integration tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       mongo:
         image: mongo:7
@@ -133,30 +179,14 @@ jobs:
   build:
     name: Build ${{ matrix.service }}
     needs: [quality, integration]
+    if: needs.quality.outputs.has_build == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Only the default branch and release tags can use this environment and its publish token.
     environment: ${{ github.event_name != 'pull_request' && 'publish' || '' }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - service: backend
-            image: tescopricetracker
-            context: .
-            dockerfile: ./Dockerfile
-          - service: frontend
-            image: tesco-tracker-frontend
-            context: ./frontend
-            dockerfile: ./frontend/Dockerfile
-          - service: embedding
-            image: tesco-tracker-embedding
-            context: ./embedding-service
-            dockerfile: ./embedding-service/Dockerfile
-          - service: keycloak
-            image: tesco-tracker-keycloak
-            context: .
-            dockerfile: ./keycloak/Dockerfile
-
+      matrix: ${{ fromJSON(needs.quality.outputs.build_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -206,3 +236,44 @@ jobs:
           platforms: ${{ env.BUILD_PLATFORMS }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # Unchanged images get this commit's `master` and `sha-` tags pointed at
+  # their current image, so every image still carries every master commit's
+  # tags (TESCO_IMAGE_TAG pins one tag for all of them). A registry-side
+  # retag: nothing is rebuilt.
+  retag:
+    name: Retag unchanged images
+    needs: [quality, integration, build]
+    if: >-
+      always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+      && needs.quality.result == 'success' && needs.integration.result == 'success'
+      && needs.quality.outputs.has_retag == 'true'
+      && (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: publish
+    permissions:
+      contents: read
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GHCR_PUBLISH_TOKEN }}
+
+      - name: Point this commit's tags at the current images
+        env:
+          RETAG: ${{ needs.quality.outputs.retag }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          for image in $(jq -r '.[].image' <<<"$RETAG"); do
+            ref="$REGISTRY/$owner/$image"
+            docker buildx imagetools create \
+              --tag "$ref:master" --tag "$ref:sha-${GITHUB_SHA::7}" "$ref:latest"
+            echo "$ref:{master,sha-${GITHUB_SHA::7}} -> $ref:latest"
+          done
