@@ -1,0 +1,16 @@
+{
+  "rebuild_all": [
+    ".github/ci/",
+    ".github/workflows/ci.yml"
+  ],
+  "images": [
+    {"service": "backend", "image": "tescopricetracker", "context": ".",
+     "dockerfile": "Dockerfile", "inputs": ["./"]},
+    {"service": "frontend", "image": "tesco-tracker-frontend", "context": "frontend",
+     "dockerfile": "frontend/Dockerfile", "inputs": ["frontend/"]},
+    {"service": "embedding", "image": "tesco-tracker-embedding", "context": "embedding-service",
+     "dockerfile": "embedding-service/Dockerfile", "inputs": ["embedding-service/"]},
+    {"service": "keycloak", "image": "tesco-tracker-keycloak", "context": ".",
+     "dockerfile": "keycloak/Dockerfile", "inputs": ["keycloak/"]}
+  ]
+}
