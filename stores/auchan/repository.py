@@ -108,7 +108,6 @@ def save_page(fields_list: list, today: str, now: Optional[datetime] = None) -> 
             })
             if text_changed:
                 document["needs_details"] = True
-                document["needs_revector"] = True
             operations.append(UpdateOne(
                 {"_id": product_id},
                 {"$set": document, "$setOnInsert": {"first_seen": now}},

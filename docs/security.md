@@ -31,7 +31,7 @@ deployment mechanics are in [upgrade-plan.md](upgrade-plan.md).
    └───────────┴───────────┴────────────┴──────────────┴───────────────┘
 
    admin_ingress (tailnet only, via the infrastructure nginx):
-       mongo (direct), qdrant, mongo-express*, recommendation-api
+       mongo (direct), qdrant, mongo-express*
        * mongo-express only runs with COMPOSE_PROFILES=admin-tools
 ```
 
@@ -61,8 +61,7 @@ mTLS becomes necessary.
 | `INTERNAL_TRIGGER_TOKEN` (Infisical `price_tracker.TESCO_CATALOG_TOKEN`) | `POST /internal/trigger` on the alert service, and the internal catalogue endpoint of the API | schedulers, alert service, API, RefDataSync in the observability stack |
 | `GATEWAY_INTERNAL_TOKEN` | The gateway's internal endpoints (JWKS proxy) | gateway, API, alert service |
 | `API_KEY` | The upstream Tesco API | scraper |
-| `QDRANT_API_KEY` | Qdrant | API, vectorizer, recommendation API |
-| `VECTOR_SYNC_API_TOKEN` | The legacy laptop vector sync API | recommendation API (kept until the Phase 9 clean-up) |
+| `QDRANT_API_KEY` | Qdrant | API, vectorizer |
 | `MONGO_API/SCRAPER/ALERTS_PASSWORD` | The per-service MongoDB accounts | one service group each (§3) |
 | `MONGO_INITDB_ROOT_PASSWORD` | MongoDB root | MongoDB itself, the account creator, mongo-express |
 | `SESSION_SECRET` | The auth gateway's session cookie | auth gateway |
@@ -97,7 +96,7 @@ alert database. Now:
 
 | Account | Rights | Used by |
 |---|---|---|
-| `svc_api` | `readWrite` on the catalogue database, `read` on the alert database | api, recommendation-api |
+| `svc_api` | `readWrite` on the catalogue database, `read` on the alert database | api |
 | `svc_scraper` | `readWrite` on the catalogue database | scheduler, auchan-scheduler, vectorizer |
 | `svc_alerts` | `readWrite` on the alert database, `read` on the catalogue | alert-service, alert-keycloak-sync |
 | root | everything | MongoDB itself, the account creator, mongo-express (admin profile only) |
@@ -193,7 +192,6 @@ and rejected with 403 on a mismatch).
 
 | Gap | Risk | Plan |
 |---|---|---|
-| The legacy `recommendation-api` and its vector-sync token still run | Extra attack surface for a service nothing calls since Phase 6 | Remove in Phase 9 |
 | Keycloak realm name still `tesco-tracker` | Cosmetic only; renaming a realm invalidates sessions | Left as is |
 | `.env` on the developer machine holds real values | Local exposure | Stale copies deleted 2026-09-17; the live values are in Infisical |
 | No mTLS between containers | Only exploitable with host access | Revisit if the stack spans hosts |

@@ -587,51 +587,6 @@ services:
       retries: 5
       start_period: 20s
 
-  # ── Recommendation Vector Sync API (Internal) ───────────────────────────────
-  recommendation-api:
-    image: ghcr.io/${GHCR_USERNAME:-bogat25}/tescopricetracker:${TESCO_IMAGE_TAG:-latest}
-    pull_policy: always
-    platform: ${DOCKER_PLATFORM:-linux/amd64}
-    container_name: ${STACK_PREFIX}tesco-tracker-recommendation-api
-    labels:
-    - vector.enable=true
-    restart: unless-stopped
-    working_dir: /app/recomendation-system
-    command: uvicorn app:app --host 0.0.0.0 --port 8090
-    expose:
-      - "8090"
-    environment:
-      SERVICE_NAME: recommendation-api
-      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-admin}:${MONGO_INITDB_ROOT_PASSWORD:-secretpassword}@mongo:27017/
-      MONGO_USER: ${MONGO_API_USERNAME:-svc_api}
-      MONGO_PASSWORD: ${MONGO_API_PASSWORD:-}
-      MONGO_DB_NAME: ${MONGO_DB_NAME:-tesco_tracker}
-      MONGO_COLLECTION: ${MONGO_COLLECTION:-products}
-      QDRANT_HOST: qdrant
-      QDRANT_PORT: "6333"
-      QDRANT_API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY must be set in .env}
-      VECTOR_SYNC_API_TOKEN: ${VECTOR_SYNC_API_TOKEN:-changeme-vector-sync-token}
-      PYTHONPATH: /app
-      TZ: Europe/Budapest
-    networks:
-      tesco-tracker-internal: {}
-      admin_ingress:
-        aliases:
-          - ${STACK_PREFIX}tesco-tracker-recommendation-api
-    depends_on:
-      mongo-users:
-        condition: service_completed_successfully
-      mongo:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health', timeout=5).read()"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-
   # ── Angular SPA ──────────────────────────────────────────────────────────────
   frontend:
     image: ghcr.io/${GHCR_USERNAME:-bogat25}/tesco-tracker-frontend:${TESCO_IMAGE_TAG:-latest}
