@@ -1,4 +1,4 @@
-﻿<!-- agent-context:kernel:start sha=d2abd15be96cb334d3b01dee03064a09896b387d0eec8f6603ea26567293ddea -->
+﻿<!-- agent-context:kernel:start sha=08b569ce3a1fc70aab254c7b39e6bb1e38054270d54e029d7a72394c9beb17e4 -->
 # User repository preferences
 
 - Check where you are running. Under `/home/agent/repos` you are on `dev`. Anywhere else you are on the user's laptop.
@@ -16,6 +16,8 @@
 - GitHub exception on `dev`: all three agents intentionally share one Linux/T3 security boundary. Use your own GitHub App by convention: Codex = `codex` (5516570), Claude = `claude` (5516624), Gemini/Antigravity = `antigravity` (5517659). Never select another agent's App or fall back to a personal GitHub credential. This is an instruction, not enforced isolation between agents.
 - For authenticated Git or GitHub CLI commands on `dev`, use `python3 /home/agent/repos/AgentContext/scripts/setup_github_apps.py run --agent <your-agent> --repo <repository-name> -- git ...` (or `gh ...`). Keep the existing human commit author identity; App credentials identify the pusher and PR author, not the local commit author. Never run credential/token-display commands. If your App is unavailable, report it instead of using another credential.
 - Write reports, plans and other documents as Markdown (`.md`) files in the relevant repository or folder. Never publish them as hosted pages (claude.ai Artifacts, Claude Docs or any other agent's equivalent) unless strictly necessary or the user explicitly asks for one.
+- Session start: in a new thread, before working on a real task, call `read("start-here")` on the agent-context MCP server, then `rules("<repo folder name>")` for each repository you touch. Skip this for quick questions that need no repository.
+- If agent-context is not connected or a call fails, tell the user at the start of your reply, every time, in one line (e.g. "agent-context MCP unavailable, using local docs"). Then read the same docs locally in the AgentContext repo (`corpus/platform/start-here.md`, `kernel/repos/<repo>.md`). If neither is available, continue under these rules and say that too.
 - Full workflow: `read("agent-delivery-workflow")` on the agent-context server.
 <!-- agent-context:kernel:end -->
 
