@@ -24,7 +24,6 @@ EXPECTED_COPIES = [
     REPO_ROOT / "embedding-service"    / "logging_setup.py",
     REPO_ROOT / "scheduler"            / "logging_setup.py",
     REPO_ROOT / "scraper"              / "logging_setup.py",
-    REPO_ROOT / "recomendation-system" / "logging_setup.py",
 ]
 
 

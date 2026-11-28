@@ -66,7 +66,7 @@ stack that plugs into them.
 
 ## 3. Services
 
-17 containers, 5 networks, 5 volumes. Grouped by what they are for:
+16 containers, 5 networks, 5 volumes. Grouped by what they are for:
 
 | Group | Service | Does |
 |---|---|---|
@@ -74,7 +74,6 @@ stack that plugs into them.
 | edge | `auth-gateway` | OIDC code flow against Keycloak, keeps the session cookie, hands the frontend a token |
 | application | `api` | The catalogue: search, browse, groups, offers, statistics, categories, recommendations |
 | application | `alert-service` | Price alerts: create, list, delete, evaluate, send the digest e-mail |
-| application | `recommendation-api` | Personal recommendations from the alert history and product vectors, across every selected store |
 | collection | `scheduler` | Runs the Tesco scrape once a day and retries an unfinished day |
 | collection | `auchan-scheduler` | The same for Auchan |
 | search | `embedding-service` | `multilingual-e5-small` behind a small HTTP API |
@@ -213,7 +212,7 @@ correlation ID of the request or run — 55 distinct actions. Vector ships them
 to ClickHouse, and Grafana reads from there: per-service error rates, scrape
 completion, alert delivery, search health. "Healthy" is a finished run per
 store per day, no `scrape.finalization_failed`, and no errors from `api`,
-`alert-service` or `recommendation-api`.
+`alert-service` or the schedulers.
 
 The alert rules and dashboards live in the Observability repository, not here.
 

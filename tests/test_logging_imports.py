@@ -42,7 +42,6 @@ ENTRYPOINTS = [
     ("backend-api/app.py",                  "/app/backend-api",          "app.py"),
     ("alert-service/app.py",                "/app/alert-service",        "app.py"),
     ("alert-service/jobs/keycloak_sync.py", "/app/alert-service",        "jobs/keycloak_sync.py"),
-    ("recomendation-system/app.py",         "/app/recomendation-system", "app.py"),
     ("scheduler/scheduler.py",              "/app/scheduler",            "scheduler.py"),
     ("scheduler/auchan_scheduler.py",       "/app/scheduler",            "auchan_scheduler.py"),
     ("scheduler/auchan_healthcheck.py",     "/app/scheduler",            "/app/scheduler/auchan_healthcheck.py"),

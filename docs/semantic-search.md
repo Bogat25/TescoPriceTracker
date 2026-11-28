@@ -402,8 +402,8 @@ completed pass for 3 h), `semantic-search-degraded` (>10 fallbacks in 15 min).
   token would not add a meaningful boundary; it has none, deliberately.
 * Qdrant keeps its API key. The public API exposes only search results and
   similar products, never vectors.
-* The legacy laptop sync (`recommendation-api`, `vector-creation-script`) is
-  no longer needed; it stays until the Phase 9 clean-up.
+* The legacy laptop sync (`recommendation-api`, `vector-creation-script`) has
+  been removed; the vectorizer is the only writer of product vectors.
 
 ---
 

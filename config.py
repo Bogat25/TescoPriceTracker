@@ -1,5 +1,4 @@
 import os
-import sys
 import logging
 from dotenv import load_dotenv
 from mongo_auth import service_uri
@@ -10,22 +9,6 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Data directory resolution: env var → virtualenv fallback → error
-# ---------------------------------------------------------------------------
-DATA_FOLDER_ENV = os.getenv('DATA_FOLDER', '/app/data')
-if DATA_FOLDER_ENV:
-    DATA_DIR = os.path.abspath(DATA_FOLDER_ENV)
-else:
-    venv_path = os.getenv('VIRTUAL_ENV') or (
-        sys.prefix if getattr(sys, 'base_prefix', sys.prefix) != sys.prefix else None
-    )
-    if venv_path:
-        DATA_DIR = os.path.abspath(os.path.join(venv_path, 'data'))
-    else:
-        print("Error: no DATA_FOLDER env var set and no virtualenv detected. "
-              "Please set DATA_FOLDER to a valid path.")
-        sys.exit(1)
 # ---------------------------------------------------------------------------
 # MongoDB setup
 # ---------------------------------------------------------------------------

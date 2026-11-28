@@ -2,7 +2,7 @@
 Structured logging bootstrap for the TescoPriceTracker Python services.
 
 Each service in this repo (alert-service, auth-gateway, backend-api,
-recomendation-system, scheduler, scraper) ships its own copy of this file
+embedding-service, scheduler, scraper) ships its own copy of this file
 so the service is self-contained at build time. The copies are kept
 byte-identical; ``tests/test_logging_parity.py`` enforces that.
 

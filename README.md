@@ -42,14 +42,14 @@ Tesco product page.
                                              |
                     +------------------------+------------------------+
                     |                        |                        |
-                   api               alert-service           recommendation-api
+                   api               alert-service              vectorizer
                     |                        |                        |
                     +---------- MongoDB -----+        Qdrant + embedding-service
                     |
        scheduler / auchan-scheduler  ->  the shops, once a day
 ```
 
-17 containers in one Portainer stack. The full picture, the data model and the
+16 containers in one Portainer stack. The full picture, the data model and the
 daily run are in **[docs/architecture.md](docs/architecture.md)**.
 
 ---

@@ -9,24 +9,6 @@ from stores.offers import group_id_for
 
 logger = logging.getLogger(__name__)
 
-# These fields feed recomendation-system/data_preparation.py. Any change must
-# invalidate the existing embedding so Mongo and Qdrant do not silently drift.
-_EMBEDDING_SOURCE_FIELDS = {
-    "name",
-    "brand_name",
-    "sub_brand",
-    "super_department_name",
-    "department_name",
-    "aisle_name",
-    "shelf_name",
-    "short_description",
-    "marketing",
-    "product_marketing",
-    "features",
-    "nutritional_claims",
-    "ingredients",
-}
-
 # Mongo Setup
 _client = None
 _db = None
@@ -166,14 +148,7 @@ def insert_daily_prices(tpnc, price_updates, metadata=None):
         # Stamped so the scraper can find products whose metadata predates
         # fields Tesco added later (scraper.MetadataRefreshBudget).
         metadata = dict(metadata, metadata_at=datetime.now().isoformat())
-        embedding_changed = any(
-            data.get(field) != metadata.get(field)
-            for field in _EMBEDDING_SOURCE_FIELDS
-            if field in metadata
-        )
         data.update(metadata)
-        if embedding_changed and "vector_embedding" in data:
-            data["needs_revector"] = True
 
     gtin_norm = normalize_gtin(data.get("gtin"))
     if gtin_norm:

@@ -125,7 +125,7 @@ python scripts/api_smoke.py --route /api/tesco   # the legacy alias
 ```
 
 Then look for what should *not* be there: no error events from `api`,
-`alert-service`, `recommendation-api` or the schedulers in the Grafana error
+`alert-service`, the vectorizer or the schedulers in the Grafana error
 views. Absence of errors is the signal; a dashboard that shows nothing new is
 the good outcome.
 
@@ -172,14 +172,10 @@ The vectorizer runs after each scrape and embeds only what changed. Check its
 logs and `embedding_state`. A full re-index of ~38,000 products takes 4–8
 minutes.
 
-To diagnose or drain backlogs directly using the recommendation worker:
+To run one pass by hand instead of waiting for the next interval:
 
 ```bash
-# Check connectivity and Infisical token authentication without loading the ML model:
-python -m recommendation_worker --check
-
-# Process batches continuously until the backlog is empty:
-python -m recommendation_worker --drain
+docker exec tesco-tracker-vectorizer python -m stores.vectorize --once
 ```
 
 ### MongoDB accounts are missing
